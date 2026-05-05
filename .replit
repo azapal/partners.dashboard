@@ -41,5 +41,5 @@ externalPort = 3000
 [userenv]
 
 [userenv.shared]
-VITE_AZAPAL_BASE_URL_LOCAL = "https://c4156d2e-7c67-4914-a4a2-7a9d537a12e9-00-1g8ewg0ywjjjo.spock.replit.dev/api/v1/account/"
-VITE_ACCOUNT_BASE_URL_LOCAL = "https://c4156d2e-7c67-4914-a4a2-7a9d537a12e9-00-1g8ewg0ywjjjo.spock.replit.dev/api/v1/account/"
+VITE_AZAPAL_BASE_URL_LOCAL = "https://azapal-users.replit.app/api/v1/account/"
+VITE_ACCOUNT_BASE_URL_LOCAL = "https://azapal-users.replit.app/api/v1/account/"
