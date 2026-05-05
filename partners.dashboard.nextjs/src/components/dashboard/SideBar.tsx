@@ -1,49 +1,81 @@
 import { NavLink } from "react-router-dom";
+import { useState } from "react";
 
-function SidebarButton({ children, to = "", ...iconProps }:any) {
+export function SidebarButton({ children, to = "", isCollapsed, ...iconProps }:any) {
   return (
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `flex items-center gap-2 hover:text-[#F14724] group
+        `flex flex-col md:flex-row text-sm md:text-md items-center md:gap-2 hover:text-[#F14724] group transition-all
         ${isActive && " font-semibold active"}
+        ${isCollapsed ? "justify-center" : ""}
         `
       }
+      title={isCollapsed ? children : ""}
     >
       <SidebarIcon alt={children + " icon"} {...iconProps} />
-      {children}
-      {
-        <i className="hidden group-[.active]:block bg-red-500 w-1.5 h-1.5 rounded"></i>
-      }
+      {!isCollapsed && children}
+      {/*{*/}
+      {/*  <i className="hidden group-[.active]:block bg-red-500 w-2 h-2 rounded"></i>*/}
+      {/*}*/}
     </NavLink>
   );
 }
 
-function SidebarIcon({ ...attributes }) {
-  return <img {...attributes} />;
+export function SidebarIcon({ ...attributes }) {
+  return <i {...attributes}  />;
 }
 
 function SideBar() {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   return (
-    <aside className="w-52 flex flex-col gap-4 p-5 relative">
-      <div className="flex flex-col gap-8 ">
-        <a href="/">
-          <img src="/azapallogoV1.svg" alt="" className="w-[61px] h-[71px]" />
-        </a>
+    <aside className={`flex-col gap-4 p-5 relative hidden md:flex transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-52'}`}>
+      <div className="flex flex-col gap-8">
+        <div className="flex items-center justify-between">
+          <a href="/" aria-label="Home">
+            <img 
+              src="/azapallogoV1.svg" 
+              alt="Azapal Logo" 
+              className={`transition-all duration-300 ${isCollapsed ? 'w-[40px] h-[46px]' : 'w-[61px] h-[71px]'}`} 
+            />
+          </a>
+          {!isCollapsed && (
+            <button
+              onClick={() => setIsCollapsed(true)}
+              className="text-gray-600 hover:text-[#F14724] transition-colors"
+              aria-label="Collapse sidebar"
+            >
+              <i className="ri-arrow-left-s-line text-xl"></i>
+            </button>
+          )}
+        </div>
+
+        {isCollapsed && (
+          <button
+            onClick={() => setIsCollapsed(false)}
+            className="text-gray-600 hover:text-[#F14724] transition-colors self-center"
+            aria-label="Expand sidebar"
+          >
+            <i className="ri-arrow-right-s-line text-xl"></i>
+          </button>
+        )}
+          
           {/*/!*admin *!/ sales/operations/engineers/*/}
-          <SidebarButton to="/" src="/icons/home.svg">
+          <SidebarButton to="/dashboard" className='ri-home-6-line' isCollapsed={isCollapsed}>
           Dashboard
+
         </SidebarButton>
 
           {/*/!*admin */}
-          <SidebarButton to="/products" src="/icons/product.svg">
+          <SidebarButton to="/service" className='ri-task-line' isCollapsed={isCollapsed}>
           Services
         </SidebarButton>
 
           {/*/!*admin */}
-          <SidebarButton to="/customers" src="/icons/customers.svg">
-          Customers
-        </SidebarButton>
+        {/*  <SidebarButton to="/customers" src="/icons/customers.svg">*/}
+        {/*  Customers*/}
+        {/*</SidebarButton>*/}
 
           {/*/!*admin/engineers*/}
         {/*  <SidebarButton to="/customers" src="/icons/customers.svg">*/}
@@ -51,7 +83,7 @@ function SideBar() {
         {/*</SidebarButton>*/}
 
           {/*/!*admin *!/ sales/operations/engineers/*/}
-          <SidebarButton to="/settings" src="/icons/settings.svg">
+          <SidebarButton to="/settings" className='ri-user-settings-line' isCollapsed={isCollapsed}>
               Settings
           </SidebarButton>
       </div>

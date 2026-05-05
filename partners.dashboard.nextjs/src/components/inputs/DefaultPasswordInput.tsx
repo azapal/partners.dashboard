@@ -13,7 +13,7 @@ export const DefaultPasswordInput = ({setValue, ...props}:propsTypes) => {
 		<div>
 			<label htmlFor={label} style={{color:`${props.bdColor}`, fontWeight:100}}>{props?.label}</label>
 		    <div className={`border flex my-[5px] items-center pl-[12px] gap-[12px] border-${props.bdColor} w-full h-[45px] rounded-[10px] relative`}>
-			    <img src='/icons/lock_white.svg' className='' alt={`${label}-icon`}/>
+			    <img src='/icons/lock.svg' className='' alt={`${label}-icon`}/>
 			    <input type={'password'} className={`w-full h-full text-${props.bdColor} outline-none placeholder:text--${props.phColor} placeholder:font-[100] focus:outline-none`} onBlur={e => setValue(e.target.value)}  onChange={(e) => setValue(e.target.value)}  placeholder={props?.placeholder}  />
 		    </div>
 			{/*Validation Note*/}

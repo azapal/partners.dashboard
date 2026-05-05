@@ -6,9 +6,9 @@ export const DeliveriesModal = () => {
     return (
         <>
             <div className='w-full p-2'>
-                <p>{modal.props.title}</p>
+                <p>{modal?.props.title}</p>
             </div>
-            <DefaultTable />
+            <DefaultTable data={modal.props.data} />
         </>
     )
 }

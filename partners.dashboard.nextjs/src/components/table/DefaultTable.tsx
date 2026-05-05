@@ -1,25 +1,18 @@
 import { useState } from "react";
 import {useResizeObserver} from "../../hooks/useResizeObserver";
 
-const roles = [
-    { name: "Administrator", permissions: "All permissions" },
-    { name: "Editor", permissions: "Edit content" },
-    { name: "Viewer", permissions: "View content" },
-    { name: "Commenter", permissions: "Add comments" },
-    { name: "Guest", permissions: "Limited access" },
-];
 
-export const DefaultTable = () => {
+export const DefaultTable = (data:any[]) => {
     const {containerRef, useResizer} = useResizeObserver();
 
     return (
         <div ref={containerRef} className="flex flex-col w-full flex-1 px-4 py-3">
-            {useResizer ? <TableView /> : <AccordionView />}
+            {useResizer ? <TableView data={data} /> : <AccordionView data={data} />}
         </div>
     );
 };
 
-function TableView() {
+function TableView(data:any[]) {
     return (
         <div className="overflow-hidden rounded-lg border border-[#e6e6db] bg-white">
             <table className="w-full">
@@ -31,7 +24,7 @@ function TableView() {
                 </tr>
                 </thead>
                 <tbody>
-                {roles.map((r) => (
+                {data?.map((r) => (
                     <tr key={r.name} className="border-t border-t-[#e6e6db]">
                         <td className="px-4 py-2 text-[#181811] text-sm">{r.name}</td>
                         <td className="px-4 py-2 text-[#8c8b5f] text-sm">{r.permissions}</td>
@@ -46,18 +39,17 @@ function TableView() {
     );
 }
 
-function AccordionView() {
+function AccordionView(data:any[]) {
     return (
         <div className="space-y-3">
-            {roles.map((r) => (
+            {data.length && data?.map((r) => (
                 <AccordionItem key={r.name} title={r.name} permissions={r.permissions} />
             ))}
         </div>
     );
 }
 
-function AccordionItem({
-                           title,
+function AccordionItem({title,
                            permissions,
                        }: {
     title: string;

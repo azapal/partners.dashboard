@@ -1,14 +1,31 @@
-import {useState} from "react";
+import {useCallback, useEffect, useState} from "react";
 import {useAppStore} from "../../hooks/useAppStore";
 import {sheetActions} from "../../store/client/sheets";
 import {sheetConstant} from "../../constant/sheetConstant";
 
+type CloseSheetOptions = {
+    confirmClose?: boolean;
+};
+
 export function DefaultResizableSheet(){
     const [width, setWidth] = useState<number>(400);
     const {modal, modal:{show, name}} =useAppStore(state => state);
+    const [isMobile, setIsMobile] = useState<boolean>(false);
 
+    // Detect screen size and update layout
+    useEffect(() => {
+        const handleResize = () => {
+            const mobile = window.innerWidth < 768;
+            setIsMobile(mobile);
+            setWidth(mobile ? window.innerWidth : 400);
+        };
 
-    const handleResize = (e:any) => {
+        handleResize(); // initialize on mount
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
+    const handleResize = (e: React.MouseEvent) => {
         const startX = e.clientX;
         const startWidth = width;
         const onMove = (moveEvent: MouseEvent) =>
@@ -21,39 +38,84 @@ export function DefaultResizableSheet(){
         window.addEventListener('mouseup', onUp);
     }
 
-    function closeSheet({...props}){
+    const closeSheet = useCallback((options: CloseSheetOptions = {}) => {
         const request = {
             ...modal,
             name: null,
-            show:!show,
-            props:null,
+            show: false,
+            props: null,
         }
-        if(!props.confirmClose){
+        if (!options.confirmClose) {
             sheetActions.toggleBasicResizableSheet(request);
-        }else{
-            alert('Are you sure you want to close?');
+        } else {
+            // Use native confirm or implement a proper modal
+            if (window.confirm('Are you sure you want to close?')) {
+                sheetActions.toggleBasicResizableSheet(request);
+            }
         }
-    }
+    }, [modal]);
 
     const Component = sheetConstant[name || ""];
 
+    // Optional: close with ESC key
+    useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape" && show) {
+                closeSheet();
+            }
+        };
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [show, closeSheet]);
+
+    if (!show) {
+        return null;
+    }
 
     return (
-        <div style={show ? {width: width, minWidth:364} : {width: 0}} className={`flex flex-col transition-all items-center  relative`}>
-            {show && (
-                <>
-                    <div className='w-full h-fit flex justify-end'>
-                        <div onClick={closeSheet} className='bg-white top-2 right-2 absolute cursor-pointer shadow p-2 border rounded-full h-6 w-6 flex items-center justify-center text-red-500'>
-                            X
-                        </div>
-                    </div>
-                    <div onMouseDownCapture={(e) => handleResize(e)} className="h-8 w-1 z-50 bg-black cursor-ew-resize border absolute bottom-[500px] left-2" />
-                    <Component  />
-                </>
-            )}
-
-
-        </div>
-
-    )
+        <>
+            {/* Backdrop overlay */}
+            <div 
+                className="fixed inset-0 bg-black/50 z-40 transition-opacity"
+                onClick={() => closeSheet()}
+                aria-hidden="true"
+            />
+            
+            {/* Sheet */}
+            <div 
+                style={{
+                    width: isMobile ? "100vw" : width,
+                    height: isMobile ? "100vh" : "100%",
+                    minWidth: isMobile ? undefined : 364,
+                    transition: "width 0.25s ease, height 0.25s ease",
+                }}
+                className="fixed top-0 right-0 z-50 flex flex-col bg-white shadow-lg"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="sheet-title"
+            >
+                <div className='w-full h-fit flex justify-end p-4'>
+                    <button
+                        onClick={() => closeSheet()}
+                        className='bg-white cursor-pointer shadow-md p-2 border rounded-full h-8 w-8 flex items-center justify-center text-gray-600 hover:text-red-500 hover:bg-gray-50 transition-colors'
+                        aria-label="Close"
+                    >
+                        <i className="ri-close-line text-lg"></i>
+                    </button>
+                </div>
+                
+                {!isMobile && (
+                    <div 
+                        onMouseDown={handleResize} 
+                        className="h-full w-1 bg-gray-300 hover:bg-[#0000004d] cursor-ew-resize absolute top-0 left-0 transition-colors"
+                        title="Resize handle"
+                    />
+                )}
+                
+                <div className="flex-1 overflow-y-auto">
+                    {Component && <Component />}
+                </div>
+            </div>
+        </>
+    );
 }
