@@ -7,11 +7,11 @@ export const AuthLayout = ({ children }: { children: ReactNode }) => {
                                 <div className="relative hidden overflow-hidden lg:flex flex-col justify-between p-10 xl:p-14 text-white bg-gradient-to-br from-[#0d1b3d] via-[#142449] to-[#091225]">
                                         <div className="absolute inset-0 opacity-35 bg-[radial-gradient(circle_at_top_right,_rgba(59,130,246,0.45),_transparent_40%),radial-gradient(circle_at_bottom_left,_rgba(59,130,246,0.2),_transparent_30%)]" />
                                         <img
-                                                src="@assets/Screenshot_2026-05-05_at_18.03.26_1778000624311.png"
+                                                src="/logistics-trucks.jpg"
                                                 alt="Partner onboarding preview"
                                                 className="absolute inset-0 h-full w-full object-cover opacity-20 mix-blend-screen"
                                         />
-                                        <div className="relative z-10">
+                                        <div className="relative z-10 bg-white flex items-center justify-center rounded-full h-12 w-12">
                                                 <img
                                                         src="/azapallogoV1.svg"
                                                         alt="logo"
