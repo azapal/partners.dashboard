@@ -1,6 +1,0 @@
----
-deployment:
-  tasks:
-    - export DEPLOYPATH=/home/azpalkcny/admin-dev.azapal.com/
-    - /bin/rm -rf $DEPLOYPATH/*
-    - /bin/cp -r dist/* $DEPLOYPATH
