@@ -23,6 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 ../.replit
-.replit
+*.replit
 *.zip
-artifacts
+artifacts/
