@@ -41,5 +41,5 @@ externalPort = 3000
 [userenv]
 
 [userenv.shared]
-VITE_AZAPAL_BASE_URL_LOCAL = "https://3b8c442d-8738-4f02-aec3-9fb9d7ba39f9-00-3fz4hfjsjd7gu.spock.replit.dev/api/v1/azapal/swagger-ui/"
-VITE_ACCOUNT_BASE_URL_LOCAL = "https://3b8c442d-8738-4f02-aec3-9fb9d7ba39f9-00-3fz4hfjsjd7gu.spock.replit.dev/api/v1/azapal/swagger-ui/"
+VITE_AZAPAL_BASE_URL_LOCAL = "https://3b8c442d-8738-4f02-aec3-9fb9d7ba39f9-00-3fz4hfjsjd7gu.spock.replit.dev/api/v1/azapal"
+VITE_ACCOUNT_BASE_URL_LOCAL = "https://3b8c442d-8738-4f02-aec3-9fb9d7ba39f9-00-3fz4hfjsjd7gu.spock.replit.dev/api/v1/azapal"
