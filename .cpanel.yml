@@ -1,6 +1,6 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/azapkcny/partner-dev.azapal.com/
+    - export DEPLOYPATH=/home2/ennovat1/public_html/devportal-azapal.sharpakonnect.com/
     - /bin/rm -rf $DEPLOYPATH/*
     - /bin/cp -r dist/* $DEPLOYPATH
