@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { partnerActions } from "../store/server/auth";
+import { useSendOtp } from "../hooks/useAuth";
 
 // Validation schema
 const onboardingValidationSchema = Yup.object().shape({
@@ -20,6 +21,7 @@ export const PartnerOnboardingScreen = () => {
     const [searchParams] = useSearchParams();
     const [isLoading, setIsLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
+    const { mutateAsync: sendOtp } = useSendOtp();
 
     // Get token from URL parameters
     const token = searchParams.get("token");
@@ -60,12 +62,12 @@ export const PartnerOnboardingScreen = () => {
                 }, token,);
 
                 if (result.success) {
-                    // Store token for OTP verification
-                    localStorage.setItem("onboarding_token", token);
-                    localStorage.setItem("partner_email", result.data?.email || "");
+                    const partnerCode = (result.data as any)?.partner_code ?? token;
 
-                    // Navigate to OTP screen
-                    navigate("/login/otp");
+                    await sendOtp(partnerCode);
+
+                    localStorage.setItem("partner_email", result.data?.email || "");
+                    navigate("/login/otp", { state: { partnerCode } });
                 } else {
                     setErrorMessage(
                         result.error || "Failed to complete onboarding. Please try again."

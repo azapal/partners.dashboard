@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { GitBranch, ArrowRight, ChevronLeft, Building2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useSendOtp } from '../hooks/useAuth';
 
 export const LoginScreen = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState<0 | 1>(0);
   const [accountType, setAccountType] = useState<'PARTNERS' | 'PARTNERS BRANCH' | null>(null);
   const [code, setCode] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const { mutate: sendOtp, isPending } = useSendOtp();
 
   const handleSelect = (type: 'PARTNERS' | 'PARTNERS BRANCH') => {
     setAccountType(type);
@@ -17,17 +20,23 @@ export const LoginScreen = () => {
     setStep(0);
     setAccountType(null);
     setCode('');
+    setErrorMessage('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/login/otp');
+    setErrorMessage('');
+
+    sendOtp(code, {
+      onSuccess: () => navigate('/login/otp', { state: { partnerCode: code, accountType } }),
+      onError: (err: any) => setErrorMessage(err?.message ?? 'Failed to send OTP. Please try again.'),
+    });
   };
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
       <div className="w-full max-w-md bg-white shadow-xl border border-slate-200 rounded-2xl overflow-hidden relative">
-        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-[#F14724] to-[#8B2915]" />
+        <div className="absolute top-0 left-0 w-full h-1.5 bg-linear-to-r from-[#F14724] to-[#8B2915]" />
 
         <div className="p-8 pt-10">
           <div className="mb-8 text-center">
@@ -49,7 +58,7 @@ export const LoginScreen = () => {
                     className="w-full group text-left flex items-start p-5 rounded-xl border-2 border-slate-100 hover:border-[#1d4ed8] hover:bg-blue-50/50 transition-all duration-200 cursor-pointer"
                   >
                     <div className="h-10 w-10 rounded-full bg-slate-100 text-slate-600 group-hover:bg-blue-100 group-hover:text-[#1d4ed8] flex items-center justify-center shrink-0 transition-colors">
-                      <Building2 className="h-5 w-5" />
+                      <i className="ri-building-2-line text-lg" />
                     </div>
                     <div className="ml-4">
                       <h3 className="font-semibold text-slate-900 group-hover:text-[#1d4ed8] transition-colors">Partner</h3>
@@ -62,7 +71,7 @@ export const LoginScreen = () => {
                     className="w-full group text-left flex items-start p-5 rounded-xl border-2 border-slate-100 hover:border-[#1d4ed8] hover:bg-blue-50/50 transition-all duration-200 cursor-pointer"
                   >
                     <div className="h-10 w-10 rounded-full bg-slate-100 text-slate-600 group-hover:bg-blue-100 group-hover:text-[#1d4ed8] flex items-center justify-center shrink-0 transition-colors">
-                      <GitBranch className="h-5 w-5" />
+                      <i className="ri-git-branch-line text-lg" />
                     </div>
                     <div className="ml-4">
                       <h3 className="font-semibold text-slate-900 group-hover:text-[#1d4ed8] transition-colors">Partner Branch</h3>
@@ -77,7 +86,7 @@ export const LoginScreen = () => {
                   onClick={handleBack}
                   className="flex items-center text-sm text-slate-500 hover:text-slate-900 transition-colors mb-6 -ml-2 p-2 rounded-md hover:bg-slate-100 cursor-pointer"
                 >
-                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  <i className="ri-arrow-left-s-line text-base mr-1" />
                   Back
                 </button>
 
@@ -95,21 +104,26 @@ export const LoginScreen = () => {
                     </label>
                     <input
                       id="code"
-                      type="password"
-                      placeholder="••••••••"
-                      autoComplete="off"
+                      type="text"
+                      placeholder="PT-AZA/ABC/0001"
                       value={code}
-                      onChange={(e) => setCode(e.target.value)}
-                      className="w-full h-12 px-4 text-lg border border-slate-200 rounded-xl outline-none transition focus:border-[#1d4ed8] focus:ring-4 focus:ring-blue-100 text-slate-900 placeholder:text-slate-300"
+                      onChange={(e) => { setCode(e.target.value); setErrorMessage(''); }}
+                      disabled={isPending}
+                      className="w-full h-12 px-4 text-lg border border-slate-200 rounded-xl outline-none transition focus:border-[#1d4ed8] focus:ring-4 focus:ring-blue-100 text-slate-900 placeholder:text-slate-300 disabled:opacity-50"
                     />
                   </div>
 
+                  {errorMessage && (
+                    <p className="text-sm text-red-500">{errorMessage}</p>
+                  )}
+
                   <button
                     type="submit"
-                    className="w-full h-12 bg-[#0d1b3d] hover:bg-[#0d1b3d]/90 text-white font-medium text-base rounded-xl flex items-center justify-center gap-2 transition cursor-pointer shadow-md"
+                    disabled={isPending || !code.trim()}
+                    className="w-full h-12 bg-[#0d1b3d] hover:bg-[#0d1b3d]/90 text-white font-medium text-base rounded-xl flex items-center justify-center gap-2 transition cursor-pointer shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Log in
-                    <ArrowRight className="h-4 w-4" />
+                    {isPending ? 'Sending OTP…' : 'Log in'}
+                    {!isPending && <i className="ri-arrow-right-line text-base" />}
                   </button>
                 </form>
               </div>

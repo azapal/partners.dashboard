@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Building2, ChevronDown, ChevronUp, Plus } from 'lucide-react';
 
 type Branch = {
     id: string;
@@ -33,7 +32,7 @@ export const BranchNotificationManager = ({ onAddBranch }: BranchNotificationMan
         <div className="mt-8 p-6 bg-white border-2 border-gray-200 rounded-xl">
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
-                    <Building2 className="w-5 h-5 text-gray-700" />
+                    <i className="ri-building-2-line text-lg text-gray-700" />
                     <h3 className="text-lg font-semibold text-gray-900">
                         Manage Branch Notifications
                     </h3>
@@ -42,7 +41,7 @@ export const BranchNotificationManager = ({ onAddBranch }: BranchNotificationMan
                     onClick={onAddBranch}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-[#F14724] text-white rounded-lg hover:bg-[#d63d1e] transition-colors text-sm font-medium"
                 >
-                    <Plus className="w-4 h-4" />
+                    <i className="ri-add-line text-sm" />
                     Add Branch
                 </button>
             </div>
@@ -74,9 +73,9 @@ export const BranchNotificationManager = ({ onAddBranch }: BranchNotificationMan
                                     </span>
                                 )}
                                 {expandedBranch === branch.id ? (
-                                    <ChevronUp className="w-5 h-5 text-gray-500" />
+                                    <i className="ri-arrow-up-s-line text-lg text-gray-500" />
                                 ) : (
-                                    <ChevronDown className="w-5 h-5 text-gray-500" />
+                                    <i className="ri-arrow-down-s-line text-lg text-gray-500" />
                                 )}
                             </div>
                         </div>

@@ -43,7 +43,7 @@ export const NotificationContactInputs = ({
                             value={contact}
                             onChange={(e) => onContactChange(index, e.target.value)}
                             placeholder={channelData.placeholder}
-                            className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F14724] transition-all ${
+                            className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-300 transition-all ${
                                 errors[index] ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'
                             }`}
                         />

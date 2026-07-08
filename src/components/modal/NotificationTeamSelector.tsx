@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Users, X } from 'lucide-react';
 
 type TeamMember = {
     id: string;
@@ -47,7 +46,7 @@ export const NotificationTeamSelector = ({
     return (
         <div className="mt-6">
             <div className="flex items-center gap-2 mb-4">
-                <Users className="w-5 h-5 text-gray-600" />
+                <i className="ri-group-line text-lg text-gray-600" />
                 <h4 className="text-sm font-semibold text-gray-900">
                     Loop team members in {notificationType} notifications
                 </h4>
@@ -60,7 +59,7 @@ export const NotificationTeamSelector = ({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search team members..."
-                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F14724] focus:border-transparent"
+                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-transparent"
                 />
             </div>
 
@@ -75,9 +74,10 @@ export const NotificationTeamSelector = ({
                             <span>{member.name}</span>
                             <button
                                 onClick={() => toggleMember(member.id)}
+                                aria-label={`Remove ${member.name}`}
                                 className="hover:bg-white/20 rounded-full p-0.5"
                             >
-                                <X className="w-3 h-3" />
+                                <i className="ri-close-line text-xs" />
                             </button>
                         </div>
                     ))}
@@ -100,7 +100,7 @@ export const NotificationTeamSelector = ({
                                 type="checkbox"
                                 checked={selectedMembers.includes(member.id)}
                                 onChange={() => toggleMember(member.id)}
-                                className="w-4 h-4 text-[#F14724] border-gray-300 rounded focus:ring-[#F14724]"
+                                className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-300"
                             />
                             <div className="flex-1">
                                 <div className="text-sm font-medium text-gray-900">{member.name}</div>

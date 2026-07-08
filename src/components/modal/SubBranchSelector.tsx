@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Building, ChevronDown } from 'lucide-react';
 
 type SubBranch = {
     id: string;
@@ -74,7 +73,7 @@ export const SubBranchSelector = ({
     if (subBranches.length === 0) {
         return (
             <div className="text-center p-8 bg-gray-50 rounded-xl border border-gray-200">
-                <Building className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <i className="ri-store-2-line text-5xl text-gray-400 block mx-auto mb-3" />
                 <p className="text-sm text-gray-600">No sub-branches found for this branch</p>
                 <button className="mt-4 px-4 py-2 bg-[#F14724] text-white rounded-lg hover:bg-[#d63d1e] transition-colors text-sm font-medium">
                     Add Sub-Branch
@@ -97,13 +96,13 @@ export const SubBranchSelector = ({
                             onClick={() => onSubBranchSelect(subBranch.id)}
                             className={`p-3 sm:p-4 border-2 rounded-lg sm:rounded-xl cursor-pointer transition-all ${
                                 selectedSubBranchId === subBranch.id
-                                    ? 'border-[#F14724] bg-orange-50'
+                                    ? 'border-gray-900 bg-gray-50'
                                     : 'border-gray-200 hover:border-gray-300 bg-white'
                             }`}
                         >
                             <div className="flex items-center gap-2 sm:gap-3">
-                                <Building className={`w-4 h-4 sm:w-5 sm:h-5 ${
-                                    selectedSubBranchId === subBranch.id ? 'text-[#F14724]' : 'text-gray-500'
+                                <i className={`ri-store-2-line text-base sm:text-lg ${
+                                    selectedSubBranchId === subBranch.id ? 'text-gray-900' : 'text-gray-500'
                                 }`} />
                                 <div className="flex-1 min-w-0">
                                     <h4 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">{subBranch.name}</h4>
@@ -122,7 +121,7 @@ export const SubBranchSelector = ({
 
             {/* Team Members Selection */}
             {selectedSubBranchId && (
-                <div className="p-4 sm:p-6 bg-gradient-to-br from-gray-50 to-orange-50 rounded-lg sm:rounded-xl border border-gray-200">
+                <div className="p-4 sm:p-6 bg-linear-to-br from-gray-50 to-orange-50 rounded-lg sm:rounded-xl border border-gray-200">
                     <button
                         onClick={() => setIsMembersExpanded(!isMembersExpanded)}
                         className="w-full flex items-center justify-between mb-3 sm:mb-4"
@@ -130,7 +129,7 @@ export const SubBranchSelector = ({
                         <h3 className="text-xs sm:text-sm font-semibold text-gray-900">
                             Select Team Members to Loop ({selectedMembers.length} selected)
                         </h3>
-                        <ChevronDown className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-500 transition-transform ${
+                        <i className={`ri-arrow-down-s-line text-base sm:text-lg text-gray-500 transition-transform ${
                             isMembersExpanded ? 'rotate-180' : ''
                         }`} />
                     </button>
@@ -148,7 +147,7 @@ export const SubBranchSelector = ({
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     placeholder="Search team members..."
-                                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F14724] focus:border-transparent text-sm"
+                                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-transparent text-sm"
                                 />
                             </div>
 
@@ -168,7 +167,7 @@ export const SubBranchSelector = ({
                                                 type="checkbox"
                                                 checked={selectedMembers.includes(member.id)}
                                                 onChange={() => toggleMember(member.id)}
-                                                className="w-4 h-4 text-[#F14724] border-gray-300 rounded focus:ring-[#F14724]"
+                                                className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-300"
                                             />
                                             <div className="flex-1 min-w-0">
                                                 <div className="text-xs sm:text-sm font-medium text-gray-900 truncate">{member.name}</div>

@@ -61,7 +61,7 @@ export const AddNewBranch = ({ setShowAddBranch }: AddNewBranchProps) => {
                                 Branch Name
                             </label>
                             <input
-                                className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-[#F14724] focus:outline-none focus:ring-1 focus:ring-[#F14724] sm:text-sm bg-white text-gray-900"
+                                className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-300 sm:text-sm bg-white text-gray-900"
                                 id="branchName" 
                                 name="branchName" 
                                 placeholder="e.g., Downtown Hub" 
@@ -131,7 +131,7 @@ export const AddNewBranch = ({ setShowAddBranch }: AddNewBranchProps) => {
                             <div className="relative">
                                 <i className="ri-map-pin-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
                                 <input
-                                    className="block w-full appearance-none rounded-md border border-gray-300 pl-10 pr-3 py-2 placeholder-gray-400 shadow-sm focus:border-[#F14724] focus:outline-none focus:ring-1 focus:ring-[#F14724] sm:text-sm bg-white text-gray-900"
+                                    className="block w-full appearance-none rounded-md border border-gray-300 pl-10 pr-3 py-2 placeholder-gray-400 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-300 sm:text-sm bg-white text-gray-900"
                                     id="address" 
                                     name="address"
                                     placeholder="Search for an address or drop a pin on the map" 
@@ -149,7 +149,7 @@ export const AddNewBranch = ({ setShowAddBranch }: AddNewBranchProps) => {
                                     Latitude
                                 </label>
                                 <input
-                                    className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-[#F14724] focus:outline-none focus:ring-1 focus:ring-[#F14724] sm:text-sm bg-gray-100 text-gray-500"
+                                    className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-300 sm:text-sm bg-gray-100 text-gray-500"
                                     disabled
                                     id="latitude" 
                                     name="latitude" 
@@ -164,7 +164,7 @@ export const AddNewBranch = ({ setShowAddBranch }: AddNewBranchProps) => {
                                     Longitude
                                 </label>
                                 <input
-                                    className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-[#F14724] focus:outline-none focus:ring-1 focus:ring-[#F14724] sm:text-sm bg-gray-100 text-gray-500"
+                                    className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-300 sm:text-sm bg-gray-100 text-gray-500"
                                     disabled
                                     id="longitude" 
                                     name="longitude" 
@@ -181,7 +181,7 @@ export const AddNewBranch = ({ setShowAddBranch }: AddNewBranchProps) => {
                                 Contact Person
                             </label>
                             <input
-                                className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-[#F14724] focus:outline-none focus:ring-1 focus:ring-[#F14724] sm:text-sm bg-white text-gray-900"
+                                className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-300 sm:text-sm bg-white text-gray-900"
                                 id="contactPerson" 
                                 name="contactPerson" 
                                 placeholder="e.g., Jane Doe" 
@@ -197,7 +197,7 @@ export const AddNewBranch = ({ setShowAddBranch }: AddNewBranchProps) => {
                                 Contact Phone
                             </label>
                             <input
-                                className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-[#F14724] focus:outline-none focus:ring-1 focus:ring-[#F14724] sm:text-sm bg-white text-gray-900"
+                                className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-300 sm:text-sm bg-white text-gray-900"
                                 id="contactPhone" 
                                 name="contactPhone" 
                                 placeholder="(555) 123-4567" 
@@ -211,13 +211,13 @@ export const AddNewBranch = ({ setShowAddBranch }: AddNewBranchProps) => {
                         <div className="mt-8 pt-6 border-t border-gray-200 flex items-center justify-end gap-4">
                             <button 
                                 onClick={() => setShowAddBranch(false)}
-                                className="rounded-md bg-white border border-gray-300 py-2 px-6 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#F14724] focus:ring-offset-2 transition-colors"
+                                className="rounded-md bg-white border border-gray-300 py-2 px-6 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 transition-colors"
                                 type="button"
                             >
                                 Cancel
                             </button>
                             <button
-                                className="inline-flex justify-center rounded-md border border-transparent bg-[#F14724] py-2 px-6 text-sm font-semibold text-white shadow-sm hover:bg-[#d63d1e] focus:outline-none focus:ring-2 focus:ring-[#F14724] focus:ring-offset-2 transition-colors"
+                                className="inline-flex justify-center rounded-md border border-transparent bg-[#F14724] py-2 px-6 text-sm font-semibold text-white shadow-sm hover:bg-[#d63d1e] focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 transition-colors"
                                 type="submit"
                             >
                                 Save Branch

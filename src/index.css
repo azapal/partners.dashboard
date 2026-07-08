@@ -9,12 +9,11 @@
 
 body{
     font-family: "Inter", sans-serif;
-    -webkit-user-select: none; /* Safari */
-    -moz-user-select: none;    /* Firefox */
-    -ms-user-select: none;     /* IE10+/Edge */
-    user-select: none;         /* Standard */
-    background-color: rgba(244, 247, 251, 1);
-
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    background-color: #fefefe;
 }
 
 .material-symbols-outlined {

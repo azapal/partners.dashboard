@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Building2, ChevronDown } from 'lucide-react';
 
 type Branch = {
     id: string;
@@ -69,12 +68,12 @@ export const BranchSelector = ({
                             onClick={() => onBranchSelect(branch.id)}
                             className={`p-3 sm:p-4 border-2 rounded-lg sm:rounded-xl cursor-pointer transition-all ${
                                 selectedBranchId === branch.id
-                                    ? 'border-[#F14724] bg-orange-50'
+                                    ? 'border-gray-900 bg-gray-50'
                                     : 'border-gray-200 hover:border-gray-300 bg-white'
                             }`}
                         >
                             <div className="flex items-center gap-2 sm:gap-3">
-                                <Building2 className={`w-4 h-4 sm:w-5 sm:h-5 ${
+                                <i className={`ri-building-2-line text-base sm:text-lg ${
                                     selectedBranchId === branch.id ? 'text-[#F14724]' : 'text-gray-500'
                                 }`} />
                                 <div className="flex-1">
@@ -102,7 +101,7 @@ export const BranchSelector = ({
                         <h3 className="text-xs sm:text-sm font-semibold text-gray-900">
                             Select Managers & Operations to Loop ({selectedManagers.length} selected)
                         </h3>
-                        <ChevronDown className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-500 transition-transform ${
+                        <i className={`ri-arrow-down-s-line text-base sm:text-lg text-gray-500 transition-transform ${
                             isManagersExpanded ? 'rotate-180' : ''
                         }`} />
                     </button>
@@ -122,7 +121,7 @@ export const BranchSelector = ({
                                             type="checkbox"
                                             checked={selectedManagers.includes(manager.id)}
                                             onChange={() => toggleManager(manager.id)}
-                                            className="w-4 h-4 text-[#F14724] border-gray-300 rounded focus:ring-[#F14724]"
+                                            className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-300"
                                         />
                                             <div className="flex-1 min-w-0">
                                                 <div className="text-xs sm:text-sm font-medium text-gray-900 truncate">{manager.name}</div>

@@ -1,14 +1,4 @@
 import React, { useState, useCallback, useRef, ChangeEvent } from "react";
-import {
-  CreditCard,
-  Edit2,
-  Check,
-  X,
-  Lock,
-  Eye,
-  EyeOff,
-  LucideIcon,
-} from "lucide-react";
 
 // Type definitions
 interface FormData {
@@ -33,7 +23,7 @@ interface FormInputProps {
 interface ButtonProps {
   onClick: () => void;
   variant?: "primary" | "secondary";
-  icon?: LucideIcon;
+  icon?: string;
   children: any;
   className?: string;
 }
@@ -210,7 +200,7 @@ export default function PaymentMethodForm() {
         <div className="flex items-center justify-between mb-6 sm:mb-8">
           <div className="flex items-center gap-2.5 sm:gap-3">
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-red-700 rounded-full flex items-center justify-center flex-shrink-0">
-              <CreditCard className="text-white" size={20} />
+              <i className="ri-bank-card-line text-white text-lg" />
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
@@ -287,7 +277,7 @@ export default function PaymentMethodForm() {
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                   aria-label={showCvc ? "Hide CVC" : "Show CVC"}
                 >
-                  {showCvc ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showCvc ? <i className="ri-eye-off-line text-lg" /> : <i className="ri-eye-line text-lg" />}
                 </button>
               }
             />
@@ -296,7 +286,7 @@ export default function PaymentMethodForm() {
 
         <div className="bg-amber-50 rounded-xl p-4 mb-6">
           <div className="flex gap-3">
-            <Lock size={20} className="text-red-700 flex-shrink-0 mt-0.5" />
+            <i className="ri-lock-line text-lg text-red-700 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-gray-900 mb-1">
                 Your payment information is secure you can trust Azapal

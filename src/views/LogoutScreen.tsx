@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { DoorOpen, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function LogoutView() {
@@ -39,19 +38,17 @@ export default function LogoutView() {
        
           <button
             onClick={handleCancel}
-            className="absolute top-4 right-4 cursor-pointer text-gray-400 hover:text-gray-600 active:text-gray-800 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="Close"
+            className="absolute top-4 right-4 cursor-pointer text-gray-400 hover:text-gray-600 active:text-gray-800 min-h-11 min-w-11 flex items-center justify-center"
             disabled={isLoggingOut}
           >
-            <X className="w-6 h-6" />
+            <i className="ri-close-line text-xl" />
           </button>
 
           <div className="p-6 sm:p-8 text-center">
             <div className="mb-6 flex justify-center">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-black/10 flex items-center justify-center">
-                <DoorOpen
-                  className="w-10 h-10 sm:w-12 sm:h-12 text-black"
-                  strokeWidth={2}
-                />
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-orange-100 flex items-center justify-center">
+                <i className="ri-logout-box-r-line text-4xl sm:text-5xl text-[#F14724]" />
               </div>
             </div>
 
@@ -69,7 +66,7 @@ export default function LogoutView() {
               <button
                 onClick={handleLogout}
                 disabled={isLoggingOut}
-                className="w-full hover:bg-black/70  hover:text-white cursor-pointer font-medium text-base sm:text-lg py-4 px-6 rounded-full disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px]"
+                className="w-full hover:bg-black/70  hover:text-white cursor-pointer font-medium text-base sm:text-lg py-4 px-6 rounded-full disabled:opacity-60 disabled:cursor-not-allowed min-h-11"
               >
                 {isLoggingOut ? "Logging Out..." : "Log Out"}
               </button>
@@ -77,7 +74,7 @@ export default function LogoutView() {
               <button
                 onClick={handleCancel}
                 disabled={isLoggingOut}
-                className="w-full bg-white border-2 cursor-pointer border-gray-400 text-gray-800 font-medium text-base sm:text-lg py-4 px-6 rounded-full hover:bg-gray-50 hover:border-gray-500 active:bg-gray-100 disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px]"
+                className="w-full bg-white border-2 cursor-pointer border-gray-400 text-gray-800 font-medium text-base sm:text-lg py-4 px-6 rounded-full hover:bg-gray-50 hover:border-gray-500 active:bg-gray-100 disabled:opacity-60 disabled:cursor-not-allowed min-h-11"
               >
                 Cancel
               </button>

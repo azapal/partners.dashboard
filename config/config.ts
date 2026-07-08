@@ -17,7 +17,7 @@ interface AppConfig {
       baseUrl: string;
     };
     azapal: {
-      baseUrl: string;
+        baseUrl: string;
     };
   };
   isDevelopment: boolean;
@@ -47,19 +47,19 @@ const getAppStage = (): AppStage => {
 const getAccountBaseUrl = (stage: AppStage): string => {
   switch (stage) {
     case 'local':
-      return import.meta.env.VITE_ACCOUNT_BASE_URL_LOCAL || 'http://localhost:3000/api/v1/account';
+      return import.meta.env.VITE_ACCOUNT_BASE_URL_LOCAL || 'http://127.0.0.1:9000/api/v1/account';
     
     case 'dev':
-      return import.meta.env.VITE_ACCOUNT_BASE_URL_DEV || 'https://i7ofu796g2.execute-api.us-east-1.amazonaws.com/dev/api/v1/account';
+      return import.meta.env.VITE_ACCOUNT_BASE_URL_DEV || 'http://127.0.0.1:9000/api/v1/account';
     
     case 'staging':
-      return import.meta.env.VITE_ACCOUNT_BASE_URL_STAGING || import.meta.env.VITE_ACCOUNT_BASE_URL_DEV || 'https://i7ofu796g2.execute-api.us-east-1.amazonaws.com/dev/api/v1/account';
+      return import.meta.env.VITE_ACCOUNT_BASE_URL_STAGING || import.meta.env.VITE_ACCOUNT_BASE_URL_DEV || 'http://127.0.0.1:9000/api/v1/account';
     
     case 'production':
-      return import.meta.env.VITE_ACCOUNT_BASE_URL_PROD || import.meta.env.VITE_ACCOUNT_BASE_URL_DEV || 'https://i7ofu796g2.execute-api.us-east-1.amazonaws.com/dev/api/v1/account';
+      return import.meta.env.VITE_ACCOUNT_BASE_URL_PROD || import.meta.env.VITE_ACCOUNT_BASE_URL_DEV || 'http://127.0.0.1:9000/api/v1/account';
     
     default:
-      return 'http://localhost:3000/api/v1/account';
+      return 'http://127.0.0.1:9000/api/v1/account';
   }
 };
 
@@ -73,19 +73,19 @@ const getAzapalBaseUrl = (stage: AppStage): string => {
   switch (stage) {
     case 'local':
       console.log('skskskkskk', import.meta.env)
-      return import.meta.env.VITE_AZAPAL_BASE_URL_LOCAL || 'http://localhost:3000/api/v1/azapal';
+      return import.meta.env.VITE_AZAPAL_BASE_URL_LOCAL || 'http://127.0.0.1:8000/api/v1/azapal';
     
     case 'dev':
-      return import.meta.env.VITE_AZAPAL_BASE_URL_DEV || 'https://0x23ivl8ga.execute-api.us-east-1.amazonaws.com/dev/api/v1/azapal';
+      return import.meta.env.VITE_AZAPAL_BASE_URL_DEV || 'http://127.0.0.1:8000/api/v1/azapal';
     
     case 'staging':
-      return import.meta.env.VITE_AZAPAL_BASE_URL_STAGING || import.meta.env.VITE_AZAPAL_BASE_URL_DEV || 'https://0x23ivl8ga.execute-api.us-east-1.amazonaws.com/dev/api/v1/azapal';
+      return import.meta.env.VITE_AZAPAL_BASE_URL_STAGING || import.meta.env.VITE_AZAPAL_BASE_URL_DEV || 'http://127.0.0.1:8000/api/v1/azapal';
     
     case 'production':
-      return import.meta.env.VITE_AZAPAL_BASE_URL_PROD || import.meta.env.VITE_AZAPAL_BASE_URL_DEV || 'https://0x23ivl8ga.execute-api.us-east-1.amazonaws.com/dev/api/v1/azapal';
+      return import.meta.env.VITE_AZAPAL_BASE_URL_PROD || import.meta.env.VITE_AZAPAL_BASE_URL_DEV || 'http://127.0.0.1:8000/api/v1/azapal';
     
     default:
-      return 'http://localhost:3000/api/v1/azapal';
+      return 'http://127.0.0.1:8000/api/v1/azapal';
   }
 };
 

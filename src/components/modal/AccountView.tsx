@@ -1,9 +1,8 @@
-import {Mail, User, Briefcase, Building2} from "lucide-react";
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 
 interface DetailCardProps {
-  icon: any;
+  icon: string;
   label: string;
   value: string;
 }
@@ -34,7 +33,7 @@ export const AccountView = () => {
         <div className="border-gray-200 overflow-hidden">
           <div className="pt-8 sm:pt-12 pb-6 sm:pb-8 text-center">
             <div className="relative inline-block">
-              <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center mx-auto shadow-xl">
+              <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-linear-to-br from-yellow-400 to-orange-500 flex items-center justify-center mx-auto shadow-xl">
                 <img
                   src="/spoonel_service_men_logo.jpeg"
                   alt="Profile"
@@ -53,7 +52,7 @@ export const AccountView = () => {
           </div>
           <div className="flex flex-col sm:flex-row gap-6">
             {/*<div*/}
-            {/*    className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl flex items-center justify-center border border-gray-200 flex-shrink-0"*/}
+            {/*    className="bg-linear-to-br from-gray-50 to-gray-100 rounded-2xl flex items-center justify-center border border-gray-200 flex-shrink-0"*/}
             {/*    style={{ width: "88pt", height: "88pt" }}*/}
             {/*>*/}
             {/*  <Building2*/}
@@ -82,23 +81,9 @@ export const AccountView = () => {
             </h3>
 
             <div className="space-y-2">
-              <DetailCard
-                icon={<User className="w-5 h-5" />}
-                label="Username"
-                value="@Ukonu Ndubuisi Chibuike"
-              />
-
-              <DetailCard
-                icon={<Mail className="w-5 h-5" />}
-                label="Email"
-                value="ndubuisi@example.com"
-              />
-
-              <DetailCard
-                icon={<Briefcase className="w-5 h-5" />}
-                label="Role"
-                value="Admin"
-              />
+              <DetailCard icon="ri-user-line" label="Username" value="@Ukonu Ndubuisi Chibuike" />
+              <DetailCard icon="ri-mail-line" label="Email" value="ndubuisi@example.com" />
+              <DetailCard icon="ri-briefcase-line" label="Role" value="Admin" />
             </div>
           </div>
 
@@ -122,8 +107,8 @@ function DetailCard({ icon, label, value }: DetailCardProps) {
   return (
     <div className="bg-white hover:bg-gray-100 rounded-2xl p-3 sm:p-4 transition-colors duration-200">
       <div className="flex items-center gap-3 sm:gap-4">
-        <div className="flex-shrink-0 w-10 h-10 sm:w-11 sm:h-11 bg-white rounded-xl flex items-center justify-center text-gray-600 group-hover:text-blue-600 transition-colors shadow-sm">
-          {icon}
+        <div className="shrink-0 w-10 h-10 sm:w-11 sm:h-11 bg-orange-50 rounded-xl flex items-center justify-center text-gray-600 transition-colors shadow-sm">
+          <i className={`${icon} text-lg text-[#F14724]`} />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium text-gray-500 mb-0.5">{label}</p>

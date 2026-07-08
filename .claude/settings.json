@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//private/etc/**)",
+      "Read(//private/etc/paths.d/**)"
+    ],
+    "additionalDirectories": [
+      "/Users/mac"
+    ]
+  }
+}

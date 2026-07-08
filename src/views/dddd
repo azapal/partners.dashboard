@@ -1,0 +1,59 @@
+    const [formData, setFormData] = useState({
+        serviceTypes: [],
+        deliveryRegions: [],
+        operatingHours: '',
+        transitTimes: {
+            local: '',
+            regional: '',
+            national: '',
+            international: ''
+        },
+        trackingAvailable: '',
+        insurance: '',
+        packagingServices: '',
+        weightLimits: {
+            min: '',
+            max: ''
+        },
+        dimensionLimits: '',
+        pricingStructure: '',
+        paymentMethods: [],
+        specialServices: [],
+        prohibitedItems: '',
+        deliveryProof: '',
+        customerSupport: '',
+        additionalInfo: ''
+    });
+
+    const [openSection, setOpenSection] = useState(0);
+
+    const serviceTypeOptions = [
+        'Standard Delivery',
+        'Express Delivery',
+        'Same-Day Delivery',
+        'International Shipping',
+        'Freight Services',
+        'Last-Mile Delivery',
+        'Warehousing',
+        'Cold Chain Logistics'
+    ];
+
+    const paymentMethodOptions = [
+        'Cash on Delivery',
+        'Credit/Debit Card',
+        'Bank Transfer',
+        'Mobile Money',
+        'Online Payment Gateway',
+        'Corporate Account'
+    ];
+
+    const specialServiceOptions = [
+        'Fragile Item Handling',
+        'Temperature Controlled',
+        'Hazardous Materials',
+        'White Glove Service',
+        'Assembly/Installation',
+        'Scheduled Delivery',
+        'Return Services',
+        'Bulk Shipping Discounts'
+    ];

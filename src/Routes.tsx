@@ -10,6 +10,7 @@ import { SignInScreen } from "./views/SignInScreen";
 import OtpScreen from "./views/OtpScreen";
 import Success from "./views/Success";
 import { CustomerScreen } from "./views/CustomerScreen";
+import { BranchScreen } from "./views/BranchScreen";
 import { DefaultResizableSheet } from "./components/sheets/DefaultResizableSheet";
 import { IntegrationScreen } from "./views/IntegrationScreen";
 import { PartnerOnboardingScreen } from "./views/PartnerOnboardingScreen";
@@ -22,12 +23,21 @@ import HelpCenter from "./views/HelpCenter.jsx";
 import Authentication from "./views/Authentication.jsx";
 import ChangePassword from "./views/ChangePassword.jsx";
 import HelpCenterLayout from "./components/helpCenter/HelpCenterLayout.jsx";
+import UserManagementScreen from "./views/UserManagementScreen";
+
+import { RepLoginScreen } from "./views/support/RepLoginScreen";
+import RepOtpScreen from "./views/support/RepOtpScreen";
+import RepDashboardScreen from "./views/support/RepDashboardScreen";
+import RepProfileScreen from "./views/support/RepProfileScreen";
+import ShiftMateScreen from "./views/support/ShiftMateScreen";
+import { RepRequireAuth } from "./components/support/RepRequireAuth";
 
 export const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/" element={<LoginScreen />} />
       <Route path="/customers" element={<CustomerScreen />} />
+      <Route path="/branches" element={<BranchScreen />} />
       <Route path="/login/otp" element={<OtpScreen />} />
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/service" element={<ServiceScreen />} />
@@ -44,6 +54,34 @@ export const AppRoutes = () => {
       <Route path="/helpCenter" element= {<HelpCenter/>}/>
       <Route path="/authentication" element= {<Authentication/>}/>
       <Route path="/changePassword" element= {<ChangePassword/>}/>
+      <Route path="/users" element= {<UserManagementScreen/>}/>
+
+      <Route path="/support/login" element={<RepLoginScreen />} />
+      <Route path="/support/login/otp" element={<RepOtpScreen />} />
+      <Route
+        path="/support/dashboard"
+        element={
+          <RepRequireAuth>
+            <RepDashboardScreen />
+          </RepRequireAuth>
+        }
+      />
+      <Route
+        path="/support/profile"
+        element={
+          <RepRequireAuth>
+            <RepProfileScreen />
+          </RepRequireAuth>
+        }
+      />
+      <Route
+        path="/support/shift-mates"
+        element={
+          <RepRequireAuth>
+            <ShiftMateScreen />
+          </RepRequireAuth>
+        }
+      />
     </Routes>
   );
 };

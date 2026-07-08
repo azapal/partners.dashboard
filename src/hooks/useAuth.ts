@@ -1,6 +1,10 @@
 // Authentication hooks using React Query
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useSyncExternalStore } from 'react';
 import { queryClient } from '../lib/queryClient';
+import { partnerService } from '../service/partnerService';
+import { partnerStore, partnerStoreActions } from '../store/client/partner';
+import type { PartnerProfile } from '../service/partnerService';
 
 // Types
 export type LoginCredentials = {
@@ -104,4 +108,33 @@ export const useRegister = () => {
       queryClient.invalidateQueries({ queryKey: authKeys.user() });
     },
   });
+};
+
+export const useSendOtp = () => {
+  return useMutation({
+    mutationFn: (partnerCode: string) => partnerService.sendOtp(partnerCode),
+  });
+};
+
+export const useVerifyOtp = () => {
+  return useMutation({
+    mutationFn: ({ partnerCode, otp }: { partnerCode: string; otp: string }) =>
+      partnerService.verifyOtp(partnerCode, otp),
+    onSuccess: (data) => {
+      if (data?.data) {
+        localStorage.setItem('auth_token', data.data.access);
+        localStorage.setItem('refresh_token', data.data.refresh);
+        partnerStoreActions.setProfile(data.data);
+        queryClient.invalidateQueries({ queryKey: authKeys.user() });
+      }
+    },
+  });
+};
+
+export const usePartnerProfile = (): PartnerProfile | null => {
+  return useSyncExternalStore(
+    partnerStore.subscribe,
+    () => partnerStore.state.profile,
+    () => partnerStore.state.profile,
+  );
 };
