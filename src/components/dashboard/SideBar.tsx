@@ -96,8 +96,16 @@ function SideBar() {
           Branches
         </SidebarButton>
 
+        <SidebarButton to="/transactions" className="ri-exchange-line" isCollapsed={isCollapsed}>
+          Transactions
+        </SidebarButton>
+
         <SidebarButton to="/users" className="ri-group-line" isCollapsed={isCollapsed}>
           Users
+        </SidebarButton>
+
+        <SidebarButton to="/activity-log" className="ri-history-line" isCollapsed={isCollapsed}>
+          Activity Log
         </SidebarButton>
 
         <SidebarButton to="/settings" className="ri-user-settings-line" isCollapsed={isCollapsed}>

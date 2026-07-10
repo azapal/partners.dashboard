@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Read(//private/etc/**)",
-      "Read(//private/etc/paths.d/**)"
+      "Read(//private/etc/paths.d/**)",
+      "Bash(curl -s http://localhost:5002/transactions)",
+      "Bash(curl -s http://localhost:5002/dashboard/performance)",
+      "Bash(npx --yes playwright --version)"
     ],
     "additionalDirectories": [
       "/Users/mac"

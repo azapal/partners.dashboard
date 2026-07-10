@@ -52,11 +52,12 @@ function avatarColor(id: string) {
 const UserManagementScreen: React.FC = () => {
   const [search, setSearch] = useState('');
   const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
   const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
 
   const { data: invites = [], isLoading } = useGetInvites();
-  const { mutate: createInvite } = useCreateInvite();
+  const { mutate: createInvite, isPending: isInviting } = useCreateInvite();
   const { mutate: updateInvite } = useUpdateInvite();
   const { mutate: deleteInvite } = useDeleteInvite();
 
@@ -100,7 +101,11 @@ const UserManagementScreen: React.FC = () => {
   };
 
   const handleInvite = (data: { email: string; first_name: string; last_name: string; branch?: string; invite_role: string }) => {
-    createInvite(data, { onSuccess: () => setIsInviteOpen(false) });
+    setInviteError(null);
+    createInvite(data, {
+      onSuccess: () => setIsInviteOpen(false),
+      onError: (err) => setInviteError(err instanceof Error ? err.message : 'Failed to send invite'),
+    });
   };
 
   const handleUpdate = (id: string, data: Partial<User>) => {
@@ -142,7 +147,7 @@ const UserManagementScreen: React.FC = () => {
               Bulk Invite
             </button>
             <button
-              onClick={() => setIsInviteOpen(true)}
+              onClick={() => { setInviteError(null); setIsInviteOpen(true); }}
               className="flex items-center gap-2 bg-[#F14724] text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#d63d1e] transition-colors"
             >
               <i className="ri-user-add-line text-base" />
@@ -280,7 +285,13 @@ const UserManagementScreen: React.FC = () => {
         </div>
       </div>
 
-      <AddNewUserModal isOpen={isInviteOpen} onClose={() => setIsInviteOpen(false)} onInvite={handleInvite} />
+      <AddNewUserModal
+        isOpen={isInviteOpen}
+        onClose={() => setIsInviteOpen(false)}
+        onInvite={handleInvite}
+        error={inviteError}
+        isSubmitting={isInviting}
+      />
       <BulkInviteModal isOpen={isBulkOpen} onClose={() => setIsBulkOpen(false)} />
       {editUser && (
         <EditUserModal

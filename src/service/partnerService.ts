@@ -237,6 +237,23 @@ const getHeaders = (contentType = 'application/json'): HeadersInit => {
 };
 
 /**
+ * Extracts the first field-level validation message from a DRF-style error
+ * body, e.g. { data: { email: ["already exists."] } } -> "already exists."
+ * These are more specific than the generic top-level `message`.
+ */
+const extractFieldError = (data: unknown): string | null => {
+  const errors = (data as Record<string, unknown> | undefined)?.data;
+  if (errors && typeof errors === 'object' && !Array.isArray(errors)) {
+    for (const value of Object.values(errors as Record<string, unknown>)) {
+      if (Array.isArray(value) && typeof value[0] === 'string') {
+        return value[0];
+      }
+    }
+  }
+  return null;
+};
+
+/**
  * Handles API errors and throws descriptive error messages
  */
 const handleError = async (response: Response): Promise<never> => {
@@ -246,7 +263,7 @@ const handleError = async (response: Response): Promise<never> => {
   try {
     if (contentType?.includes('application/json')) {
       const data = await response.json();
-      errorMessage = data.message || data.detail || data.error || errorMessage;
+      errorMessage = extractFieldError(data) || data.message || data.detail || data.error || errorMessage;
     } else {
       const text = await response.text();
       errorMessage = text || errorMessage;
@@ -259,84 +276,41 @@ const handleError = async (response: Response): Promise<never> => {
 };
 
 /**
- * Attempts to refresh the access token using the stored refresh token.
- * Returns true if successful, false if the refresh token is also expired.
- * On failure, clears all auth state so the user is effectively logged out.
+ * Deletes every cookie readable from document.cookie (HttpOnly cookies can't
+ * be touched from JS regardless, by design). Uses the standard expiry-based
+ * deletion since cookieStore.clear() doesn't exist and isn't supported
+ * outside Chromium browsers.
  */
-const tryRefreshToken = async (): Promise<boolean> => {
-  const refresh = localStorage.getItem('refresh_token');
-  if (!refresh) return false;
-
-  try {
-    const res = await fetch(`${API_BASE_URL}/token/refresh/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh }),
-    });
-
-    if (!res.ok) {
-      clearAuthState();
-      return false;
+const clearAllCookies = () => {
+  document.cookie.split(';').forEach((cookie) => {
+    const name = cookie.split('=')[0].trim();
+    if (name) {
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
     }
-
-    const data = await res.json();
-    const newAccess = data.access;
-    if (!newAccess) {
-      clearAuthState();
-      return false;
-    }
-
-    localStorage.setItem('auth_token', newAccess);
-    return true;
-  } catch {
-    clearAuthState();
-    return false;
-  }
+  });
 };
 
 const clearAuthState = () => {
   localStorage.removeItem('auth_token');
   localStorage.removeItem('refresh_token');
   localStorage.removeItem('partner_profile');
+  clearAllCookies();
   // Redirect to login
   window.location.href = '/';
 };
 
-const isTokenExpiredError = (body: unknown): boolean => {
-  if (!body || typeof body !== 'object') return false;
-  const msg: string = (body as any).detail ?? (body as any).message ?? '';
-  return msg.toLowerCase().includes('token') && (
-    msg.toLowerCase().includes('expired') ||
-    msg.toLowerCase().includes('invalid')
-  );
-};
-
 /**
- * fetch wrapper that automatically retries once after refreshing the access
- * token when the server responds with a token-expired 401.
+ * fetch wrapper that treats any 401 as a genuinely expired/invalid session —
+ * it clears auth state and forces the user back to login immediately,
+ * rather than attempting a silent refresh.
  */
 const fetchWithAuth = async (url: string, options: RequestInit): Promise<Response> => {
   const res = await fetch(url, { ...options, headers: getHeaders(
     (options.headers as Record<string, string>)?.['Content-Type'] ?? 'application/json'
   )});
 
-  if (res.status === 401) {
-    // Clone before reading body (body can only be consumed once)
-    const cloned = res.clone();
-    try {
-      const body = await cloned.json();
-      if (isTokenExpiredError(body)) {
-        const refreshed = await tryRefreshToken();
-        if (refreshed) {
-          // Retry the original request with the new token
-          return fetch(url, { ...options, headers: getHeaders(
-            (options.headers as Record<string, string>)?.['Content-Type'] ?? 'application/json'
-          )});
-        }
-      }
-    } catch {
-      // Could not parse body — fall through to return original response
-    }
+  if (res.status === 401 || res.status === 403) {
+    clearAuthState();
   }
 
   return res;
@@ -649,7 +623,7 @@ export interface ServiceContent {
 export interface ServiceOption {
   id: number;
   label: string;
-  element_type: 'checkbox' | 'text_input' | 'select' | 'radio' | string;
+  element_type: 'checkbox' | 'text_input' | 'select' | 'select_dropdown' | 'radio' | string;
   placeholder: string | null;
   required: boolean;
   order: number;
@@ -692,7 +666,8 @@ export const branchPartnerService = {
   async getById(id: string): Promise<BranchPartner> {
     const res = await fetchWithAuth(`${BRANCH_ENDPOINT}/${id}`, {});
     if (!res.ok) await handleError(res);
-    return res.json();
+    const raw = await res.json();
+    return raw.data ?? raw;
   },
 
   async create(payload: CreateBranchPayload): Promise<BranchPartner> {
@@ -716,5 +691,253 @@ export const branchPartnerService = {
   async delete(id: string): Promise<void> {
     const res = await fetchWithAuth(`${BRANCH_ENDPOINT}/${id}`, { method: 'DELETE' });
     if (!res.ok) await handleError(res);
+  },
+};
+
+// ── Dashboard Stats ───────────────────────────────────────────────────────────
+
+export interface DashboardOrderStats {
+  total: number;
+  pending: number;
+  completed: number;
+  failed: number;
+  total_customers: number;
+}
+
+export interface DashboardBranchManager {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  status: boolean;
+  invite_role: number;
+}
+
+export interface DashboardBranch {
+  id: number;
+  branch_managers: DashboardBranchManager[];
+  branch_code: string;
+  country: string;
+  address: string;
+  state: string;
+  lga: string;
+  lat: string;
+  lon: string;
+  status: boolean;
+  created_at: string;
+  updated_at: string;
+  partner: number;
+}
+
+export interface DashboardBranchStats {
+  total: number;
+  first_three: DashboardBranch[];
+}
+
+export interface DashboardServiceStats {
+  total_active: number;
+}
+
+export interface DashboardStats {
+  orders: DashboardOrderStats;
+  branches: DashboardBranchStats;
+  services: DashboardServiceStats;
+  monthly_delivery_analytics: unknown[];
+}
+
+export const dashboardService = {
+  async getStats(): Promise<DashboardStats> {
+    const res = await fetchWithAuth(`${API_BASE_URL}/dashboard/stats`, {});
+    if (!res.ok) await handleError(res);
+    const raw: ApiResponse<DashboardStats> = await res.json();
+    return raw.data;
+  },
+};
+
+// ── Transactions ──────────────────────────────────────────────────────────────
+
+export type TransactionStatus = 'pending' | 'approved' | 'shipped' | 'delivered' | 'canceled' | string;
+export type TransactionPaymentStatus = 'approved' | 'pending' | 'failed' | 'reversed' | 'refund' | string;
+
+export interface Transaction {
+  id: number;
+  sender_id: string;
+  status: TransactionStatus;
+  payment_status: TransactionPaymentStatus;
+  total_amount: number;
+  delivery_method: string;
+  branch: number;
+  created_at: string;
+  [key: string]: unknown;
+}
+
+export interface TransactionsQuery {
+  status?: TransactionStatus;
+  payment_status?: TransactionPaymentStatus;
+  page?: number;
+  page_size?: number;
+}
+
+export interface TransactionsPage {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: Transaction[];
+}
+
+export const transactionService = {
+  async getAll(query: TransactionsQuery = {}): Promise<TransactionsPage> {
+    const params = new URLSearchParams();
+    if (query.status) params.set('status', query.status);
+    if (query.payment_status) params.set('payment_status', query.payment_status);
+    if (query.page) params.set('page', String(query.page));
+    if (query.page_size) params.set('page_size', String(query.page_size));
+    const qs = params.toString();
+
+    const res = await fetchWithAuth(
+      `${PARTNER_ENDPOINT}/transactions${qs ? `?${qs}` : ''}`,
+      {}
+    );
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+
+    return {
+      count: raw.count ?? 0,
+      next: raw.next ?? null,
+      previous: raw.previous ?? null,
+      results: extractList<Transaction>(raw.results),
+    };
+  },
+};
+
+// ── Partner Service Selection ─────────────────────────────────────────────────
+
+export const partnerServicesService = {
+  async getSelected(): Promise<Service[]> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/services`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<Service>(await res.json());
+  },
+
+  async updateSelected(serviceIds: number[]): Promise<Service[]> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/services`, {
+      method: 'PUT',
+      body: JSON.stringify({ service_ids: serviceIds }),
+    });
+    if (!res.ok) await handleError(res);
+    return extractList<Service>(await res.json());
+  },
+};
+
+// ── Partner Activity Logs ──────────────────────────────────────────────────────
+
+export type LogAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'VIEW' | string;
+export type ActorType = 'partner' | 'employee' | 'user' | string;
+
+export interface PartnerLog {
+  id: number;
+  user_id: string;
+  actor_type: ActorType;
+  action: LogAction;
+  level: string;
+  resource: string;
+  object_id: string | null;
+  payload: unknown;
+  ip_address: string;
+  partner: number;
+  branch: number | null;
+  created_at: string;
+}
+
+export interface PartnerLogsQuery {
+  branch_id?: string | number;
+  action?: LogAction;
+  resource?: string;
+  actor_type?: ActorType;
+  user_id?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export interface PartnerLogsPage {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: PartnerLog[];
+}
+
+export const partnerLogService = {
+  async getAll(query: PartnerLogsQuery = {}): Promise<PartnerLogsPage> {
+    const params = new URLSearchParams();
+    if (query.branch_id) params.set('branch_id', String(query.branch_id));
+    if (query.action) params.set('action', query.action);
+    if (query.resource) params.set('resource', query.resource);
+    if (query.actor_type) params.set('actor_type', query.actor_type);
+    if (query.user_id) params.set('user_id', query.user_id);
+    if (query.page) params.set('page', String(query.page));
+    if (query.page_size) params.set('page_size', String(query.page_size));
+    const qs = params.toString();
+
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/logs${qs ? `?${qs}` : ''}`, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+
+    return {
+      count: raw.count ?? 0,
+      next: raw.next ?? null,
+      previous: raw.previous ?? null,
+      results: extractList<PartnerLog>(raw.results),
+    };
+  },
+};
+
+// ── Partner Sessions ────────────────────────────────────────────────────────────
+
+export interface PartnerSession {
+  id: number;
+  actor_type: ActorType;
+  partner: number;
+  branch: number | null;
+  employee: number | null;
+  ip_address: string;
+  user_agent: string;
+  created_at: string;
+}
+
+export interface PartnerSessionsQuery {
+  branch_id?: string | number;
+  actor_type?: ActorType;
+  employee_id?: string | number;
+  page?: number;
+  page_size?: number;
+}
+
+export interface PartnerSessionsPage {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: PartnerSession[];
+}
+
+export const partnerSessionService = {
+  async getAll(query: PartnerSessionsQuery = {}): Promise<PartnerSessionsPage> {
+    const params = new URLSearchParams();
+    if (query.branch_id) params.set('branch_id', String(query.branch_id));
+    if (query.actor_type) params.set('actor_type', query.actor_type);
+    if (query.employee_id) params.set('employee_id', String(query.employee_id));
+    if (query.page) params.set('page', String(query.page));
+    if (query.page_size) params.set('page_size', String(query.page_size));
+    const qs = params.toString();
+
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/sessions${qs ? `?${qs}` : ''}`, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+
+    return {
+      count: raw.count ?? 0,
+      next: raw.next ?? null,
+      previous: raw.previous ?? null,
+      results: extractList<PartnerSession>(raw.results),
+    };
   },
 };

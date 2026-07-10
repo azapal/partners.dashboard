@@ -1,14 +1,39 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DashboardLayout } from '../layouts/DashboardLayout';
-import { useGetServices } from '../hooks/useServices';
+import { useGetServices, useGetPartnerServices, useUpdatePartnerServices } from '../hooks/useServices';
 import type { ServiceOption } from '../service/partnerService';
+import { SearchableSelect } from '../components/inputs/SearchableSelect';
 
 type Responses = Record<number, string | string[]>;
 
 export const ServiceScreen = () => {
   const { data: services = [], isLoading } = useGetServices();
+  const { data: partnerServices, isLoading: isLoadingSelection } = useGetPartnerServices();
+  const updatePartnerServices = useUpdatePartnerServices();
+
   const [openId, setOpenId] = useState<number | null>(null);
   const [responses, setResponses] = useState<Responses>({});
+  const [showPicker, setShowPicker] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle');
+
+  useEffect(() => {
+    if (partnerServices) setSelectedIds(partnerServices.map((s) => s.id));
+  }, [partnerServices]);
+
+  const toggleSelected = (id: number) => {
+    setSaveState('idle');
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]
+    );
+  };
+
+  const saveSelection = () => {
+    updatePartnerServices.mutate(selectedIds, {
+      onSuccess: () => setSaveState('saved'),
+      onError: () => setSaveState('error'),
+    });
+  };
 
   const activeServices = services.filter((s) => s.is_active);
 
@@ -71,6 +96,26 @@ export const ServiceScreen = () => {
       );
     }
 
+    if (opt.element_type === 'select_dropdown') {
+      const sortedContents = [...opt.contents].sort((a, b) => a.order - b.order);
+      return (
+        <div key={opt.id}>
+          <SearchableSelect
+            label={
+              opt.required && opt.label ? `${opt.label} *` : opt.label ?? ''
+            }
+            options={sortedContents.map((c) => ({
+              label: c.display_text,
+              value: c.value,
+            }))}
+            value={(responses[opt.id] as string | undefined) ?? ''}
+            onChange={(value) => setTextValue(opt.id, value)}
+            placeholder={opt.placeholder ?? 'Search…'}
+          />
+        </div>
+      );
+    }
+
     if (opt.element_type === 'text_input') {
       return (
         <div key={opt.id} className="space-y-1.5">
@@ -119,12 +164,91 @@ export const ServiceScreen = () => {
   return (
     <DashboardLayout>
       <div className="w-full flex flex-col gap-5">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Services</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Complete your service details for customer reference.
-          </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Services</h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Complete your service details for customer reference.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowPicker((prev) => !prev)}
+            className="flex items-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors shrink-0"
+          >
+            <i className="ri-list-check-2 text-base" />
+            <span className="hidden sm:inline">Manage Services</span>
+          </button>
         </div>
+
+        {showPicker && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <p className="text-sm font-semibold text-gray-800 mb-1">Select the services you offer</p>
+            <p className="text-xs text-gray-400 mb-4">
+              Only selected services will be shown to customers.
+            </p>
+
+            {isLoadingSelection ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-11 rounded-lg bg-gray-50 animate-pulse" />
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-1 mb-4">
+                {services.map((service) => (
+                  <label
+                    key={service.id}
+                    className={`flex items-center gap-3 p-2.5 rounded-xl transition-colors ${
+                      service.is_active
+                        ? 'cursor-pointer hover:bg-orange-50/50'
+                        : 'opacity-50 cursor-not-allowed'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(service.id)}
+                      disabled={!service.is_active}
+                      onChange={() => toggleSelected(service.id)}
+                      className="w-4 h-4 rounded accent-[#F14724] shrink-0"
+                    />
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm text-gray-700">{service.name}</span>
+                      {service.description && (
+                        <span className="block text-xs text-gray-400 truncate">{service.description}</span>
+                      )}
+                    </span>
+                    {!service.is_active && (
+                      <span className="text-[10px] font-semibold text-gray-400 shrink-0">Inactive</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={saveSelection}
+                disabled={updatePartnerServices.isPending}
+                className="flex items-center gap-2 bg-[#F14724] hover:bg-[#d63d1e] text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
+              >
+                {updatePartnerServices.isPending ? (
+                  <i className="ri-loader-4-line animate-spin text-base" />
+                ) : (
+                  <i className="ri-check-line text-base" />
+                )}
+                Save Selection
+              </button>
+              {saveState === 'saved' && (
+                <span className="text-xs font-medium text-green-600">Saved.</span>
+              )}
+              {saveState === 'error' && (
+                <span className="text-xs font-medium text-red-500">Couldn't save. Try again.</span>
+              )}
+            </div>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="space-y-3">

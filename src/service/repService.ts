@@ -1,5 +1,6 @@
 import config from '../../config/config';
 import type { ApiResponse, PartnerResponse } from './partnerService';
+import { repStoreActions } from '../store/client/rep';
 
 // ============================================================================
 // Types
@@ -20,6 +21,12 @@ export interface RepInviteRole {
   name: string;
 }
 
+export interface RepInvitingPartner {
+  id: number;
+  partner_name: string;
+  partner_code: string;
+}
+
 export interface RepProfile {
   id: number;
   first_name: string;
@@ -28,6 +35,10 @@ export interface RepProfile {
   status?: boolean;
   branch: RepBranch;
   invite_role: RepInviteRole;
+  // Present on branch-scoped logins (manager/Super Admin picking a branch to
+  // log into) — the branch above reflects that chosen branch, not necessarily
+  // the employee's home branch.
+  inviting_partner?: RepInvitingPartner;
   access: string;
   refresh: string;
 }
@@ -115,6 +126,21 @@ const getRepHeaders = (): Record<string, string> => {
   };
 };
 
+/**
+ * fetch wrapper that treats any 401 as a genuinely expired/invalid session —
+ * it clears the rep/branch session so RepRequireAuth forces the user back
+ * to login immediately, rather than attempting a silent refresh.
+ */
+const fetchWithRepAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  const res = await fetch(url, { ...options, headers: { ...getRepHeaders(), ...(options.headers as Record<string, string> | undefined) } });
+
+  if (res.status === 401) {
+    repStoreActions.clearProfile();
+  }
+
+  return res;
+};
+
 const handleError = async (response: Response): Promise<never> => {
   const contentType = response.headers.get('content-type');
   let errorMessage = `Something went wrong (HTTP ${response.status}). Please try again.`;
@@ -160,6 +186,36 @@ export const repAuthService = {
 };
 
 // ============================================================================
+// Branch-scoped auth — POST /branch/otp/send + /branch/verify-otp
+// For branch managers and Super Admins logging into a specific branch
+// (not necessarily their home branch). No "support" role restriction.
+// ============================================================================
+
+export const branchAuthService = {
+  async sendOtp(email: string, branchCode: string): Promise<PartnerResponse> {
+    const response = await fetch(`${API_BASE_URL}/branch/otp/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, branch_code: branchCode }),
+    });
+
+    if (!response.ok) await handleError(response);
+    return response.json();
+  },
+
+  async verifyOtp(email: string, otp: string, branchCode: string): Promise<ApiResponse<RepProfile>> {
+    const response = await fetch(`${API_BASE_URL}/branch/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp, branch_code: branchCode }),
+    });
+
+    if (!response.ok) await handleError(response);
+    return response.json();
+  },
+};
+
+// ============================================================================
 // WhatsApp conversations — real endpoints (Employee JWT)
 // GET  /whatsapp/conversations
 // GET  /whatsapp/conversations/<phone>
@@ -168,9 +224,7 @@ export const repAuthService = {
 
 export const repConversationService = {
   async getAll(): Promise<WaConversation[]> {
-    const response = await fetch(`${API_BASE_URL}/whatsapp/conversations`, {
-      headers: getRepHeaders(),
-    });
+    const response = await fetchWithRepAuth(`${API_BASE_URL}/whatsapp/conversations`);
 
     if (!response.ok) await handleError(response);
     const json: ApiResponse<WaConversation[]> = await response.json();
@@ -178,9 +232,8 @@ export const repConversationService = {
   },
 
   async getDetail(phone: string): Promise<WaConversationDetail> {
-    const response = await fetch(
+    const response = await fetchWithRepAuth(
       `${API_BASE_URL}/whatsapp/conversations/${encodeURIComponent(phone)}`,
-      { headers: getRepHeaders() },
     );
 
     if (!response.ok) await handleError(response);
@@ -189,9 +242,9 @@ export const repConversationService = {
   },
 
   async resolve(phone: string): Promise<void> {
-    const response = await fetch(
+    const response = await fetchWithRepAuth(
       `${API_BASE_URL}/whatsapp/conversations/${encodeURIComponent(phone)}`,
-      { method: 'POST', headers: getRepHeaders() },
+      { method: 'POST' },
     );
 
     if (!response.ok) await handleError(response);

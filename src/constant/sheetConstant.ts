@@ -7,6 +7,8 @@ import {UserManagement} from "../components/modal/UserManagement";
 import {UserDetailSheet} from "../components/modal/UserDetailSheet";
 import {BranchDetailSheet} from "../components/modal/BranchDetailSheet";
 import {OrderConversationSheet} from "../components/modal/OrderConversationSheet";
+import {LogDetailSheet} from "../components/modal/LogDetailSheet";
+import {SessionDetailSheet} from "../components/modal/SessionDetailSheet";
 
 export const sheetConstant:any = {
     deliveriesModal:DeliveriesModal,
@@ -18,4 +20,6 @@ export const sheetConstant:any = {
     userDetailSheet:UserDetailSheet,
     branchDetailSheet:BranchDetailSheet,
     orderConversationSheet:OrderConversationSheet,
+    logDetailSheet:LogDetailSheet,
+    sessionDetailSheet:SessionDetailSheet,
 }

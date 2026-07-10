@@ -10,14 +10,16 @@ const tabs: TabItem[] = [
   { to: "/dashboard", icon: "ri-home-6-line", label: "Dashboard" },
   { to: "/service", icon: "ri-task-line", label: "Services" },
   { to: "/branches", icon: "ri-git-branch-line", label: "Branches" },
+  { to: "/transactions", icon: "ri-exchange-line", label: "Transactions" },
   { to: "/users", icon: "ri-group-line", label: "Users" },
+  { to: "/activity-log", icon: "ri-history-line", label: "Activity" },
   { to: "/settings", icon: "ri-user-settings-line", label: "Settings" },
 ];
 
 export const BottomTab = () => {
   return (
     <div className="w-full flex md:hidden items-center justify-center fixed bottom-0 right-0 left-0 pb-safe z-30">
-      <nav className="flex bg-white/90 backdrop-blur-sm border border-gray-100 gap-1 p-1.5 mx-4 mb-3 rounded-2xl shadow-lg w-fit">
+      <nav className="flex bg-white/90 backdrop-blur-sm border border-gray-100 gap-1 p-1.5 mx-4 mb-3 rounded-2xl shadow-lg w-fit max-w-full overflow-x-auto">
         {tabs.map(({ to, icon, label }) => (
           <NavLink
             key={to}
