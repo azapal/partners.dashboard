@@ -10,9 +10,11 @@ interface EditUserModalProps {
   onClose: () => void;
   onUpdate: (id: string, data: Partial<User>) => void;
   user: User | null;
+  error?: string | null;
+  isSubmitting?: boolean;
 }
 
-export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, onUpdate, user }) => {
+export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, onUpdate, user, error, isSubmitting }) => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
@@ -61,6 +63,13 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, o
   return (
     <DefaultModal isOpen={isOpen} onClose={onClose} title={`Edit ${user.first_name} ${user.last_name}`}>
       <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="flex items-center gap-2 bg-red-50 text-red-600 rounded-xl px-4 py-3 text-sm">
+            <i className="ri-error-warning-line text-base shrink-0" />
+            {error}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <Field label="First Name" value={firstName} onChange={setFirstName} placeholder="First name" required />
           <Field label="Last Name" value={lastName} onChange={setLastName} placeholder="Last name" required />
@@ -96,15 +105,18 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, o
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+            disabled={isSubmitting}
+            className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="px-5 py-2.5 text-sm font-semibold text-white bg-[#F14724] hover:bg-[#d63d1e] rounded-xl transition-colors"
+            disabled={isSubmitting}
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-[#F14724] hover:bg-[#d63d1e] rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Save Changes
+            {isSubmitting && <i className="ri-loader-4-line animate-spin text-base" />}
+            {isSubmitting ? 'Saving…' : 'Save Changes'}
           </button>
         </div>
       </form>

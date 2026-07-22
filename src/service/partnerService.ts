@@ -764,9 +764,11 @@ export interface Transaction {
   sender_id: string;
   status: TransactionStatus;
   payment_status: TransactionPaymentStatus;
-  total_amount: number;
+  total_amount: number | null;
   delivery_method: string;
   branch: number;
+  driver: number | null;
+  confirmed_at: string | null;
   created_at: string;
   [key: string]: unknown;
 }
@@ -807,6 +809,128 @@ export const transactionService = {
       previous: raw.previous ?? null,
       results: extractList<Transaction>(raw.results),
     };
+  },
+};
+
+// ── Logistics network (transactions/all + transactions/pairable) ──────────────
+// Richer sibling of `transactionService` above — same underlying orders, but
+// `driver`/`branch`/the fulfilling partner come back as full objects here
+// (not bare ids), plus per-stop lat/lon. Kept as a separate type from
+// `Transaction` deliberately: `transactionService.getAll` (plain
+// `/partner/transactions`) and the rep portal's `repOrderService.getAll`
+// haven't been confirmed to return this richer shape, so widening the
+// shared `Transaction` type would be guessing at their contract.
+
+export interface TransactionParty {
+  id: number;
+  name: string;
+  phone: string | null;
+  is_verified: boolean;
+  rating: number | null;
+}
+
+export interface TransactionBranchInfo {
+  id: number;
+  branch_code: string;
+  state: string;
+  is_verified: boolean;
+  rating: number | null;
+}
+
+export interface TransactionStop {
+  id: number;
+  stop_type: 'pickup' | 'delivery' | string;
+  sequence?: number;
+  address: string;
+  // Live data confirms these are frequently null (e.g. shared-location or
+  // manually-typed addresses that never got geocoded/reverse-geocoded) —
+  // never assume presence without a guard.
+  state: string | null;
+  country: string | null;
+  lat: number | null;
+  lon: number | null;
+  created_at?: string;
+}
+
+export interface LogisticsTransaction {
+  id: number;
+  sender_id: string;
+  status: TransactionStatus;
+  payment_status: TransactionPaymentStatus;
+  total_amount: number | null;
+  reference?: string | null;
+  // Named for the underlying DB column, but this is the fulfilling partner
+  // for the order, not the sender/dispatcher. Null until a partner picks up
+  // the order.
+  dispatch_business_id_no: TransactionParty | null;
+  vendor_business_id_no?: TransactionParty | null;
+  branch: TransactionBranchInfo | null;
+  driver: TransactionParty | null;
+  stops: TransactionStop[];
+  created_at: string;
+  updated_at?: string;
+  pickup_code?: string | null;
+  travel_mode?: string | null;
+  [key: string]: unknown;
+}
+
+export interface LogisticsTransactionsQuery {
+  country?: string;
+  state?: string;
+  status?: TransactionStatus;
+  payment_status?: TransactionPaymentStatus;
+  confirmed?: boolean;
+  page?: number;
+  page_size?: number;
+}
+
+export interface LogisticsTransactionsPage {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: LogisticsTransaction[];
+}
+
+export interface PairableGroup {
+  country: string;
+  state: string;
+  order_count: number;
+  orders: LogisticsTransaction[];
+}
+
+const buildLogisticsQuery = (query: LogisticsTransactionsQuery): URLSearchParams => {
+  const params = new URLSearchParams();
+  if (query.country) params.set('country', query.country);
+  if (query.state) params.set('state', query.state);
+  if (query.status) params.set('status', query.status);
+  if (query.payment_status) params.set('payment_status', query.payment_status);
+  if (query.confirmed != null) params.set('confirmed', String(query.confirmed));
+  if (query.page) params.set('page', String(query.page));
+  if (query.page_size) params.set('page_size', String(query.page_size));
+  return params;
+};
+
+export const logisticsService = {
+  async getAll(query: LogisticsTransactionsQuery = {}): Promise<LogisticsTransactionsPage> {
+    const qs = buildLogisticsQuery(query).toString();
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/transactions/all${qs ? `?${qs}` : ''}`, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+
+    return {
+      count: raw.count ?? 0,
+      next: raw.next ?? null,
+      previous: raw.previous ?? null,
+      results: extractList<LogisticsTransaction>(raw.results),
+    };
+  },
+
+  async getPairable(query: LogisticsTransactionsQuery = {}): Promise<PairableGroup[]> {
+    const qs = buildLogisticsQuery(query).toString();
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/transactions/pairable${qs ? `?${qs}` : ''}`, {});
+    if (!res.ok) await handleError(res);
+    const json: ApiResponse<{ groups: PairableGroup[] }> = await res.json();
+    return json.data?.groups ?? [];
   },
 };
 

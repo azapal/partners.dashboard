@@ -1,39 +1,48 @@
 import React, { useRef, useState } from 'react';
 import { DefaultModal } from './DefaultModal';
-import { useCreateBranch } from '../../hooks/useBranchPartner';
 import { parseSpreadsheet, downloadTemplate } from '../../lib/parseSpreadsheet';
+import { CARGO_TYPES, FREQUENCIES } from '../../lib/data/logisticsNetwork';
+import type { CargoType, Frequency, LogisticsRoute } from '../../lib/data/logisticsNetwork';
 
-interface BulkBranchImportModalProps {
+interface BulkRouteImportModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onImport: (routes: LogisticsRoute[]) => void;
 }
 
 type RowStatus = 'pending' | 'success' | 'error';
 
 interface PreviewRow {
-  branch_manager: string;
-  branch_code: string;
-  country: string;
-  address: string;
-  lat: string;
-  lon: string;
+  business_name: string;
+  origin_state: string;
+  origin_address: string;
+  destination_state: string;
+  destination_address: string;
+  cargo_type: string;
+  frequency: string;
+  preferred_date: string;
   status: RowStatus;
   error?: string;
 }
 
-const REQUIRED_HEADERS = ['branch_manager', 'branch_code', 'country', 'address'];
-// lat/lon are optional here — a bulk import is often done without a
-// pre-geocoded address; the branch can be edited afterward to pin a location.
-const TEMPLATE_HEADERS = ['branch_manager', 'branch_code', 'country', 'address', 'lat', 'lon'];
+const REQUIRED_HEADERS = ['business_name', 'origin_state', 'origin_address', 'destination_state', 'destination_address'];
+const TEMPLATE_HEADERS = [
+  'business_name',
+  'origin_state',
+  'origin_address',
+  'destination_state',
+  'destination_address',
+  'cargo_type',
+  'frequency',
+  'preferred_date',
+];
 
-export const BulkBranchImportModal: React.FC<BulkBranchImportModalProps> = ({ isOpen, onClose }) => {
+export const BulkRouteImportModal: React.FC<BulkRouteImportModalProps> = ({ isOpen, onClose, onImport }) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<PreviewRow[]>([]);
   const [parseError, setParseError] = useState('');
   const [importing, setImporting] = useState(false);
   const [done, setDone] = useState(false);
-
-  const { mutateAsync: createBranch } = useCreateBranch();
 
   const handleFile = async (file: File) => {
     setParseError('');
@@ -51,12 +60,14 @@ export const BulkBranchImportModal: React.FC<BulkBranchImportModalProps> = ({ is
       }
 
       const preview: PreviewRow[] = raw.map((r) => ({
-        branch_manager: r.branch_manager?.trim() ?? '',
-        branch_code: r.branch_code?.trim() ?? '',
-        country: r.country?.trim() ?? '',
-        address: r.address?.trim() ?? '',
-        lat: r.lat?.trim() ?? '',
-        lon: r.lon?.trim() ?? '',
+        business_name: r.business_name?.trim() ?? '',
+        origin_state: r.origin_state?.trim() ?? '',
+        origin_address: r.origin_address?.trim() ?? '',
+        destination_state: r.destination_state?.trim() ?? '',
+        destination_address: r.destination_address?.trim() ?? '',
+        cargo_type: r.cargo_type?.trim() ?? '',
+        frequency: r.frequency?.trim() ?? '',
+        preferred_date: r.preferred_date?.trim() ?? '',
         status: 'pending',
       }));
       setRows(preview);
@@ -68,42 +79,55 @@ export const BulkBranchImportModal: React.FC<BulkBranchImportModalProps> = ({ is
   const handleImport = async () => {
     setImporting(true);
     const updated = [...rows];
+    const created: LogisticsRoute[] = [];
 
     for (let i = 0; i < updated.length; i++) {
       const row = updated[i];
-      if (!row.branch_manager || !row.branch_code) {
-        updated[i] = { ...row, status: 'error', error: 'branch_manager and branch_code are required' };
+      // Simulated per-row processing delay — dummy import, no backend yet.
+      await new Promise((r) => setTimeout(r, 250));
+
+      if (!row.business_name || !row.origin_state || !row.destination_state || !row.origin_address || !row.destination_address) {
+        updated[i] = { ...row, status: 'error', error: 'Missing required fields' };
         setRows([...updated]);
         continue;
       }
-      try {
-        await createBranch({
-          branch_manager: row.branch_manager,
-          branch_code: row.branch_code,
-          country: row.country,
-          address: row.address,
-          lat: row.lat,
-          lon: row.lon,
-          status: true,
-        });
-        updated[i] = { ...row, status: 'success' };
-      } catch (e: any) {
-        updated[i] = { ...row, status: 'error', error: e.message ?? 'Failed' };
-      }
+
+      const route: LogisticsRoute = {
+        id: `RT-${Math.floor(1000 + Math.random() * 9000)}`,
+        businessName: row.business_name,
+        originState: row.origin_state,
+        originAddress: row.origin_address,
+        destinationState: row.destination_state,
+        destinationAddress: row.destination_address,
+        cargoType: (CARGO_TYPES.find((c) => c === row.cargo_type) as CargoType) ?? 'General Goods',
+        frequency: (FREQUENCIES.find((f) => f === row.frequency) as Frequency) ?? 'One-time',
+        preferredDate: row.preferred_date || new Date().toISOString().slice(0, 10),
+        status: 'Active',
+        createdAt: new Date().toISOString().slice(0, 10),
+      };
+      created.push(route);
+      updated[i] = { ...row, status: 'success' };
       setRows([...updated]);
     }
 
+    if (created.length > 0) onImport(created);
     setImporting(false);
     setDone(true);
+  };
+
+  const handleClose = () => {
+    setRows([]);
+    setParseError('');
+    setDone(false);
+    onClose();
   };
 
   const successCount = rows.filter((r) => r.status === 'success').length;
   const errorCount = rows.filter((r) => r.status === 'error').length;
 
   return (
-    <DefaultModal isOpen={isOpen} onClose={onClose} title="Bulk Import Branches">
+    <DefaultModal isOpen={isOpen} onClose={handleClose} title="Bulk Import Routes" subtitle="Upload multiple departure and arrival routes at once">
       <div className="space-y-4">
-        {/* Template download */}
         <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
           <div>
             <p className="text-sm font-medium text-gray-800">Download template</p>
@@ -111,15 +135,14 @@ export const BulkBranchImportModal: React.FC<BulkBranchImportModalProps> = ({ is
           </div>
           <button
             type="button"
-            onClick={() => downloadTemplate(TEMPLATE_HEADERS, 'branch_template.xlsx')}
-            className="flex items-center gap-1.5 text-sm font-semibold text-[#F14724] hover:underline"
+            onClick={() => downloadTemplate(TEMPLATE_HEADERS, 'route_template.xlsx')}
+            className="flex items-center gap-1.5 text-sm font-semibold text-[#F14724] hover:underline shrink-0"
           >
             <i className="ri-download-2-line text-base" />
             Template
           </button>
         </div>
 
-        {/* Drop zone */}
         <div
           className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-gray-400 transition-colors"
           onClick={() => fileRef.current?.click()}
@@ -145,7 +168,6 @@ export const BulkBranchImportModal: React.FC<BulkBranchImportModalProps> = ({ is
           </div>
         )}
 
-        {/* Preview table */}
         {rows.length > 0 && (
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
@@ -155,28 +177,18 @@ export const BulkBranchImportModal: React.FC<BulkBranchImportModalProps> = ({ is
               <table className="w-full text-xs">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="text-left px-3 py-2 text-gray-500 font-semibold">Manager</th>
-                    <th className="text-left px-3 py-2 text-gray-500 font-semibold">Code</th>
-                    <th className="text-left px-3 py-2 text-gray-500 font-semibold">Country</th>
-                    <th className="text-left px-3 py-2 text-gray-500 font-semibold">Address</th>
-                    <th className="text-left px-3 py-2 text-gray-500 font-semibold">Location</th>
+                    <th className="text-left px-3 py-2 text-gray-500 font-semibold">Business</th>
+                    <th className="text-left px-3 py-2 text-gray-500 font-semibold">Origin</th>
+                    <th className="text-left px-3 py-2 text-gray-500 font-semibold">Destination</th>
                     <th className="text-left px-3 py-2 text-gray-500 font-semibold">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row, i) => (
                     <tr key={i} className="border-t border-gray-50">
-                      <td className="px-3 py-2 text-gray-700">{row.branch_manager || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700 font-mono">{row.branch_code || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700">{row.country || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700 truncate max-w-[100px]">{row.address || '—'}</td>
-                      <td className="px-3 py-2">
-                        {row.lat && row.lon ? (
-                          <i className="ri-map-pin-2-fill text-[#F14724] text-sm" title={`${row.lat}, ${row.lon}`} />
-                        ) : (
-                          <span className="text-gray-300" title="No coordinates provided">—</span>
-                        )}
-                      </td>
+                      <td className="px-3 py-2 text-gray-700 truncate max-w-[120px]">{row.business_name || '—'}</td>
+                      <td className="px-3 py-2 text-gray-700">{row.origin_state || '—'}</td>
+                      <td className="px-3 py-2 text-gray-700">{row.destination_state || '—'}</td>
                       <td className="px-3 py-2">
                         {row.status === 'pending' && <span className="text-gray-400">—</span>}
                         {row.status === 'success' && <i className="ri-checkbox-circle-line text-green-500 text-sm" />}
@@ -204,7 +216,7 @@ export const BulkBranchImportModal: React.FC<BulkBranchImportModalProps> = ({ is
         <div className="flex justify-end gap-2 pt-1">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
           >
             {done ? 'Close' : 'Cancel'}
@@ -217,7 +229,7 @@ export const BulkBranchImportModal: React.FC<BulkBranchImportModalProps> = ({ is
               className="px-5 py-2.5 text-sm font-semibold text-white bg-[#F14724] hover:bg-[#d63d1e] rounded-xl transition-colors disabled:opacity-60 flex items-center gap-2"
             >
               {importing && <i className="ri-loader-4-line animate-spin text-base" />}
-              {importing ? 'Importing…' : `Import ${rows.length} branches`}
+              {importing ? 'Importing…' : `Import ${rows.length} routes`}
             </button>
           )}
         </div>

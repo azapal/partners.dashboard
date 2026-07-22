@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { SidebarButton } from "../dashboard/SideBar";
+import { useRepProfile } from "../../hooks/useRepAuth";
+import { isManagerRole } from "../../service/repService";
 
 function RepSideBar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const profile = useRepProfile();
+  const isManager = isManagerRole(profile?.invite_role?.name);
 
   return (
     <aside
@@ -49,7 +53,17 @@ function RepSideBar() {
           Dashboard
         </SidebarButton>
 
-        <SidebarButton to="/support/shift-mates" className="ri-team-line" isCollapsed={isCollapsed}>
+        <SidebarButton to="/support/orders" className="ri-truck-line" isCollapsed={isCollapsed}>
+          Orders
+        </SidebarButton>
+
+        {isManager && (
+          <SidebarButton to="/support/team" className="ri-team-line" isCollapsed={isCollapsed}>
+            Team Overview
+          </SidebarButton>
+        )}
+
+        <SidebarButton to="/support/shift-mates" className="ri-group-line" isCollapsed={isCollapsed}>
           Shift Mates
         </SidebarButton>
 

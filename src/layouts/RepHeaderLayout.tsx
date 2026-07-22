@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 
 const PAGE_TITLES: Record<string, string> = {
   "support-dashboard": "Dashboard",
+  "support-orders": "Orders",
+  "support-team": "Team Overview",
   "support-shift-mates": "Shift Mates",
   "support-profile": "Profile",
 };

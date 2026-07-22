@@ -14,7 +14,7 @@ const RepDashboardScreen = () => {
     return (
       c.phone.toLowerCase().includes(q) ||
       c.customer_name.toLowerCase().includes(q) ||
-      c.last_message.toLowerCase().includes(q) ||
+      (c.last_message?.content ?? '').toLowerCase().includes(q) ||
       c.status.toLowerCase().includes(q)
     );
   });
@@ -102,7 +102,7 @@ const RepDashboardScreen = () => {
                         <p className="text-xs text-gray-400">{c.phone}</p>
                       </td>
                       <td className="px-4 py-3.5 text-gray-500 max-w-60">
-                        <p className="truncate">{c.last_message}</p>
+                        <p className="truncate">{c.last_message?.content || '—'}</p>
                       </td>
                       <td className="px-4 py-3.5 text-gray-600 font-medium">{c.message_count}</td>
                       <td className="px-4 py-3.5">
@@ -141,7 +141,7 @@ const RepDashboardScreen = () => {
                     <p className="font-semibold text-gray-900 text-sm truncate">
                       {c.customer_name || c.phone}
                     </p>
-                    <p className="text-xs text-gray-400 truncate">{c.last_message}</p>
+                    <p className="text-xs text-gray-400 truncate">{c.last_message?.content || '—'}</p>
                   </div>
                   <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize shrink-0 ${
                     c.status === 'resolved' ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'

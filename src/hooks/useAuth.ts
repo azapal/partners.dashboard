@@ -125,7 +125,7 @@ export const useVerifyOtp = () => {
         localStorage.setItem('auth_token', data.data.access);
         localStorage.setItem('refresh_token', data.data.refresh);
         partnerStoreActions.setProfile(data.data);
-        queryClient.invalidateQueries({ queryKey: authKeys.user() });
+        // queryClient.invalidateQueries({ queryKey: authKeys.user() });
       }
     },
   });

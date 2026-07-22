@@ -92,8 +92,16 @@ function SideBar() {
           Services
         </SidebarButton>
 
+        <SidebarButton to="/rates" className="ri-price-tag-3-line" isCollapsed={isCollapsed}>
+          Rates
+        </SidebarButton>
+
         <SidebarButton to="/branches" className="ri-git-branch-line" isCollapsed={isCollapsed}>
           Branches
+        </SidebarButton>
+
+        <SidebarButton to="/logistics-network" className="ri-route-line" isCollapsed={isCollapsed}>
+          Logistics Network
         </SidebarButton>
 
         <SidebarButton to="/transactions" className="ri-exchange-line" isCollapsed={isCollapsed}>

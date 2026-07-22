@@ -105,6 +105,12 @@ export const BranchDetailSheet = () => {
           {/* Map / Address */}
           <div>
             <p className="text-sm font-medium text-gray-700 mb-1.5">Location</p>
+            {(!location.lat || !location.lon) && (
+              <div className="flex items-center gap-2 bg-yellow-50 text-yellow-700 rounded-xl px-3 py-2.5 text-xs mb-2">
+                <i className="ri-error-warning-line text-base shrink-0" />
+                No location set for this branch — search or pin one below.
+              </div>
+            )}
             <MapLocationPicker value={location} onChange={setLocation} />
           </div>
 

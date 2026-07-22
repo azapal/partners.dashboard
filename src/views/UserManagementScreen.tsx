@@ -55,10 +55,11 @@ const UserManagementScreen: React.FC = () => {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const { data: invites = [], isLoading } = useGetInvites();
   const { mutate: createInvite, isPending: isInviting } = useCreateInvite();
-  const { mutate: updateInvite } = useUpdateInvite();
+  const { mutate: updateInvite, isPending: isUpdating } = useUpdateInvite();
   const { mutate: deleteInvite } = useDeleteInvite();
 
   const users: User[] = invites?.map(mapInvite);
@@ -86,7 +87,7 @@ const UserManagementScreen: React.FC = () => {
         directReports: users.filter(
           (u) => u.reports_to === `${user.first_name} ${user.last_name}`
         ),
-        onEdit: (u: User) => { closeSheet(); setEditUser(u); },
+        onEdit: (u: User) => { closeSheet(); setEditError(null); setEditUser(u); },
         onSuspend: (id: string) =>
           updateInvite({ id, payload: { status: users.find((u) => u.id === id)?.status !== 'suspended' } }),
         onTerminate: (id: string) =>
@@ -109,6 +110,7 @@ const UserManagementScreen: React.FC = () => {
   };
 
   const handleUpdate = (id: string, data: Partial<User>) => {
+    setEditError(null);
     updateInvite(
       {
         id,
@@ -119,7 +121,10 @@ const UserManagementScreen: React.FC = () => {
           invite_role: data.invite_role,  // role FK id
         },
       },
-      { onSuccess: () => setEditUser(null) }
+      {
+        onSuccess: () => setEditUser(null),
+        onError: (err) => setEditError(err instanceof Error ? err.message : 'Failed to update user'),
+      }
     );
   };
 
@@ -299,6 +304,8 @@ const UserManagementScreen: React.FC = () => {
           onClose={() => setEditUser(null)}
           onUpdate={handleUpdate}
           user={editUser}
+          error={editError}
+          isSubmitting={isUpdating}
         />
       )}
     </DashboardLayout>

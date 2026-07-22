@@ -1,5 +1,5 @@
 import config from '../../config/config';
-import type { ApiResponse, PartnerResponse } from './partnerService';
+import type { ApiResponse, PartnerResponse, Transaction, TransactionsQuery, TransactionsPage } from './partnerService';
 import { repStoreActions } from '../store/client/rep';
 
 // ============================================================================
@@ -43,23 +43,36 @@ export interface RepProfile {
   refresh: string;
 }
 
-// WhatsApp conversation types — field names inferred from API doc; adjust when
-// the actual response shape is confirmed with the backend team.
+// WhatsApp conversation types — confirmed against the live API response.
+export interface WaMessage {
+  id: string | number;
+  role: string;   // e.g. 'user' | 'assistant' | 'bot'
+  content: string;
+  created_at: string;
+}
+
+export interface RepRef {
+  id: number;
+  name: string;
+}
+
+export interface EscalationInfo {
+  raised_by: RepRef | null;
+  raised_at: string;
+  note: string | null;
+}
+
+export type ConversationScope = 'mine' | 'team';
+
 export interface WaConversation {
   phone: string;
   customer_name: string;
-  last_message: string;
+  last_message: WaMessage | null;
   message_count: number;
   status: 'active' | 'resolved';
   updated_at: string;
-}
-
-export interface WaMessage {
-  id: string | number;
-  from: string;   // phone number or 'bot'
-  body: string;
-  timestamp: string;
-  type?: string;
+  assigned_to: RepRef | null;
+  escalation: EscalationInfo | null;
 }
 
 export interface WaOrder {
@@ -68,6 +81,11 @@ export interface WaOrder {
   amount?: number;
   status?: string;
   created_at: string;
+  // Bare employee id, not a {id, name} ref — the assign-driver response
+  // only returns the id (see PATCH /partner/transactions/<id>/assign-driver
+  // in the API manifest), so a name has to be resolved client-side against
+  // the branch roster when available.
+  driver?: number | null;
 }
 
 export interface WaConversationDetail {
@@ -100,6 +118,27 @@ export interface EscalatePayload {
   note?: string;
 }
 
+// Real, presence-backed roster — GET /branch/<branch_code>/agents (manager-only).
+// Distinct from ShiftMate below, which backs the general peer-escalation
+// roster every rep can see and still has no real endpoint.
+export interface Agent {
+  id: number;
+  name: string;
+  role: string;
+  status: ShiftStatus;
+  branch_code: string;
+}
+
+// Dedicated driver roster for order assignment — GET
+// /partner/transactions/drivers (any role, not manager-gated like Agent
+// above). `status` is optional since the endpoint's availability field
+// isn't confirmed yet; the UI degrades to name-only when absent.
+export interface Driver {
+  id: number;
+  name: string;
+  status?: ShiftStatus;
+}
+
 // ============================================================================
 // Role check
 // ============================================================================
@@ -110,6 +149,16 @@ export interface EscalatePayload {
 export const isSupportRole = (name: string | undefined | null): boolean => {
   if (!name) return false;
   return name.trim().toLowerCase().includes('support');
+};
+
+// Same looseness as isSupportRole — matches the two role names the backend
+// actually treats as branch managers (see /branch/<code>/agents, /whatsapp/
+// conversations take-over + reassign). This only gates *rendering* the Team
+// nav item; the backend independently enforces these actions server-side.
+export const isManagerRole = (name: string | undefined | null): boolean => {
+  if (!name) return false;
+  const n = name.trim().toLowerCase();
+  return n.includes('manager') || n.includes('admin');
 };
 
 // ============================================================================
@@ -217,14 +266,18 @@ export const branchAuthService = {
 
 // ============================================================================
 // WhatsApp conversations — real endpoints (Employee JWT)
-// GET  /whatsapp/conversations
+// GET  /whatsapp/conversations?scope=mine|team
 // GET  /whatsapp/conversations/<phone>
-// POST /whatsapp/conversations/<phone>  (resolve)
+// POST /whatsapp/conversations/<phone>            (resolve)
+// POST /whatsapp/conversations/<phone>/claim
+// POST /whatsapp/conversations/<phone>/escalate   { note }
+// POST /whatsapp/conversations/<phone>/take-over
+// POST /whatsapp/conversations/<phone>/reassign   { employee_id }
 // ============================================================================
 
 export const repConversationService = {
-  async getAll(): Promise<WaConversation[]> {
-    const response = await fetchWithRepAuth(`${API_BASE_URL}/whatsapp/conversations`);
+  async getAll(scope: ConversationScope = 'mine'): Promise<WaConversation[]> {
+    const response = await fetchWithRepAuth(`${API_BASE_URL}/whatsapp/conversations?scope=${scope}`);
 
     if (!response.ok) await handleError(response);
     const json: ApiResponse<WaConversation[]> = await response.json();
@@ -248,6 +301,137 @@ export const repConversationService = {
     );
 
     if (!response.ok) await handleError(response);
+  },
+
+  async claim(phone: string): Promise<WaConversation> {
+    const response = await fetchWithRepAuth(
+      `${API_BASE_URL}/whatsapp/conversations/${encodeURIComponent(phone)}/claim`,
+      { method: 'POST' },
+    );
+
+    if (!response.ok) await handleError(response);
+    const json: ApiResponse<WaConversation> = await response.json();
+    return json.data!;
+  },
+
+  async escalate(phone: string, note: string): Promise<WaConversation> {
+    const response = await fetchWithRepAuth(
+      `${API_BASE_URL}/whatsapp/conversations/${encodeURIComponent(phone)}/escalate`,
+      { method: 'POST', body: JSON.stringify({ note }) },
+    );
+
+    if (!response.ok) await handleError(response);
+    const json: ApiResponse<WaConversation> = await response.json();
+    return json.data!;
+  },
+
+  async takeOver(phone: string): Promise<WaConversation> {
+    const response = await fetchWithRepAuth(
+      `${API_BASE_URL}/whatsapp/conversations/${encodeURIComponent(phone)}/take-over`,
+      { method: 'POST' },
+    );
+
+    if (!response.ok) await handleError(response);
+    const json: ApiResponse<WaConversation> = await response.json();
+    return json.data!;
+  },
+
+  async reassign(phone: string, employeeId: number): Promise<WaConversation> {
+    const response = await fetchWithRepAuth(
+      `${API_BASE_URL}/whatsapp/conversations/${encodeURIComponent(phone)}/reassign`,
+      { method: 'POST', body: JSON.stringify({ employee_id: employeeId }) },
+    );
+
+    if (!response.ok) await handleError(response);
+    const json: ApiResponse<WaConversation> = await response.json();
+    return json.data!;
+  },
+};
+
+// ============================================================================
+// Employee presence — real endpoints (Employee JWT)
+// PATCH /employee/shift-status              { status: 'active' | 'away' }
+// GET   /branch/<branch_code>/agents        (manager-only)
+// ============================================================================
+
+export const presenceService = {
+  async updateShiftStatus(status: 'active' | 'away'): Promise<{ id: number; status: ShiftStatus; updated_at: string }> {
+    const response = await fetchWithRepAuth(`${API_BASE_URL}/employee/shift-status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+
+    if (!response.ok) await handleError(response);
+    const json: ApiResponse<{ id: number; status: ShiftStatus; updated_at: string }> = await response.json();
+    return json.data!;
+  },
+
+  async getBranchAgents(branchCode: string): Promise<Agent[]> {
+    const response = await fetchWithRepAuth(
+      `${API_BASE_URL}/branch/${encodeURIComponent(branchCode)}/agents`,
+    );
+
+    if (!response.ok) await handleError(response);
+    const json: ApiResponse<Agent[]> = await response.json();
+    return json.data ?? [];
+  },
+};
+
+// ============================================================================
+// Orders — real endpoints (Employee JWT, branch-scoped, any role — not
+// manager-only, unlike the roster used to populate the driver picker)
+// GET   /partner/transactions                      ?status= &payment_status= &confirmed=
+// PATCH /partner/transactions/<id>/assign-driver    { driver: number }
+// GET   /partner/transactions/drivers
+// ============================================================================
+
+export const repOrderService = {
+  async getAll(query: TransactionsQuery = {}): Promise<TransactionsPage> {
+    const params = new URLSearchParams();
+    if (query.status) params.set('status', query.status);
+    if (query.payment_status) params.set('payment_status', query.payment_status);
+    if (query.page) params.set('page', String(query.page));
+    if (query.page_size) params.set('page_size', String(query.page_size));
+    const qs = params.toString();
+
+    const response = await fetchWithRepAuth(
+      `${API_BASE_URL}/partner/transactions${qs ? `?${qs}` : ''}`,
+    );
+
+    if (!response.ok) await handleError(response);
+    const raw = await response.json();
+    const results = raw.results;
+    const list: Transaction[] = Array.isArray(results) ? results : (results?.data ?? []);
+
+    return {
+      count: raw.count ?? 0,
+      next: raw.next ?? null,
+      previous: raw.previous ?? null,
+      results: list,
+    };
+  },
+
+  async assignDriver(orderId: string | number, driverId: number): Promise<Transaction> {
+    const response = await fetchWithRepAuth(
+      `${API_BASE_URL}/partner/transactions/${encodeURIComponent(String(orderId))}/assign-driver`,
+      { method: 'PATCH', body: JSON.stringify({ driver: driverId }) },
+    );
+
+    if (!response.ok) await handleError(response);
+    const json: ApiResponse<Transaction> = await response.json();
+    return json.data!;
+  },
+
+  async getDrivers(): Promise<Driver[]> {
+    const response = await fetchWithRepAuth(`${API_BASE_URL}/partner/transactions/drivers`);
+
+    if (!response.ok) await handleError(response);
+    const raw = await response.json();
+    // Envelope shape isn't confirmed yet — accept a bare array, `{ data }`
+    // (ApiResponse, like assign-driver), or `{ results }` (like the
+    // transactions list) rather than assuming one.
+    const list = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : Array.isArray(raw?.results) ? raw.results : [];
+    return list as Driver[];
   },
 };
 

@@ -2,8 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RepDashboardLayout } from '../../layouts/RepDashboardLayout';
 import { useRepProfile, useRepLogout } from '../../hooks/useRepAuth';
-import type { ShiftStatus } from '../../service/repService';
+import { useUpdateShiftStatus } from '../../hooks/useAgents';
 
+// There's no GET-my-own-status endpoint — only PATCH to set it, and the
+// GET /branch/<code>/agents roster that shows it back is manager-only. So a
+// plain rep can't confirm their own status from the server; this is a local
+// cache of the last selection, kept in sync by firing the real PATCH below.
 const SHIFT_STORAGE_KEY = 'rep_shift_status';
 
 function avatarColor(id: number) {
@@ -15,9 +19,10 @@ const RepProfileScreen = () => {
   const profile = useRepProfile();
   const logout = useRepLogout();
   const navigate = useNavigate();
+  const { mutate: updateShiftStatus } = useUpdateShiftStatus();
 
-  const [shiftStatus, setShiftStatus] = useState<ShiftStatus>(
-    (localStorage.getItem(SHIFT_STORAGE_KEY) as ShiftStatus) || 'active'
+  const [shiftStatus, setShiftStatus] = useState<'active' | 'away'>(
+    (localStorage.getItem(SHIFT_STORAGE_KEY) as 'active' | 'away') || 'active'
   );
 
   if (!profile) return null;
@@ -25,9 +30,10 @@ const RepProfileScreen = () => {
   const fullName = `${profile.first_name} ${profile.last_name}`;
   const initials = `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase();
 
-  const handleShiftChange = (status: ShiftStatus) => {
+  const handleShiftChange = (status: 'active' | 'away') => {
     setShiftStatus(status);
     localStorage.setItem(SHIFT_STORAGE_KEY, status);
+    updateShiftStatus(status);
   };
 
   const handleLogout = () => {
@@ -59,7 +65,7 @@ const RepProfileScreen = () => {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <p className="text-sm font-semibold text-gray-800 mb-3">Shift status</p>
           <div className="flex gap-2">
-            {(['active', 'away'] as ShiftStatus[]).map((status) => (
+            {(['active', 'away'] as const).map((status) => (
               <button
                 key={status}
                 onClick={() => handleShiftChange(status)}

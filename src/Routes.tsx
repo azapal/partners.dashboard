@@ -20,6 +20,8 @@ import {ServiceScreen} from "./views/ServiceScreen";
 import MonthlyPerformanceScreen from "./views/MonthlyPerformanceScreen";
 import {TransactionsScreen} from "./views/TransactionsScreen";
 import {ActivityLogScreen} from "./views/ActivityLogScreen";
+import {LogisticsNetworkScreen} from "./views/LogisticsNetworkScreen";
+import {RatesScreen} from "./views/RatesScreen";
 
 import ContactPage from "./views/ContactPage.jsx";
 import HelpCenter from "./views/HelpCenter.jsx";
@@ -33,6 +35,8 @@ import RepOtpScreen from "./views/support/RepOtpScreen";
 import { BranchLoginScreen } from "./views/support/BranchLoginScreen";
 import BranchOtpScreen from "./views/support/BranchOtpScreen";
 import RepDashboardScreen from "./views/support/RepDashboardScreen";
+import OrdersScreen from "./views/support/OrdersScreen";
+import TeamOverviewScreen from "./views/support/TeamOverviewScreen";
 import RepProfileScreen from "./views/support/RepProfileScreen";
 import ShiftMateScreen from "./views/support/ShiftMateScreen";
 import { RepRequireAuth } from "./components/support/RepRequireAuth";
@@ -50,6 +54,8 @@ export const AppRoutes = () => {
       <Route path="/transactions" element={<RequireAuth><TransactionsScreen /></RequireAuth>} />
       <Route path="/activity-log" element={<RequireAuth><ActivityLogScreen /></RequireAuth>} />
       <Route path="/service" element={<RequireAuth><ServiceScreen /></RequireAuth>} />
+      <Route path="/rates" element={<RequireAuth><RatesScreen /></RequireAuth>} />
+      <Route path="/logistics-network" element={<RequireAuth><LogisticsNetworkScreen /></RequireAuth>} />
       <Route
         path="/partners/onboarding"
         element={
@@ -78,6 +84,22 @@ export const AppRoutes = () => {
         element={
           <RepRequireAuth>
             <RepDashboardScreen />
+          </RepRequireAuth>
+        }
+      />
+      <Route
+        path="/support/orders"
+        element={
+          <RepRequireAuth>
+            <OrdersScreen />
+          </RepRequireAuth>
+        }
+      />
+      <Route
+        path="/support/team"
+        element={
+          <RepRequireAuth>
+            <TeamOverviewScreen />
           </RepRequireAuth>
         }
       />

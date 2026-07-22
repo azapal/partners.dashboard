@@ -29,9 +29,9 @@ const orders = [
 
 const productModules = [
     {
-        code: "azapal-tms",
-        name: "Azapal TMS",
-        fullName: "Transport Management System",
+        code: "azapal-tms-fms",
+        name: "Azapal TMS/FMS",
+        fullName: "Transport/Fleet Management System",
         description: "Plan routes, dispatch fleets, and track deliveries in real time.",
         icon: "ri-truck-line",
         iconBg: "bg-blue-50",
@@ -170,9 +170,8 @@ function Main() {
                             <div key={service.id} className="flex justify-between items-center py-1.5 px-2 rounded-lg hover:bg-gray-50 transition-colors">
                                 <span className="text-gray-700 text-xs font-medium truncate">{service.name}</span>
                                 <span
-                                    className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full shrink-0 ml-2 ${
-                                        service.is_active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
-                                    }`}
+                                    className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full shrink-0 ml-2 ${service.is_active ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
+                                        }`}
                                 >
                                     {service.is_active ? "Active" : "Inactive"}
                                 </span>
@@ -180,6 +179,47 @@ function Main() {
                         ))
                     ) : (
                         <p className="text-xs text-gray-400 py-2">No service coverage</p>
+                    )}
+                </div>
+            </SectionCard>
+            <SectionCard icon="ri-apps-2-line" iconColor="text-indigo-500" iconBg="bg-indigo-50" title="Product Modules" className="w-full">
+                <div className="relative mb-4 gap-1">
+                    <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base" />
+                    <input
+                        type="text"
+                        value={moduleSearch}
+                        onChange={(e) => setModuleSearch(e.target.value)}
+                        placeholder="Search product modules…"
+                        className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-100 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-gray-200"
+                    />
+                </div>
+                <div className="flex flex-col gap-2">
+                    {filteredModules.length === 0 ? (
+                        <p className="text-xs text-gray-400 py-2">No modules match your search.</p>
+                    ) : (
+                        filteredModules.map((mod) => (
+                            <div
+                                key={mod.code}
+                                className="flex  flex-col gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors"
+                            >
+                                <div className={`w-10 h-10 rounded-xl ${mod.iconBg} flex items-center justify-center shrink-0`}>
+                                    <i className={`${mod.icon} text-lg ${mod.iconColor}`} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-semibold text-gray-900 text-sm">{mod.name}</p>
+                                    <p className="text-xs text-gray-400">{mod.fullName}</p>
+                                    <p className="text-xs text-gray-500 mt-0.5">{mod.description}</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => requestModule(mod.code)}
+                                    disabled={requestedModules.includes(mod.code)}
+                                    className="shrink-0 text-xs font-semibold px-3 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:bg-green-50 disabled:text-green-700 disabled:border-green-100 transition-colors"
+                                >
+                                    {requestedModules.includes(mod.code) ? "Subscribed" : "Subscribe"}
+                                </button>
+                            </div>
+                        ))
                     )}
                 </div>
             </SectionCard>
@@ -211,7 +251,7 @@ function Main() {
                                         <Activity
                                             key={tx.id}
                                             title={`Order #${tx.id}`}
-                                            id={`₦${tx.total_amount.toLocaleString()} · ${tx.delivery_method?.replace(/_/g, " ")}`}
+                                            id={`${tx.total_amount != null ? `₦${tx.total_amount.toLocaleString()}` : "Pending price"} · ${tx.delivery_method?.replace(/_/g, " ")}`}
                                             time={formatRelativeTime(tx.created_at)}
                                         />
                                     ))
@@ -261,6 +301,34 @@ function Main() {
                                 </ResponsiveContainer>
                             </div>
                         </SectionCard>
+                        <SectionCard icon="ri-cloud-line" iconColor="text-orange-500" iconBg="bg-orange-50" title="Cloud Operations (AWS)" className="w-full">
+                            <div className="grid grid-cols-2 gap-3 mb-4">
+                                <div className="bg-gray-50 rounded-xl p-3">
+                                    <p className="text-[11px] text-gray-400 font-medium">Current Cost</p>
+                                    <p className="text-lg font-bold text-gray-900">${awsCostSummary.currentCost.toLocaleString()}</p>
+                                </div>
+                                <div className="bg-gray-50 rounded-xl p-3">
+                                    <p className="text-[11px] text-gray-400 font-medium">Est. Month Cost</p>
+                                    <p className="text-lg font-bold text-gray-900">${awsCostSummary.estimatedMonthCost.toLocaleString()}</p>
+                                </div>
+                            </div>
+                            <p className="text-xs font-semibold text-gray-500 mb-2">Resource Usage Cost ($)</p>
+                            <div className="h-56">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={awsUsage} barSize={28}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                                        <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                        <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                        <Tooltip
+                                            contentStyle={{ borderRadius: "10px", border: "1px solid #e5e7eb", fontSize: "12px" }}
+                                            cursor={{ fill: "rgba(249,115,22,0.05)" }}
+                                            formatter={(v: any) => [`$${Number(v).toLocaleString()}`, "Cost"]}
+                                        />
+                                        <Bar dataKey="value" fill="#f97316" radius={[6, 6, 0, 0]} animationBegin={100} animationDuration={700} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </SectionCard>
                     </div>
 
                     {/* Right column */}
@@ -269,79 +337,7 @@ function Main() {
                     </div>
                 </div>
 
-                {/* Modules + Cloud cost row */}
-                <div className="flex w-full gap-4 flex-col md:flex-row">
-                    <SectionCard icon="ri-apps-2-line" iconColor="text-indigo-500" iconBg="bg-indigo-50" title="Product Modules" className="w-full">
-                        <div className="relative mb-4">
-                            <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base" />
-                            <input
-                                type="text"
-                                value={moduleSearch}
-                                onChange={(e) => setModuleSearch(e.target.value)}
-                                placeholder="Search product modules…"
-                                className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-100 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-gray-200"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-2">
-                            {filteredModules.length === 0 ? (
-                                <p className="text-xs text-gray-400 py-2">No modules match your search.</p>
-                            ) : (
-                                filteredModules.map((mod) => (
-                                    <div
-                                        key={mod.code}
-                                        className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors"
-                                    >
-                                        <div className={`w-10 h-10 rounded-xl ${mod.iconBg} flex items-center justify-center shrink-0`}>
-                                            <i className={`${mod.icon} text-lg ${mod.iconColor}`} />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-semibold text-gray-900 text-sm">{mod.name}</p>
-                                            <p className="text-xs text-gray-400">{mod.fullName}</p>
-                                            <p className="text-xs text-gray-500 mt-0.5">{mod.description}</p>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => requestModule(mod.code)}
-                                            disabled={requestedModules.includes(mod.code)}
-                                            className="shrink-0 text-xs font-semibold px-3 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:bg-green-50 disabled:text-green-700 disabled:border-green-100 transition-colors"
-                                        >
-                                            {requestedModules.includes(mod.code) ? "Requested" : "Request Access"}
-                                        </button>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </SectionCard>
 
-                    <SectionCard icon="ri-cloud-line" iconColor="text-orange-500" iconBg="bg-orange-50" title="Cloud Operations (AWS)" className="w-full">
-                        <div className="grid grid-cols-2 gap-3 mb-4">
-                            <div className="bg-gray-50 rounded-xl p-3">
-                                <p className="text-[11px] text-gray-400 font-medium">Current Cost</p>
-                                <p className="text-lg font-bold text-gray-900">${awsCostSummary.currentCost.toLocaleString()}</p>
-                            </div>
-                            <div className="bg-gray-50 rounded-xl p-3">
-                                <p className="text-[11px] text-gray-400 font-medium">Est. Month Cost</p>
-                                <p className="text-lg font-bold text-gray-900">${awsCostSummary.estimatedMonthCost.toLocaleString()}</p>
-                            </div>
-                        </div>
-                        <p className="text-xs font-semibold text-gray-500 mb-2">Resource Usage Cost ($)</p>
-                        <div className="h-56">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={awsUsage} barSize={28}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                                    <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                                    <Tooltip
-                                        contentStyle={{ borderRadius: "10px", border: "1px solid #e5e7eb", fontSize: "12px" }}
-                                        cursor={{ fill: "rgba(249,115,22,0.05)" }}
-                                        formatter={(v: any) => [`$${Number(v).toLocaleString()}`, "Cost"]}
-                                    />
-                                    <Bar dataKey="value" fill="#f97316" radius={[6, 6, 0, 0]} animationBegin={100} animationDuration={700} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </SectionCard>
-                </div>
             </main>
 
             {showAddBranch && <AddNewBranch setShowAddBranch={setShowAddBranch} />}

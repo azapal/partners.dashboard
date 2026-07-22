@@ -141,7 +141,7 @@ export const CreateBranchDrawer: React.FC<CreateBranchDrawerProps> = ({ onClose 
               </button>
               <button
                 type="submit"
-                disabled={isPending || selectedManagers.length === 0}
+                disabled={isPending || selectedManagers.length === 0 || !form.lat || !form.lon}
                 className="px-6 py-2.5 text-sm font-semibold text-white bg-[#F14724] hover:bg-[#d63d1e] rounded-xl transition-colors disabled:opacity-60 flex items-center gap-2"
               >
                 {isPending && <i className="ri-loader-4-line animate-spin text-base" />}
@@ -154,9 +154,18 @@ export const CreateBranchDrawer: React.FC<CreateBranchDrawerProps> = ({ onClose 
         {/* ── Right: Map ── */}
         <div className="w-full lg:w-[48%] bg-gray-50 p-6 sm:p-8 flex flex-col gap-4 border-t lg:border-t-0 lg:border-l border-gray-100">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">Branch Location</h3>
+            <h3 className="text-base font-semibold text-gray-900">
+              Branch Location<span className="text-red-400 ml-0.5">*</span>
+            </h3>
             <p className="text-xs text-gray-400 mt-0.5">Search an address or click/drag the pin on the map.</p>
           </div>
+
+          {!form.lat || !form.lon ? (
+            <div className="flex items-center gap-2 bg-yellow-50 text-yellow-700 rounded-xl px-3 py-2.5 text-xs">
+              <i className="ri-error-warning-line text-base shrink-0" />
+              A location is required — search or pin one below before you can save.
+            </div>
+          ) : null}
 
           <MapLocationPicker
             value={{ lat: form.lat ?? '', lon: form.lon ?? '', address: form.address ?? '' }}

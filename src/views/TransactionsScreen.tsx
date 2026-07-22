@@ -29,7 +29,7 @@ const PAYMENT_STATUS_STYLES: Record<string, string> = {
   refund: "bg-purple-50 text-purple-700",
 };
 
-const formatAmount = (n: number) => `₦${n.toLocaleString()}`;
+const formatAmount = (n: number | null) => (n != null ? `₦${n.toLocaleString()}` : "—");
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 
