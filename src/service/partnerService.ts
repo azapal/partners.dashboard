@@ -210,6 +210,7 @@ const PARTNER_ENDPOINT = `${API_BASE_URL}/partner`;
 const getHeaders = (contentType = 'application/json'): HeadersInit => {
   const headers: HeadersInit = {
     'Content-Type': contentType,
+    'accept': 'application/json',
   };
 
   // Primary source: explicitly saved auth token
