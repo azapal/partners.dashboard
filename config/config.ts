@@ -73,19 +73,19 @@ const getAzapalBaseUrl = (stage: AppStage): string => {
   switch (stage) {
     case 'local':
       console.log('skskskkskk', import.meta.env)
-      return import.meta.env.VITE_AZAPAL_BASE_URL_LOCAL || 'https://unmercurially-minimus-brenda.ngrok-free.dev/api/v1/azapal';
+      return import.meta.env.VITE_AZAPAL_BASE_URL_LOCAL || 'http://127.0.0.1:8000/api/v1/azapal';
     
     case 'dev':
-      return import.meta.env.VITE_AZAPAL_BASE_URL_DEV || 'https://unmercurially-minimus-brenda.ngrok-free.dev/api/v1/azapal';
+      return import.meta.env.VITE_AZAPAL_BASE_URL_DEV || 'http://127.0.0.1:8000/api/v1/azapal';
     
     case 'staging':
-      return import.meta.env.VITE_AZAPAL_BASE_URL_STAGING || import.meta.env.VITE_AZAPAL_BASE_URL_DEV || 'https://unmercurially-minimus-brenda.ngrok-free.dev/api/v1/azapal';
+      return import.meta.env.VITE_AZAPAL_BASE_URL_STAGING || import.meta.env.VITE_AZAPAL_BASE_URL_DEV || 'http://127.0.0.1:8000/api/v1/azapal';
     
     case 'production':
-      return import.meta.env.VITE_AZAPAL_BASE_URL_PROD || import.meta.env.VITE_AZAPAL_BASE_URL_DEV || 'https://unmercurially-minimus-brenda.ngrok-free.dev/api/v1/azapal';
+      return import.meta.env.VITE_AZAPAL_BASE_URL_PROD || import.meta.env.VITE_AZAPAL_BASE_URL_DEV || 'http://127.0.0.1:8000/api/v1/azapal';
     
     default:
-      return 'https://unmercurially-minimus-brenda.ngrok-free.dev/api/v1/azapal';
+      return 'http://127.0.0.1:8000/api/v1/azapal';
   }
 };
 
