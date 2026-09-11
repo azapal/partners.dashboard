@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useState } from "react";
+import { NAV_GROUPS } from "../../lib/data/navItems";
 
 export function SidebarButton({ children, to = "", isCollapsed, ...iconProps }: any) {
   return (
@@ -8,7 +9,7 @@ export function SidebarButton({ children, to = "", isCollapsed, ...iconProps }: 
       className={({ isActive }) =>
         `relative flex flex-col md:flex-row items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group
         ${isActive
-          ? "bg-orange-50 text-[#F14724]"
+          ? "bg-orange-50 text-brand"
           : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
         }
         ${isCollapsed ? "justify-center px-0" : ""}
@@ -19,14 +20,14 @@ export function SidebarButton({ children, to = "", isCollapsed, ...iconProps }: 
       {({ isActive }) => (
         <>
           {isActive && !isCollapsed && (
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#F14724] rounded-r-full" />
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-brand rounded-r-full" />
           )}
           <SidebarIcon
             {...iconProps}
-            className={`${iconProps.className} text-lg ${isActive ? "text-[#F14724]" : "text-gray-400 group-hover:text-gray-700"}`}
+            className={`${iconProps.className} text-lg ${isActive ? "text-brand" : "text-gray-400 group-hover:text-gray-700"}`}
           />
           {!isCollapsed && (
-            <span className={isActive ? "text-[#F14724]" : ""}>{children}</span>
+            <span className={isActive ? "text-brand" : ""}>{children}</span>
           )}
         </>
       )}
@@ -76,49 +77,21 @@ function SideBar() {
         </button>
       )}
 
-      {/* Nav section label */}
-      {!isCollapsed && (
-        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 mb-1">
-          Menu
-        </p>
-      )}
-
-      <nav className="flex flex-col gap-0.5">
-        <SidebarButton to="/dashboard" className="ri-home-6-line" isCollapsed={isCollapsed}>
-          Dashboard
-        </SidebarButton>
-
-        <SidebarButton to="/service" className="ri-task-line" isCollapsed={isCollapsed}>
-          Services
-        </SidebarButton>
-
-        <SidebarButton to="/rates" className="ri-price-tag-3-line" isCollapsed={isCollapsed}>
-          Rates
-        </SidebarButton>
-
-        <SidebarButton to="/branches" className="ri-git-branch-line" isCollapsed={isCollapsed}>
-          Branches
-        </SidebarButton>
-
-        <SidebarButton to="/logistics-network" className="ri-route-line" isCollapsed={isCollapsed}>
-          Logistics Network
-        </SidebarButton>
-
-        <SidebarButton to="/transactions" className="ri-exchange-line" isCollapsed={isCollapsed}>
-          Transactions
-        </SidebarButton>
-
-        <SidebarButton to="/users" className="ri-group-line" isCollapsed={isCollapsed}>
-          Users
-        </SidebarButton>
-
-        <SidebarButton to="/activity-log" className="ri-history-line" isCollapsed={isCollapsed}>
-          Activity Log
-        </SidebarButton>
-
-        <SidebarButton to="/settings" className="ri-user-settings-line" isCollapsed={isCollapsed}>
-          Settings
-        </SidebarButton>
+      <nav className="flex flex-col gap-4">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.label} className="flex flex-col gap-0.5">
+            {!isCollapsed && (
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 mb-1">
+                {group.label}
+              </p>
+            )}
+            {group.items.map((item) => (
+              <SidebarButton key={item.to} to={item.to} className={item.icon} isCollapsed={isCollapsed}>
+                {item.label}
+              </SidebarButton>
+            ))}
+          </div>
+        ))}
       </nav>
     </aside>
   );

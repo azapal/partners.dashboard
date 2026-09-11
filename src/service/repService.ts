@@ -161,6 +161,27 @@ export const isManagerRole = (name: string | undefined | null): boolean => {
   return n.includes('manager') || n.includes('admin');
 };
 
+// Exact-match version for Pairing Routes: the backend only lets these two
+// specific role names (not any loose "manager"/"admin" match) create/edit/
+// delete a route.
+export const canManagePairingRoutes = (name: string | undefined | null): boolean => {
+  if (!name) return false;
+  const n = name.trim().toLowerCase();
+  return n === 'logistics manager' || n === 'super admin';
+};
+
+// Exact-match, mirrors the backend's is_elevated_admin_employee
+// (modules/helpers/permissions.py) byte-for-byte — these are the two roles
+// that get routed into the full main partner dashboard (RequireAuth.tsx)
+// instead of the smaller /support/* rep sidebar, and the only two roles the
+// backend accepts on every endpoint gated by that same check (wallet,
+// splits, rates, branch CRUD, services config, employee invites).
+export const isElevatedAdminRole = (name: string | undefined | null): boolean => {
+  if (!name) return false;
+  const n = name.trim().toLowerCase();
+  return n === 'tenant admin' || n === 'super admin';
+};
+
 // ============================================================================
 // Auth helpers
 // ============================================================================

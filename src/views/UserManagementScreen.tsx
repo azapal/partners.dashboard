@@ -6,6 +6,7 @@ import { BulkInviteModal } from '../components/modal/BulkInviteModal';
 import { sheetActions } from '../store/client/sheets';
 import { useGetInvites, useCreateInvite, useUpdateInvite, useDeleteInvite } from '../hooks/useInvites';
 import type { PartnerInvite } from '../service/partnerService';
+import { SplitCreateButton } from '../components/buttons/SplitCreateButton';
 
 export interface User {
   id: string;
@@ -144,20 +145,13 @@ const UserManagementScreen: React.FC = () => {
             />
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setIsBulkOpen(true)}
-              className="flex items-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors"
-            >
-              <i className="ri-file-upload-line text-base" />
-              Bulk Invite
-            </button>
-            <button
+            <SplitCreateButton
+              label="Invite User"
+              icon="ri-user-add-line"
               onClick={() => { setInviteError(null); setIsInviteOpen(true); }}
-              className="flex items-center gap-2 bg-[#F14724] text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#d63d1e] transition-colors"
-            >
-              <i className="ri-user-add-line text-base" />
-              Invite User
-            </button>
+              bulkLabel="Bulk Invite"
+              onBulkClick={() => setIsBulkOpen(true)}
+            />
           </div>
         </div>
 

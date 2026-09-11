@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSendOtp } from '../hooks/useAuth';
 import { useSendBranchOtp } from '../hooks/useBranchAuth';
@@ -6,6 +6,7 @@ import { useSendBranchOtp } from '../hooks/useBranchAuth';
 export const LoginScreen = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState<0 | 1>(0);
+  const [activeSlide, setActiveSlide] = useState(0);
   const [accountType, setAccountType] = useState<'PARTNERS' | 'PARTNERS BRANCH' | null>(null);
   const [code, setCode] = useState('');
   const [email, setEmail] = useState('');
@@ -54,10 +55,77 @@ export const LoginScreen = () => {
 
   const canSubmit = isBranch ? email.trim() && branchCode.trim() : code.trim();
 
+  const backgroundSlides = [
+    {
+      image: '/partner-landing-logistics.jpg',
+      title: 'Global trade',
+      description: 'Import, export, and supply chains that keep business moving.',
+    },
+    {
+      image: '/partner-landing-warehouse.jpg',
+      title: 'Warehouse operations',
+      description: 'Clear visibility from inventory to fulfillment.',
+    },
+    {
+      image: '/partner-landing-payment.jpg',
+      title: 'Simple payments',
+      description: 'Easy transactions for businesses, markets, and partners.',
+    },
+    {
+      image: '/partner-landing-dispatch.jpg',
+      title: 'Reliable dispatch',
+      description: 'Move every order confidently from pickup to delivery.',
+    },
+  ];
+
+  useEffect(() => {
+    const carouselTimer = window.setInterval(() => {
+      setActiveSlide((currentSlide) => (currentSlide + 1) % backgroundSlides.length);
+    }, 7000);
+
+    return () => window.clearInterval(carouselTimer);
+  }, [backgroundSlides.length]);
+
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
-      <div className="w-full max-w-md bg-white shadow-xl border border-slate-200 rounded-2xl overflow-hidden relative">
-        <div className="absolute top-0 left-0 w-full h-1.5 bg-linear-to-r from-[#F14724] to-[#8B2915]" />
+    <div className="relative min-h-screen overflow-hidden bg-slate-950 flex items-center justify-center p-4 font-sans">
+      {backgroundSlides.map((slide, index) => (
+        <div
+          key={slide.image}
+          aria-hidden={index !== activeSlide}
+          className={`absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-out ${
+            index === activeSlide ? 'scale-100 opacity-100' : 'scale-105 opacity-0'
+          }`}
+          style={{ backgroundImage: `url('${slide.image}')` }}
+        />
+      ))}
+      <div className="absolute inset-0 bg-linear-to-br from-slate-950/75 via-slate-900/55 to-amber-950/35" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_20%,rgba(251,191,36,0.23),transparent_31%)]" />
+
+      <div className="absolute bottom-7 left-7 right-7 hidden max-w-sm text-white lg:block">
+        <p className="text-xs font-semibold tracking-[0.22em] uppercase text-amber-200">
+          {backgroundSlides[activeSlide].title}
+        </p>
+        <p className="mt-2 text-sm leading-6 text-white/85">
+          {backgroundSlides[activeSlide].description}
+        </p>
+        <div className="mt-5 flex gap-2" aria-label="Background slides">
+          {backgroundSlides.map((slide, index) => (
+            <button
+              key={slide.title}
+              type="button"
+              onClick={() => setActiveSlide(index)}
+              className={`h-1.5 rounded-full transition-all ${
+                index === activeSlide ? 'w-8 bg-amber-300' : 'w-3 bg-white/45 hover:bg-white/80'
+              }`}
+              aria-label={`Show ${slide.title} background`}
+              aria-current={index === activeSlide}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="z-10 w-full max-w-md bg-white/95 shadow-2xl border border-white/60 rounded-2xl overflow-hidden relative backdrop-blur-sm">
+        <div className="absolute top-0 left-0 w-full h-1.5 bg-linear-to-r from-brand to-brand-maroon" />
 
         <div className="p-8 pt-10">
           <div className="mb-8 text-center">
@@ -179,7 +247,7 @@ export const LoginScreen = () => {
                   <button
                     type="submit"
                     disabled={isPending || !canSubmit}
-                    className="w-full h-12 bg-[#0d1b3d] hover:bg-[#0d1b3d]/90 text-white font-medium text-base rounded-xl flex items-center justify-center gap-2 transition cursor-pointer shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full h-12 bg-brand-navy hover:bg-brand-navy/90 text-white font-medium text-base rounded-xl flex items-center justify-center gap-2 transition cursor-pointer shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {isPending ? 'Sending OTP…' : 'Log in'}
                     {!isPending && <i className="ri-arrow-right-line text-base" />}

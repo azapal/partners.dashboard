@@ -113,7 +113,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, o
           <button
             type="submit"
             disabled={isSubmitting}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-[#F14724] hover:bg-[#d63d1e] rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-brand hover:bg-brand-hover rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isSubmitting && <i className="ri-loader-4-line animate-spin text-base" />}
             {isSubmitting ? 'Saving…' : 'Save Changes'}

@@ -75,7 +75,7 @@ export const NotificationChannelSelector = ({ selectedChannel, onChannelChange }
 
                         {isSelected && (
                             <div className="absolute top-4 right-4">
-                                <div className="w-6 h-6 bg-[#F14724] rounded-full flex items-center justify-center">
+                                <div className="w-6 h-6 bg-brand rounded-full flex items-center justify-center">
                                     <i className="ri-check-line text-sm text-white" />
                                 </div>
                             </div>

@@ -77,7 +77,7 @@ const TeamOverviewScreen = () => {
   };
 
   const stats = [
-    { icon: 'ri-team-line', label: 'Team size', value: agents.length, color: 'text-[#F14724]', bg: 'bg-orange-50' },
+    { icon: 'ri-team-line', label: 'Team size', value: agents.length, color: 'text-brand', bg: 'bg-orange-50' },
     { icon: 'ri-checkbox-circle-line', label: 'Active now', value: activeAgents, color: 'text-green-600', bg: 'bg-green-50' },
     { icon: 'ri-chat-3-line', label: 'Open conversations', value: openCount, color: 'text-blue-500', bg: 'bg-blue-50' },
     { icon: 'ri-error-warning-line', label: 'Escalations pending', value: escalated.length, color: 'text-red-500', bg: 'bg-red-50' },
@@ -222,7 +222,7 @@ const TeamOverviewScreen = () => {
                         <button
                           onClick={() => claim(c.phone)}
                           disabled={isClaiming}
-                          className="text-xs font-semibold bg-[#F14724] text-white px-3 py-1.5 rounded-xl hover:bg-[#d63d1e] transition-colors disabled:opacity-60 self-start"
+                          className="text-xs font-semibold bg-brand text-white px-3 py-1.5 rounded-xl hover:bg-brand-hover transition-colors disabled:opacity-60 self-start"
                         >
                           {isClaiming ? 'Claiming…' : 'Claim'}
                         </button>
@@ -231,7 +231,7 @@ const TeamOverviewScreen = () => {
                           <button
                             onClick={() => takeOver(c.phone)}
                             disabled={isTakingOver}
-                            className="text-xs font-semibold bg-[#F14724] text-white px-3 py-1.5 rounded-xl hover:bg-[#d63d1e] transition-colors disabled:opacity-60"
+                            className="text-xs font-semibold bg-brand text-white px-3 py-1.5 rounded-xl hover:bg-brand-hover transition-colors disabled:opacity-60"
                           >
                             {isTakingOver ? 'Taking over…' : 'Take over'}
                           </button>

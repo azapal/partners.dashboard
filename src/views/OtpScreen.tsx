@@ -93,7 +93,7 @@ export default function OtpScreen() {
     verifyOtp(
       { partnerCode, otp: otpValue },
       {
-        onSuccess: () => navigate("/dashboard"),
+        onSuccess: () => navigate("/select-workspace"),
         onError: (err: any) => setErrorMessage(err?.message ?? "Invalid OTP. Please try again."),
       }
     );

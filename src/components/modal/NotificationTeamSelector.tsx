@@ -69,7 +69,7 @@ export const NotificationTeamSelector = ({
                     {selectedMemberObjects.map(member => (
                         <div
                             key={member.id}
-                            className="inline-flex items-center gap-2 bg-[#F14724] text-white px-3 py-1 rounded-full text-sm"
+                            className="inline-flex items-center gap-2 bg-brand text-white px-3 py-1 rounded-full text-sm"
                         >
                             <span>{member.name}</span>
                             <button

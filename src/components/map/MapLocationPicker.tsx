@@ -132,7 +132,7 @@ export const MapLocationPicker: React.FC<MapLocationPickerProps> = ({ value, onC
                 onClick={() => pickSuggestion(s)}
                 className="px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 flex items-start gap-2"
               >
-                <i className="ri-map-pin-line text-[#F14724] text-base mt-0.5 shrink-0" />
+                <i className="ri-map-pin-line text-brand text-base mt-0.5 shrink-0" />
                 <span>{s.display_name}</span>
               </li>
             ))}

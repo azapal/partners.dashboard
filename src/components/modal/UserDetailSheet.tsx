@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import type { User } from '../../views/UserManagementScreen';
 
@@ -23,6 +23,19 @@ export const UserDetailSheet = () => {
   const onTerminate: (id: string) => void = props?.onTerminate;
   const onDelete: (id: string) => void = props?.onDelete;
 
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const actionsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onOutside = (e: MouseEvent) => {
+      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) {
+        setActionsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onOutside);
+    return () => document.removeEventListener('mousedown', onOutside);
+  }, []);
+
   if (!user) return null;
 
   const fullName = `${user.first_name} ${user.last_name}`;
@@ -30,31 +43,93 @@ export const UserDetailSheet = () => {
   const isSuspended = user.status === 'suspended';
   const isTerminated = user.status === 'terminated';
 
+  const runAction = (fn?: () => void) => {
+    setActionsOpen(false);
+    fn?.();
+  };
+
   return (
     <div className="flex flex-col h-full">
-      {/* Profile header */}
+      {/* Header */}
       <div className="px-5 pt-2 pb-5 border-b border-gray-100">
-        <div className="flex items-center gap-4">
-          <div className={`w-14 h-14 rounded-2xl ${avatarColor(user.id)} flex items-center justify-center shrink-0 shadow-sm`}>
-            <span className="text-white text-lg font-bold">{ini}</span>
-          </div>
+        <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="font-bold text-gray-900 text-base leading-tight">{fullName}</h2>
-            <p className="text-xs text-gray-400 mt-0.5 truncate">{user.email}</p>
-            <span className={`inline-block mt-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full capitalize ${STATUS_STYLES[user.status]}`}>
-              {user.status}
-            </span>
+            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
+              Team Member
+            </p>
+            <div className="flex items-center gap-4">
+              <div className={`w-14 h-14 rounded-2xl ${avatarColor(user.id)} flex items-center justify-center shrink-0 shadow-sm`}>
+                <span className="text-white text-lg font-bold">{ini}</span>
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-bold text-gray-900 text-base leading-tight">{fullName}</h2>
+                <p className="text-xs text-gray-400 mt-0.5 truncate">{user.email}</p>
+                <span className={`inline-block mt-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full capitalize ${STATUS_STYLES[user.status]}`}>
+                  {user.status}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions dropdown */}
+          <div className="relative shrink-0" ref={actionsRef}>
+            <button
+              type="button"
+              onClick={() => setActionsOpen((open) => !open)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Actions
+              <i className={`ri-arrow-${actionsOpen ? 'up' : 'down'}-s-line text-base text-gray-400`} />
+            </button>
+
+            {actionsOpen && (
+              <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-gray-100 rounded-xl shadow-lg overflow-hidden z-10">
+                <a
+                  href={`mailto:${user.email}`}
+                  onClick={() => setActionsOpen(false)}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left"
+                >
+                  <i className="ri-mail-send-line text-base text-gray-400" />
+                  Send Email
+                </a>
+                <button
+                  type="button"
+                  onClick={() => runAction(() => onEdit?.(user))}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left"
+                >
+                  <i className="ri-edit-line text-base text-gray-400" />
+                  Edit User
+                </button>
+                <button
+                  type="button"
+                  disabled={isTerminated}
+                  onClick={() => runAction(() => onSuspend?.(user.id))}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white"
+                >
+                  <i className={`${isSuspended ? 'ri-checkbox-circle-line' : 'ri-forbid-line'} text-base text-gray-400`} />
+                  {isSuspended ? 'Unsuspend' : 'Suspend'}
+                </button>
+                <button
+                  type="button"
+                  disabled={isTerminated}
+                  onClick={() => runAction(() => onTerminate?.(user.id))}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white"
+                >
+                  <i className="ri-user-unfollow-line text-base text-gray-400" />
+                  Terminate
+                </button>
+                <button
+                  type="button"
+                  onClick={() => runAction(() => onDelete?.(user.id))}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors text-left border-t border-gray-50"
+                >
+                  <i className="ri-delete-bin-line text-base" />
+                  Delete User
+                </button>
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Email button */}
-        <a
-          href={`mailto:${user.email}`}
-          className="mt-4 flex items-center justify-center gap-2 w-full py-2.5 bg-orange-50 hover:bg-orange-100 text-[#F14724] rounded-xl text-sm font-semibold transition-colors"
-        >
-          <i className="ri-mail-send-line text-base" />
-          Send Email
-        </a>
       </div>
 
       {/* Details */}
@@ -94,45 +169,6 @@ export const UserDetailSheet = () => {
           )}
         </Section>
       </div>
-
-      {/* Action buttons */}
-      <div className="px-5 py-4 border-t border-gray-100 space-y-2">
-        <button
-          onClick={() => onEdit?.(user)}
-          className="w-full flex items-center justify-center gap-2 py-2.5 bg-gray-900 hover:bg-gray-700 text-white rounded-xl text-sm font-semibold transition-colors"
-        >
-          <i className="ri-edit-line text-base" />
-          Edit User
-        </button>
-
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            disabled={isTerminated}
-            onClick={() => onSuspend?.(user.id)}
-            className="flex items-center justify-center gap-1.5 py-2.5 bg-orange-50 hover:bg-orange-100 text-orange-600 rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <i className={`${isSuspended ? 'ri-checkbox-circle-line' : 'ri-forbid-line'} text-base`} />
-            {isSuspended ? 'Unsuspend' : 'Suspend'}
-          </button>
-
-          <button
-            disabled={isTerminated}
-            onClick={() => onTerminate?.(user.id)}
-            className="flex items-center justify-center gap-1.5 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <i className="ri-user-unfollow-line text-base" />
-            Terminate
-          </button>
-        </div>
-
-        <button
-          onClick={() => onDelete?.(user.id)}
-          className="w-full flex items-center justify-center gap-2 py-2.5 border border-red-200 hover:bg-red-50 text-red-500 rounded-xl text-sm font-semibold transition-colors"
-        >
-          <i className="ri-delete-bin-line text-base" />
-          Delete User
-        </button>
-      </div>
     </div>
   );
 };
@@ -152,7 +188,7 @@ function DetailRow({ icon, label, value }: { icon: string; label: string; value:
   return (
     <div className="flex items-center gap-3 px-4 py-3">
       <div className="w-7 h-7 rounded-lg bg-orange-50 flex items-center justify-center shrink-0">
-        <i className={`${icon} text-sm text-[#F14724]`} />
+        <i className={`${icon} text-sm text-brand`} />
       </div>
       <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
         <p className="text-xs text-gray-400">{label}</p>
@@ -161,4 +197,3 @@ function DetailRow({ icon, label, value }: { icon: string; label: string; value:
     </div>
   );
 }
-

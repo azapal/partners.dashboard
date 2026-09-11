@@ -3,6 +3,7 @@ import { AuthLayout } from "../../layouts/AuthLayout";
 import { DefaultButton } from "../../components/buttons/DefaultButton";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useVerifyBranchOtp, useSendBranchOtp } from "../../hooks/useBranchAuth";
+import { isElevatedAdminRole } from "../../service/repService";
 
 export default function BranchOtpScreen() {
   const inputRefs = useRef<HTMLInputElement[]>([]);
@@ -92,7 +93,10 @@ export default function BranchOtpScreen() {
     verifyOtp(
       { email, otp: otpValue, branchCode },
       {
-        onSuccess: () => navigate("/support/dashboard"),
+        // Tenant Admin/Super Admin land on the full main dashboard; every
+        // other role keeps landing on the smaller /support dashboard.
+        onSuccess: (data: any) =>
+          navigate(isElevatedAdminRole(data?.data?.invite_role?.name) ? "/dashboard" : "/support/dashboard"),
         onError: (err: any) => setErrorMessage(err?.message ?? "Invalid OTP. Please try again."),
       }
     );

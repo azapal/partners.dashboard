@@ -27,7 +27,7 @@ export const BottomTab = () => {
             className={({ isActive }) =>
               `flex flex-col items-center gap-0.5 px-5 py-2 rounded-xl transition-all duration-200 min-w-16
               ${isActive
-                ? "bg-[#F14724] text-white"
+                ? "bg-brand text-white"
                 : "text-gray-400 hover:text-gray-700 hover:bg-gray-50"
               }`
             }

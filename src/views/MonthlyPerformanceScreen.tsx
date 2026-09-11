@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { BRAND_ORANGE } from "../lib/brandColors";
 import {
     BarChart,
     Bar,
@@ -119,7 +120,7 @@ function MonthlyPerformanceScreen() {
                                     contentStyle={{ borderRadius: "10px", border: "1px solid #e5e7eb", fontSize: "12px" }}
                                     cursor={{ fill: "rgba(241,71,36,0.05)" }}
                                 />
-                                <Bar dataKey="value" fill="#F14724" radius={[6, 6, 0, 0]} animationBegin={100} animationDuration={700} />
+                                <Bar dataKey="value" fill={BRAND_ORANGE} radius={[6, 6, 0, 0]} animationBegin={100} animationDuration={700} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>

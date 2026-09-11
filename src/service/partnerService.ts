@@ -6,6 +6,7 @@
  */
 
 import config from '../../config/config';
+import type { CargoType } from '../lib/data/logisticsNetwork';
 
 // ============================================================================
 // Types
@@ -213,7 +214,7 @@ const getHeaders = (contentType = 'application/json'): HeadersInit => {
     'accept': 'application/json',
   };
 
-  // Primary source: explicitly saved auth token
+  // Primary source: explicitly saved partner-owner auth token
   let token = localStorage.getItem('auth_token');
 
   // Fallback: access token from the stored partner profile
@@ -230,6 +231,14 @@ const getHeaders = (contentType = 'application/json'): HeadersInit => {
     }
   }
 
+  // Fallback again: a Tenant Admin/Super Admin employee session (rep_auth_token) —
+  // these two roles are routed into the same main-dashboard hooks this file backs
+  // (see RequireAuth.tsx), so this is the one place that needs to recognize their
+  // token too rather than every hook needing its own dual-session-aware variant.
+  if (!token) {
+    token = localStorage.getItem('rep_auth_token');
+  }
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -244,6 +253,10 @@ const getHeaders = (contentType = 'application/json'): HeadersInit => {
  */
 const extractFieldError = (data: unknown): string | null => {
   const errors = (data as Record<string, unknown> | undefined)?.data;
+  // Plain-string data — e.g. api_response('01', 'failed', 'You already have a
+  // rate for this cargo type') — the top-level `message` is always the generic
+  // 'failed' in this convention, so the real text lives here.
+  if (typeof errors === 'string' && errors.trim()) return errors;
   if (errors && typeof errors === 'object' && !Array.isArray(errors)) {
     for (const value of Object.values(errors as Record<string, unknown>)) {
       if (Array.isArray(value) && typeof value[0] === 'string') {
@@ -295,6 +308,11 @@ const clearAuthState = () => {
   localStorage.removeItem('auth_token');
   localStorage.removeItem('refresh_token');
   localStorage.removeItem('partner_profile');
+  // Also clear a rep/employee session — getHeaders() above can source a token
+  // from either, so a 401/403 needs to drop both, not just the partner side.
+  localStorage.removeItem('rep_auth_token');
+  localStorage.removeItem('rep_refresh_token');
+  localStorage.removeItem('rep_profile');
   clearAllCookies();
   // Redirect to login
   window.location.href = '/';
@@ -601,6 +619,386 @@ export const inviteService = {
   },
 };
 
+// ── Partner Profile (self-service) ─────────────────────────────────────────────
+// Proposed endpoint — see docs/partner-profile-api-contract.md
+
+export interface UpdatePartnerProfilePayload {
+  partner_name?: string;
+  partner_email?: string;
+  partner_hq_address?: string;
+  partner_hq_state?: string;
+  partner_hq_city?: string;
+  partner_country?: string;
+}
+
+export const partnerProfileService = {
+  async update(payload: UpdatePartnerProfilePayload): Promise<PartnerProfile> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/profile`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+};
+
+// ── Rate ──────────────────────────────────────────────────────────────────────
+
+export type RateScope = 'intra' | 'international';
+
+export interface ItemCategory {
+  id: number;
+  name: string;
+  code: string;
+}
+
+export type ShippingMode = 'walk' | 'bicycle' | 'motorcycle' | 'car' | 'mini_van' | 'van' | 'mini_truck' | 'truck';
+
+export interface Rate {
+  id: number;
+  region: string;
+  scope: RateScope;
+  category: ItemCategory | null;
+  shipping_mode: ShippingMode | null;
+  price: number;
+  window: string;
+  pickup_service: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateRatePayload {
+  region: string;
+  scope?: RateScope;
+  category_id?: number | null;
+  shipping_mode?: ShippingMode | null;
+  price: number;
+  window?: string;
+  pickup_service?: string;
+}
+
+export interface UpdateRatePayload {
+  region?: string;
+  scope?: RateScope;
+  category_id?: number | null;
+  shipping_mode?: ShippingMode | null;
+  price?: number;
+  window?: string;
+  pickup_service?: string;
+}
+
+const RATE_ENDPOINT = `${PARTNER_ENDPOINT}/rates`;
+
+export const rateService = {
+  async getAll(): Promise<Rate[]> {
+    const res = await fetchWithAuth(`${RATE_ENDPOINT}`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<Rate>(await res.json());
+  },
+
+  async create(payload: CreateRatePayload): Promise<Rate> {
+    const res = await fetchWithAuth(`${RATE_ENDPOINT}`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async update(id: number, payload: UpdateRatePayload): Promise<Rate> {
+    const res = await fetchWithAuth(`${RATE_ENDPOINT}/${id}/`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async delete(id: number): Promise<void> {
+    const res = await fetchWithAuth(`${RATE_ENDPOINT}/${id}/`, { method: 'DELETE' });
+    if (!res.ok) await handleError(res);
+  },
+};
+
+// ── Item Categories (lookup for Rate.category) ─────────────────────────────────
+
+const ITEM_CATEGORY_ENDPOINT = `${API_BASE_URL}/item-categories`;
+
+export const itemCategoryService = {
+  async getAll(): Promise<ItemCategory[]> {
+    const res = await fetchWithAuth(`${ITEM_CATEGORY_ENDPOINT}`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<ItemCategory>(await res.json());
+  },
+};
+
+// ── Rate Cards (route / cargo type / delivery method) ─────────────────────────
+// Proposed endpoints — see docs/partner-rate-cards-api-contract.md
+
+export type RateCardStatus = 'Active' | 'Inactive';
+
+export interface RouteRateCard {
+  id: number;
+  origin_state: string;
+  destination_state: string;
+  cargo_type: CargoType;
+  price: number;
+  status: RateCardStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateRouteRateCardPayload {
+  origin_state: string;
+  destination_state: string;
+  cargo_type?: CargoType;
+  price: number;
+  status?: RateCardStatus;
+}
+
+export type UpdateRouteRateCardPayload = Partial<CreateRouteRateCardPayload>;
+
+const ROUTE_RATE_ENDPOINT = `${PARTNER_ENDPOINT}/route-rates`;
+
+export const routeRateCardService = {
+  async getAll(): Promise<RouteRateCard[]> {
+    const res = await fetchWithAuth(`${ROUTE_RATE_ENDPOINT}`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<RouteRateCard>(await res.json());
+  },
+
+  async create(payload: CreateRouteRateCardPayload): Promise<RouteRateCard> {
+    const res = await fetchWithAuth(`${ROUTE_RATE_ENDPOINT}`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async update(id: number, payload: UpdateRouteRateCardPayload): Promise<RouteRateCard> {
+    const res = await fetchWithAuth(`${ROUTE_RATE_ENDPOINT}/${id}/`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async delete(id: number): Promise<void> {
+    const res = await fetchWithAuth(`${ROUTE_RATE_ENDPOINT}/${id}/`, { method: 'DELETE' });
+    if (!res.ok) await handleError(res);
+  },
+};
+
+export interface CargoRateCard {
+  id: number;
+  cargo_type: CargoType;
+  base_price: number;
+  price_per_kg: number;
+  status: RateCardStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateCargoRateCardPayload {
+  cargo_type: CargoType;
+  base_price: number;
+  price_per_kg: number;
+  status?: RateCardStatus;
+}
+
+export type UpdateCargoRateCardPayload = Partial<CreateCargoRateCardPayload>;
+
+const CARGO_RATE_ENDPOINT = `${PARTNER_ENDPOINT}/cargo-rates`;
+
+export const cargoRateCardService = {
+  async getAll(): Promise<CargoRateCard[]> {
+    const res = await fetchWithAuth(`${CARGO_RATE_ENDPOINT}`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<CargoRateCard>(await res.json());
+  },
+
+  async create(payload: CreateCargoRateCardPayload): Promise<CargoRateCard> {
+    const res = await fetchWithAuth(`${CARGO_RATE_ENDPOINT}`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async update(id: number, payload: UpdateCargoRateCardPayload): Promise<CargoRateCard> {
+    const res = await fetchWithAuth(`${CARGO_RATE_ENDPOINT}/${id}/`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async delete(id: number): Promise<void> {
+    const res = await fetchWithAuth(`${CARGO_RATE_ENDPOINT}/${id}/`, { method: 'DELETE' });
+    if (!res.ok) await handleError(res);
+  },
+};
+
+export type DeliveryMethod = 'Walk' | 'Bicycle' | 'Motorcycle' | 'Car' | 'Van' | 'Truck';
+
+export const DELIVERY_METHODS: DeliveryMethod[] = ['Walk', 'Bicycle', 'Motorcycle', 'Car', 'Van', 'Truck'];
+
+export interface DeliveryMethodRateCard {
+  id: number;
+  method: DeliveryMethod;
+  price: number;
+  status: RateCardStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateDeliveryMethodRateCardPayload {
+  method: DeliveryMethod;
+  price: number;
+  status?: RateCardStatus;
+}
+
+export type UpdateDeliveryMethodRateCardPayload = Partial<CreateDeliveryMethodRateCardPayload>;
+
+const DELIVERY_METHOD_RATE_ENDPOINT = `${PARTNER_ENDPOINT}/delivery-method-rates`;
+
+export const deliveryMethodRateCardService = {
+  async getAll(): Promise<DeliveryMethodRateCard[]> {
+    const res = await fetchWithAuth(`${DELIVERY_METHOD_RATE_ENDPOINT}`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<DeliveryMethodRateCard>(await res.json());
+  },
+
+  async create(payload: CreateDeliveryMethodRateCardPayload): Promise<DeliveryMethodRateCard> {
+    const res = await fetchWithAuth(`${DELIVERY_METHOD_RATE_ENDPOINT}`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async update(id: number, payload: UpdateDeliveryMethodRateCardPayload): Promise<DeliveryMethodRateCard> {
+    const res = await fetchWithAuth(`${DELIVERY_METHOD_RATE_ENDPOINT}/${id}/`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async delete(id: number): Promise<void> {
+    const res = await fetchWithAuth(`${DELIVERY_METHOD_RATE_ENDPOINT}/${id}/`, { method: 'DELETE' });
+    if (!res.ok) await handleError(res);
+  },
+};
+
+// ── Pairing Routes ──────────────────────────────────────────────────────────────
+
+export type PairingFrequency = 'one_time' | 'daily' | 'weekly' | 'monthly';
+
+export interface PairingRoute {
+  id: number;
+  partner: number;
+  partner_name: string;
+  origin_state: string;
+  destination_state: string;
+  frequency: PairingFrequency;
+  preferred_date: string;
+  cargo_type: CargoType;
+  min_budget: number;
+  max_budget: number;
+  is_open_for_joining: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatePairingRoutePayload {
+  origin_state: string;
+  destination_state: string;
+  frequency?: PairingFrequency;
+  preferred_date: string;
+  cargo_type?: CargoType;
+  min_budget: number;
+  max_budget: number;
+}
+
+export type UpdatePairingRoutePayload = Partial<CreatePairingRoutePayload>;
+
+export interface BudgetTargetPreviewPayload {
+  weight_kg: number;
+  include_last_mile?: boolean;
+  last_mile_actual_cost?: number;
+  item_count?: number;
+}
+
+export interface BudgetTargetPreview {
+  estimated_price_per_kg: number;
+  cargo_fee: number;
+  last_mile_fee: number;
+  total: number;
+  businesses_for_half_min_budget: number;
+  businesses_for_half_max_budget: number;
+}
+
+const PAIRING_ROUTE_ENDPOINT = `${PARTNER_ENDPOINT}/pairing-routes`;
+
+export const pairingRouteService = {
+  async getAll(): Promise<PairingRoute[]> {
+    const res = await fetchWithAuth(`${PAIRING_ROUTE_ENDPOINT}`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<PairingRoute>(await res.json());
+  },
+
+  async create(payload: CreatePairingRoutePayload): Promise<PairingRoute> {
+    const res = await fetchWithAuth(`${PAIRING_ROUTE_ENDPOINT}`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async update(id: number, payload: UpdatePairingRoutePayload): Promise<PairingRoute> {
+    const res = await fetchWithAuth(`${PAIRING_ROUTE_ENDPOINT}/${id}/`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async delete(id: number): Promise<void> {
+    const res = await fetchWithAuth(`${PAIRING_ROUTE_ENDPOINT}/${id}/`, { method: 'DELETE' });
+    if (!res.ok) await handleError(res);
+  },
+
+  async getBudgetTarget(id: number, payload: BudgetTargetPreviewPayload): Promise<BudgetTargetPreview> {
+    const res = await fetchWithAuth(`${PAIRING_ROUTE_ENDPOINT}/${id}/budget-target/`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+};
+
 // ── Role Service ──────────────────────────────────────────────────────────────
 
 export const roleService = {
@@ -760,6 +1158,37 @@ export const dashboardService = {
 export type TransactionStatus = 'pending' | 'approved' | 'shipped' | 'delivered' | 'canceled' | string;
 export type TransactionPaymentStatus = 'approved' | 'pending' | 'failed' | 'reversed' | 'refund' | string;
 
+export interface TransactionParty {
+  id: number;
+  name: string;
+  phone: string | null;
+  is_verified: boolean;
+  rating: number | null;
+}
+
+export interface TransactionBranchInfo {
+  id: number;
+  branch_code: string;
+  state: string;
+  is_verified: boolean;
+  rating: number | null;
+}
+
+export interface TransactionStop {
+  id: number;
+  stop_type: 'pickup' | 'delivery' | string;
+  sequence?: number;
+  address: string;
+  // Live data confirms these are frequently null (e.g. shared-location or
+  // manually-typed addresses that never got geocoded/reverse-geocoded) —
+  // never assume presence without a guard.
+  state: string | null;
+  country: string | null;
+  lat: number | null;
+  lon: number | null;
+  created_at?: string;
+}
+
 export interface Transaction {
   id: number;
   sender_id: string;
@@ -767,10 +1196,20 @@ export interface Transaction {
   payment_status: TransactionPaymentStatus;
   total_amount: number | null;
   delivery_method: string;
-  branch: number;
-  driver: number | null;
+  reference?: string | null;
+  session_code?: string | null;
+  dispatch_business_id_no?: TransactionParty | null;
+  vendor_business_id_no?: TransactionParty | null;
+  branch: TransactionBranchInfo | null;
+  driver: TransactionParty | null;
+  stops: TransactionStop[];
   confirmed_at: string | null;
   created_at: string;
+  updated_at?: string;
+  pickup_code?: string | null;
+  delivery_option?: string | null;
+  delivery_instructions?: string | null;
+  remarks?: string | null;
   [key: string]: unknown;
 }
 
@@ -814,44 +1253,10 @@ export const transactionService = {
 };
 
 // ── Logistics network (transactions/all + transactions/pairable) ──────────────
-// Richer sibling of `transactionService` above — same underlying orders, but
-// `driver`/`branch`/the fulfilling partner come back as full objects here
-// (not bare ids), plus per-stop lat/lon. Kept as a separate type from
-// `Transaction` deliberately: `transactionService.getAll` (plain
-// `/partner/transactions`) and the rep portal's `repOrderService.getAll`
-// haven't been confirmed to return this richer shape, so widening the
-// shared `Transaction` type would be guessing at their contract.
-
-export interface TransactionParty {
-  id: number;
-  name: string;
-  phone: string | null;
-  is_verified: boolean;
-  rating: number | null;
-}
-
-export interface TransactionBranchInfo {
-  id: number;
-  branch_code: string;
-  state: string;
-  is_verified: boolean;
-  rating: number | null;
-}
-
-export interface TransactionStop {
-  id: number;
-  stop_type: 'pickup' | 'delivery' | string;
-  sequence?: number;
-  address: string;
-  // Live data confirms these are frequently null (e.g. shared-location or
-  // manually-typed addresses that never got geocoded/reverse-geocoded) —
-  // never assume presence without a guard.
-  state: string | null;
-  country: string | null;
-  lat: number | null;
-  lon: number | null;
-  created_at?: string;
-}
+// Richer-query sibling of `transactionService` above — same underlying orders
+// and the same response shape (`Transaction`), but with extra filters
+// (country/state/confirmed) and a `pairable` grouping endpoint that
+// `transactionService` doesn't expose.
 
 export interface LogisticsTransaction {
   id: number;
@@ -1064,5 +1469,395 @@ export const partnerSessionService = {
       previous: raw.previous ?? null,
       results: extractList<PartnerSession>(raw.results),
     };
+  },
+};
+
+// ── Payout split ────────────────────────────────────────────────────────────────
+// Real, backend-integrated (unlike the dummy financial module below) — see
+// modules/business/partner_splits.py in azapal-backend, which itself proxies to
+// wallet-service. How a settled amount fans out across this partner's own
+// dispatchers/stakeholders; distinct from partner-financial-module-api-contract.md's
+// "Wallet" resource (a partner's own balance/ledger), which this doesn't touch.
+
+export interface SplitMember {
+  external_user_id: string;
+  label: string | null;
+  share_percent: number;
+}
+
+export interface SplitConfig {
+  partnerRef: string;
+  name: string | null;
+  members: SplitMember[];
+}
+
+const SPLIT_ENDPOINT = `${PARTNER_ENDPOINT}/split`;
+
+function toSplitMember(raw: any): SplitMember {
+  return {
+    external_user_id: raw.externalUserId,
+    label: raw.label ?? null,
+    share_percent: Number(raw.sharePercent),
+  };
+}
+
+export const splitService = {
+  /** Returns null if this identity (partner default, or one branch) hasn't configured a split yet. */
+  async get(branchId?: number | null): Promise<SplitConfig | null> {
+    const qs = branchId ? `?branch_id=${branchId}` : '';
+    const res = await fetchWithAuth(`${SPLIT_ENDPOINT}${qs}`, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    if (!raw.data) return null;
+    return {
+      partnerRef: raw.data.partnerRef,
+      name: raw.data.name ?? null,
+      members: (raw.data.members ?? []).map(toSplitMember),
+    };
+  },
+
+  /** Replaces the full member list for this identity. Shares must sum to exactly 100 (validated server-side). */
+  async save(name: string | undefined, members: SplitMember[], branchId?: number | null): Promise<SplitConfig> {
+    const res = await fetchWithAuth(SPLIT_ENDPOINT, {
+      method: 'PUT',
+      body: JSON.stringify({
+        name,
+        branch_id: branchId || undefined,
+        members: members.map((m) => ({
+          external_user_id: m.external_user_id,
+          label: m.label || undefined,
+          share_percent: m.share_percent,
+        })),
+      }),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return {
+      partnerRef: raw.data.partnerRef,
+      name: raw.data.name ?? null,
+      members: (raw.data.members ?? []).map(toSplitMember),
+    };
+  },
+};
+
+// ── Wallet ──────────────────────────────────────────────────────────────────────
+// Real, backed by wallet-service via modules/business/partner_wallet.py in
+// azapal-backend — see docs/partner-financial-module-api-contract.md.
+
+export interface WalletBalance {
+  balance: number;
+  pending_balance: number;
+  currency: string;
+  updated_at: string | null;
+}
+
+export type WalletTransactionType = 'credit' | 'debit';
+export type WalletTransactionCategory = 'delivery_earning' | 'payout' | 'fee' | 'adjustment' | 'top_up';
+
+export interface WalletTransaction {
+  id: number | null;
+  type: WalletTransactionType;
+  category: WalletTransactionCategory;
+  amount: number;
+  // wallet-service doesn't store a running balance per transaction — always null,
+  // not fabricated. Render a "—" for this, don't compute a fake running total.
+  balance_after: number | null;
+  description: string;
+  reference: string;
+  // wallet-service has no concept of azapal's own delivery Transaction model —
+  // always null from the real backend.
+  related_transaction_id: number | null;
+  created_at: string;
+}
+
+export interface WalletTransactionsQuery {
+  page?: number;
+  page_size?: number;
+  branch_id?: number | null;
+}
+
+export interface WalletTransactionsPage {
+  count: number;
+  next: boolean;
+  previous: boolean;
+  results: WalletTransaction[];
+}
+
+// The banks Paystack actually supports for dedicated-account creation — a much
+// shorter, specific list than "all Nigerian banks" (historically just Wema Bank
+// and Titan Trust Bank via Paystack's DVA program). provider_slug is what must be
+// sent back as CreateVirtualAccountPayload.bank_name — Paystack's dedicated-account
+// API takes a slug ("wema-bank"), not a display name.
+export interface BankProvider {
+  provider_slug: string;
+  bank_id: number;
+  bank_name: string;
+}
+
+const WALLET_ENDPOINT = `${PARTNER_ENDPOINT}/wallet`;
+
+export const walletService = {
+  async getBalance(branchId?: number | null): Promise<WalletBalance> {
+    const qs = branchId ? `?branch_id=${branchId}` : '';
+    const res = await fetchWithAuth(`${WALLET_ENDPOINT}/balance${qs}`, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async getTransactions(query: WalletTransactionsQuery = {}): Promise<WalletTransactionsPage> {
+    const params = new URLSearchParams();
+    if (query.page) params.set('page', String(query.page));
+    if (query.page_size) params.set('page_size', String(query.page_size));
+    if (query.branch_id) params.set('branch_id', String(query.branch_id));
+    const qs = params.toString();
+
+    const res = await fetchWithAuth(`${WALLET_ENDPOINT}/transactions${qs ? `?${qs}` : ''}`, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+
+    return {
+      count: raw.count ?? 0,
+      next: !!raw.next,
+      previous: !!raw.previous,
+      results: extractList<WalletTransaction>(raw.results),
+    };
+  },
+
+  async getProviders(): Promise<BankProvider[]> {
+    const res = await fetchWithAuth(`${WALLET_ENDPOINT}/providers`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<BankProvider>(await res.json());
+  },
+
+  /** Whether this partner has opened a dedicated account anywhere — the partner-level
+   * default, or any branch. Drives the Financials intro-vs-tabbed gate, now that an
+   * account can live under any of several branch-scoped identities. */
+  async hasAnyAccount(): Promise<boolean> {
+    const res = await fetchWithAuth(`${WALLET_ENDPOINT}/has-account`, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return !!(raw.data ?? raw)?.has_account;
+  },
+};
+
+// ── Virtual Accounts ───────────────────────────────────────────────────────────
+// Real, backed by wallet-service's Paystack dedicated-virtual-account integration.
+// Addressed by account_number, not a numeric id — wallet-service never returns
+// one (see wallet-service's src/wallet/routes.ts serializeAccount).
+
+export type VirtualAccountStatus = 'Active' | 'Inactive';
+
+export type WalletReason = 'customer_collections' | 'branch_operations' | 'payroll' | 'savings' | 'refunds' | 'loan_repayment';
+
+export const WALLET_REASONS: { value: WalletReason; label: string; description: string }[] = [
+  { value: 'customer_collections', label: 'Customer Collections', description: 'Collect payments directly from your customers.' },
+  { value: 'branch_operations', label: 'Branch Operations', description: 'Day-to-day running costs for a specific branch.' },
+  { value: 'payroll', label: 'Payroll & Salaries', description: 'Set aside funds for staff pay.' },
+  { value: 'savings', label: 'Business Savings', description: "Hold funds you're setting aside." },
+  { value: 'refunds', label: 'Customer Refunds', description: 'A dedicated account for issuing refunds.' },
+  { value: 'loan_repayment', label: 'Loan Repayment', description: 'Repaying a loan or credit facility.' },
+];
+
+export const WALLET_REASON_LABELS: Record<WalletReason, string> = Object.fromEntries(
+  WALLET_REASONS.map((r) => [r.value, r.label])
+) as Record<WalletReason, string>;
+
+
+export interface VirtualAccount {
+  account_number: string;
+  reason: WalletReason | null;
+  bank_name: string;
+  account_name: string;
+  status: VirtualAccountStatus;
+  created_at: string | null;
+}
+
+export interface CreateVirtualAccountPayload {
+  reason: WalletReason;
+  // A BankProvider's provider_slug (e.g. "wema-bank"), not a display name —
+  // that's what Paystack's dedicated-account API actually expects.
+  bank_name?: string;
+  // Omitted (or null) means the partner-level default account, not tied to any branch.
+  branch_id?: number | null;
+}
+
+const WALLET_ACCOUNTS_ENDPOINT = `${WALLET_ENDPOINT}/accounts`;
+
+export const virtualAccountService = {
+  async getAll(branchId?: number | null): Promise<VirtualAccount[]> {
+    const qs = branchId ? `?branch_id=${branchId}` : '';
+    const res = await fetchWithAuth(`${WALLET_ACCOUNTS_ENDPOINT}${qs}`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<VirtualAccount>(await res.json());
+  },
+
+  async create(payload: CreateVirtualAccountPayload): Promise<VirtualAccount> {
+    const res = await fetchWithAuth(`${WALLET_ACCOUNTS_ENDPOINT}`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async deactivate(accountNumber: string): Promise<VirtualAccount> {
+    const res = await fetchWithAuth(`${WALLET_ACCOUNTS_ENDPOINT}/${encodeURIComponent(accountNumber)}/deactivate`, {
+      method: 'PATCH',
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+};
+
+// ── Invoices ────────────────────────────────────────────────────────────────────
+// Real, greenfield Django models (no wallet-service involvement) — see
+// modules/business/partner_invoices.py in azapal-backend. Branch-scoped: a
+// branch-employee token only sees/creates their own branch's invoices, a
+// partner-owner token sees all (optionally filtered by branch_id).
+
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'void';
+
+export interface InvoiceLineItem {
+  description: string;
+  quantity: number;
+  unit_price: number;
+}
+
+export interface Invoice {
+  id: number;
+  invoice_number: string;
+  branch: number | null;
+  customer_name: string;
+  customer_email: string | null;
+  customer_phone: string | null;
+  customer_address: string | null;
+  related_transaction: number | null;
+  line_items: InvoiceLineItem[];
+  subtotal: number;
+  total: number;
+  status: InvoiceStatus;
+  due_date: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateInvoicePayload {
+  branch_id: number;
+  customer_name: string;
+  customer_email?: string | null;
+  customer_phone?: string | null;
+  customer_address?: string | null;
+  related_transaction_id?: number | null;
+  line_items: InvoiceLineItem[];
+  due_date?: string | null;
+  notes?: string | null;
+}
+
+export type UpdateInvoicePayload = Partial<Omit<CreateInvoicePayload, 'branch_id' | 'related_transaction_id'>> & { status?: InvoiceStatus };
+
+const INVOICE_ENDPOINT = `${PARTNER_ENDPOINT}/invoices`;
+
+// Django's DecimalField fields serialize as strings ("15000.00") — normalized to
+// real numbers here so nothing downstream has to know that.
+function normalizeInvoice(raw: any): Invoice {
+  return { ...raw, subtotal: Number(raw.subtotal), total: Number(raw.total) };
+}
+
+export const invoiceService = {
+  async getAll(branchId?: number): Promise<Invoice[]> {
+    const qs = branchId ? `?branch_id=${branchId}` : '';
+    const res = await fetchWithAuth(`${INVOICE_ENDPOINT}${qs}`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<any>(await res.json()).map(normalizeInvoice);
+  },
+
+  async create(payload: CreateInvoicePayload): Promise<Invoice> {
+    const res = await fetchWithAuth(`${INVOICE_ENDPOINT}`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return normalizeInvoice(raw.data ?? raw);
+  },
+
+  async update(id: number, payload: UpdateInvoicePayload): Promise<Invoice> {
+    const res = await fetchWithAuth(`${INVOICE_ENDPOINT}/${id}/`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return normalizeInvoice(raw.data ?? raw);
+  },
+
+  async delete(id: number): Promise<void> {
+    const res = await fetchWithAuth(`${INVOICE_ENDPOINT}/${id}/`, { method: 'DELETE' });
+    if (!res.ok) await handleError(res);
+  },
+};
+
+// ── Receipts ────────────────────────────────────────────────────────────────────
+// Real, greenfield — see modules/business/partner_receipts.py in azapal-backend.
+// Same branch-scoping rules as invoices. Creating one with related_invoice_id set
+// marks that invoice paid server-side, atomically with the receipt's creation.
+
+export type ReceiptPaymentMethod = 'bank_transfer' | 'card' | 'cash' | 'wallet';
+
+export interface Receipt {
+  id: number;
+  receipt_number: string;
+  branch: number | null;
+  customer_name: string;
+  amount: number;
+  payment_method: ReceiptPaymentMethod;
+  payment_reference: string | null;
+  related_invoice: number | null;
+  related_transaction: number | null;
+  issued_at: string;
+  created_at: string;
+}
+
+export interface CreateReceiptPayload {
+  branch_id: number;
+  customer_name: string;
+  amount: number;
+  payment_method: ReceiptPaymentMethod;
+  payment_reference?: string | null;
+  related_invoice_id?: number | null;
+  related_transaction_id?: number | null;
+}
+
+const RECEIPT_ENDPOINT = `${PARTNER_ENDPOINT}/receipts`;
+
+function normalizeReceipt(raw: any): Receipt {
+  return { ...raw, amount: Number(raw.amount) };
+}
+
+export const receiptService = {
+  async getAll(branchId?: number): Promise<Receipt[]> {
+    const qs = branchId ? `?branch_id=${branchId}` : '';
+    const res = await fetchWithAuth(`${RECEIPT_ENDPOINT}${qs}`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<any>(await res.json()).map(normalizeReceipt);
+  },
+
+  async create(payload: CreateReceiptPayload): Promise<Receipt> {
+    const res = await fetchWithAuth(`${RECEIPT_ENDPOINT}`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return normalizeReceipt(raw.data ?? raw);
+  },
+
+  async delete(id: number): Promise<void> {
+    const res = await fetchWithAuth(`${RECEIPT_ENDPOINT}/${id}/`, { method: 'DELETE' });
+    if (!res.ok) await handleError(res);
   },
 };

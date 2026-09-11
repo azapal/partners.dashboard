@@ -28,7 +28,7 @@ export function DriverAssignControl({ driverId, onAssign, isPending }: DriverAss
         </span>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="text-[11px] font-semibold text-[#F14724] hover:text-[#d63d1e] transition-colors shrink-0"
+          className="text-[11px] font-semibold text-brand hover:text-brand-hover transition-colors shrink-0"
         >
           {assignedDriver ? 'Reassign' : 'Assign driver'}
         </button>

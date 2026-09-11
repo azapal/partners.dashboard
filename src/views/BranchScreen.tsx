@@ -5,6 +5,8 @@ import type { BranchPartner, BranchManager } from "../service/partnerService";
 import { BulkBranchImportModal } from "../components/modal/BulkBranchImportModal";
 import { CreateBranchDrawer } from "../components/modal/CreateBranchDrawer";
 import { sheetActions } from "../store/client/sheets";
+import { SplitCreateButton } from "../components/buttons/SplitCreateButton";
+import { FilterPopover } from "../components/filters/FilterPopover";
 
 type BranchStatus = "Active" | "Inactive";
 
@@ -121,35 +123,31 @@ export const BranchScreen = () => {
             />
           </div>
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            <div className="flex items-center gap-1">
-              {(["All", "Active", "Inactive"] as const).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setStatusFilter(s)}
-                  className={`h-9 px-3 rounded-xl text-sm font-medium border transition ${
-                    statusFilter === s
-                      ? "border-[#F14724] bg-orange-50 text-[#F14724]"
-                      : "border-gray-200 text-gray-500 hover:bg-gray-50 bg-white"
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setIsBulkOpen(true)}
-              className="flex items-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors"
-            >
-              <i className="ri-file-upload-line text-base" />
-              Bulk Import
-            </button>
-            <button
+            <FilterPopover activeCount={statusFilter !== "All" ? 1 : 0} panelClassName="w-48">
+              {(close) => (
+                <div className="flex flex-col gap-1">
+                  {(["All", "Active", "Inactive"] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => { setStatusFilter(s); close(); }}
+                      className={`text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        statusFilter === s
+                          ? "bg-orange-50 text-brand"
+                          : "text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </FilterPopover>
+            <SplitCreateButton
+              label="Create Branch"
               onClick={() => setShowCreateForm(true)}
-              className="flex items-center gap-2 bg-[#F14724] text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#d63d1e] transition-colors"
-            >
-              <i className="ri-add-line text-base" />
-              Create Branch
-            </button>
+              bulkLabel="Bulk Import"
+              onBulkClick={() => setIsBulkOpen(true)}
+            />
           </div>
         </div>
 
@@ -210,7 +208,7 @@ export const BranchScreen = () => {
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
-                            <i className="ri-git-branch-line text-base text-[#F14724]" />
+                            <i className="ri-git-branch-line text-base text-brand" />
                           </div>
                           <div>
                             <p className="font-semibold text-gray-900 text-sm">{branch.name}</p>
@@ -264,7 +262,7 @@ export const BranchScreen = () => {
                   className="flex items-center gap-3 px-4 py-3.5 hover:bg-orange-50/40 cursor-pointer transition-colors"
                 >
                   <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
-                    <i className="ri-git-branch-line text-lg text-[#F14724]" />
+                    <i className="ri-git-branch-line text-lg text-brand" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900 text-sm truncate">{branch.name}</p>

@@ -2,9 +2,10 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSyncExternalStore } from 'react';
 import { queryClient } from '../lib/queryClient';
-import { partnerService } from '../service/partnerService';
+import { partnerService, partnerProfileService } from '../service/partnerService';
 import { partnerStore, partnerStoreActions } from '../store/client/partner';
-import type { PartnerProfile } from '../service/partnerService';
+import { useRepProfile } from './useRepAuth';
+import type { PartnerProfile, UpdatePartnerProfilePayload } from '../service/partnerService';
 
 // Types
 export type LoginCredentials = {
@@ -137,4 +138,29 @@ export const usePartnerProfile = (): PartnerProfile | null => {
     () => partnerStore.state.profile,
     () => partnerStore.state.profile,
   );
+};
+
+// "Whoever's logged in" for the main dashboard, regardless of which of the two
+// disjoint sessions they came in on — a partner-owner, or a Tenant Admin/Super
+// Admin employee (the only rep roles RequireAuth lets in here). Prefer the
+// partner profile when both are somehow present (shouldn't normally happen —
+// the two logins are mutually exclusive UI flows).
+export const useCurrentUserDisplay = (): { name: string; email: string } | null => {
+  const partnerProfile = usePartnerProfile();
+  const repProfile = useRepProfile();
+
+  if (partnerProfile) {
+    return { name: partnerProfile.partner_name ?? 'Partner', email: partnerProfile.partner_email ?? '' };
+  }
+  if (repProfile) {
+    return { name: `${repProfile.first_name} ${repProfile.last_name}`.trim(), email: repProfile.email ?? '' };
+  }
+  return null;
+};
+
+export const useUpdatePartnerProfile = () => {
+  return useMutation({
+    mutationFn: (payload: UpdatePartnerProfilePayload) => partnerProfileService.update(payload),
+    onSuccess: (data) => partnerStoreActions.setProfile(data),
+  });
 };

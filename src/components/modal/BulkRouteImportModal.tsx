@@ -136,7 +136,7 @@ export const BulkRouteImportModal: React.FC<BulkRouteImportModalProps> = ({ isOp
           <button
             type="button"
             onClick={() => downloadTemplate(TEMPLATE_HEADERS, 'route_template.xlsx')}
-            className="flex items-center gap-1.5 text-sm font-semibold text-[#F14724] hover:underline shrink-0"
+            className="flex items-center gap-1.5 text-sm font-semibold text-brand hover:underline shrink-0"
           >
             <i className="ri-download-2-line text-base" />
             Template
@@ -150,7 +150,7 @@ export const BulkRouteImportModal: React.FC<BulkRouteImportModalProps> = ({ isOp
           onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
         >
           <i className="ri-file-upload-line text-3xl text-gray-300 mb-2 block" />
-          <p className="text-sm font-medium text-gray-600">Drop file here or <span className="text-[#F14724]">browse</span></p>
+          <p className="text-sm font-medium text-gray-600">Drop file here or <span className="text-brand">browse</span></p>
           <p className="text-xs text-gray-400 mt-1">Accepts .csv and .xlsx</p>
           <input
             ref={fileRef}
@@ -226,7 +226,7 @@ export const BulkRouteImportModal: React.FC<BulkRouteImportModalProps> = ({ isOp
               type="button"
               onClick={handleImport}
               disabled={importing}
-              className="px-5 py-2.5 text-sm font-semibold text-white bg-[#F14724] hover:bg-[#d63d1e] rounded-xl transition-colors disabled:opacity-60 flex items-center gap-2"
+              className="px-5 py-2.5 text-sm font-semibold text-white bg-brand hover:bg-brand-hover rounded-xl transition-colors disabled:opacity-60 flex items-center gap-2"
             >
               {importing && <i className="ri-loader-4-line animate-spin text-base" />}
               {importing ? 'Importing…' : `Import ${rows.length} routes`}

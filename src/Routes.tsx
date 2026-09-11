@@ -8,6 +8,7 @@ import { useAppStore } from "./hooks/useAppStore";
 import { sheetActions } from "./store/client/sheets";
 import { SignInScreen } from "./views/SignInScreen";
 import OtpScreen from "./views/OtpScreen";
+import { SelectWorkspaceScreen } from "./views/SelectWorkspaceScreen";
 import Success from "./views/Success";
 import { CustomerScreen } from "./views/CustomerScreen";
 import { BranchScreen } from "./views/BranchScreen";
@@ -22,11 +23,10 @@ import {TransactionsScreen} from "./views/TransactionsScreen";
 import {ActivityLogScreen} from "./views/ActivityLogScreen";
 import {LogisticsNetworkScreen} from "./views/LogisticsNetworkScreen";
 import {RatesScreen} from "./views/RatesScreen";
+import {FinancialsScreen} from "./views/FinancialsScreen";
 
 import ContactPage from "./views/ContactPage.jsx";
 import HelpCenter from "./views/HelpCenter.jsx";
-import Authentication from "./views/Authentication.jsx";
-import ChangePassword from "./views/ChangePassword.jsx";
 import HelpCenterLayout from "./components/helpCenter/HelpCenterLayout.jsx";
 import UserManagementScreen from "./views/UserManagementScreen";
 
@@ -49,6 +49,7 @@ export const AppRoutes = () => {
       <Route path="/customers" element={<RequireAuth><CustomerScreen /></RequireAuth>} />
       <Route path="/branches" element={<RequireAuth><BranchScreen /></RequireAuth>} />
       <Route path="/login/otp" element={<OtpScreen />} />
+      <Route path="/select-workspace" element={<RequireAuth><SelectWorkspaceScreen /></RequireAuth>} />
       <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
       <Route path="/dashboard/performance" element={<RequireAuth><MonthlyPerformanceScreen /></RequireAuth>} />
       <Route path="/transactions" element={<RequireAuth><TransactionsScreen /></RequireAuth>} />
@@ -56,6 +57,7 @@ export const AppRoutes = () => {
       <Route path="/service" element={<RequireAuth><ServiceScreen /></RequireAuth>} />
       <Route path="/rates" element={<RequireAuth><RatesScreen /></RequireAuth>} />
       <Route path="/logistics-network" element={<RequireAuth><LogisticsNetworkScreen /></RequireAuth>} />
+      <Route path="/financials" element={<RequireAuth><FinancialsScreen /></RequireAuth>} />
       <Route
         path="/partners/onboarding"
         element={
@@ -71,8 +73,6 @@ export const AppRoutes = () => {
       <Route path="*" element={<PageNotFound />} />
       <Route path="/contact" element= {<ContactPage/>}/>
       <Route path="/helpCenter" element= {<HelpCenter/>}/>
-      <Route path="/authentication" element= {<Authentication/>}/>
-      <Route path="/changePassword" element= {<ChangePassword/>}/>
       <Route path="/users" element={<RequireAuth><UserManagementScreen /></RequireAuth>} />
 
       <Route path="/support/login" element={<RepLoginScreen />} />

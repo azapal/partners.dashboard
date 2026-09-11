@@ -99,7 +99,7 @@ export const AddNewUserModal: React.FC<AddNewUserModalProps> = ({ isOpen, onClos
               <span className="text-sm text-gray-400">No branches yet</span>
               <Link
                 to="/branches"
-                className="flex items-center gap-1 text-xs font-semibold text-[#F14724] hover:underline"
+                className="flex items-center gap-1 text-xs font-semibold text-brand hover:underline"
               >
                 <i className="ri-add-line text-sm" />
                 Create branch
@@ -140,7 +140,7 @@ export const AddNewUserModal: React.FC<AddNewUserModalProps> = ({ isOpen, onClos
           <button
             type="submit"
             disabled={isSubmitting || !selectedRole || rolesLoading || branchesLoading}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-[#F14724] hover:bg-[#d63d1e] rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-brand hover:bg-brand-hover rounded-xl transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-2"
           >
             {isSubmitting && <i className="ri-loader-4-line animate-spin text-base" />}
             {isSubmitting ? 'Sending…' : 'Send Invite'}

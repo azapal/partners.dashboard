@@ -48,7 +48,7 @@ export default function LogoutView() {
           <div className="p-6 sm:p-8 text-center">
             <div className="mb-6 flex justify-center">
               <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-orange-100 flex items-center justify-center">
-                <i className="ri-logout-box-r-line text-4xl sm:text-5xl text-[#F14724]" />
+                <i className="ri-logout-box-r-line text-4xl sm:text-5xl text-brand" />
               </div>
             </div>
 

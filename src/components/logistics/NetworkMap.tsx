@@ -7,6 +7,7 @@ import { useGetLogisticsTransactions } from '../../hooks/useLogistics';
 import { formatStatusLabel, statusDotClass, statusHexColor } from '../../lib/orderStatus';
 import type { LogisticsTransaction, TransactionStop } from '../../service/partnerService';
 import { DefaultModal } from '../modal/DefaultModal';
+import { BRAND_ORANGE } from '../../lib/brandColors';
 
 interface RegionInfo {
   key: string;
@@ -123,7 +124,7 @@ export function NetworkMap() {
     return {
       color: '#ffffff',
       weight: 1,
-      fillColor: connected ? '#F14724' : '#94a3b8',
+      fillColor: connected ? BRAND_ORANGE : '#94a3b8',
       fillOpacity: connected ? 0.35 : 0.2,
     };
   };
@@ -224,7 +225,7 @@ export function NetworkMap() {
                       </div>
                       <button
                         onClick={() => setActiveOrder(order)}
-                        className="text-left text-xs font-semibold text-[#F14724] hover:text-[#d63d1e] transition-colors mt-0.5"
+                        className="text-left text-xs font-semibold text-brand hover:text-brand-hover transition-colors mt-0.5"
                       >
                         View order details
                       </button>
@@ -238,7 +239,7 @@ export function NetworkMap() {
                   key={region.key}
                   center={region.center}
                   radius={6}
-                  pathOptions={{ color: '#ffffff', weight: 1.5, fillColor: '#F14724', fillOpacity: 1 }}
+                  pathOptions={{ color: '#ffffff', weight: 1.5, fillColor: BRAND_ORANGE, fillOpacity: 1 }}
                 >
                   <Popup>
                     <div className="flex flex-col gap-1 min-w-[180px]">
@@ -249,7 +250,7 @@ export function NetworkMap() {
                         <button
                           key={order.id}
                           onClick={() => setActiveOrder(order)}
-                          className="flex items-center justify-between gap-2 text-left text-xs font-medium text-gray-800 hover:text-[#F14724] transition-colors"
+                          className="flex items-center justify-between gap-2 text-left text-xs font-medium text-gray-800 hover:text-brand transition-colors"
                         >
                           {order.dispatch_business_id_no?.name ?? `Order #${order.id}`}
                           <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDotClass(order.status)}`} />

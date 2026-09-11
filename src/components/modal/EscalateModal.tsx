@@ -41,7 +41,7 @@ export const EscalateModal = ({ isOpen, onClose, shiftMate }: EscalateModalProps
           </p>
           <button
             onClick={handleClose}
-            className="mt-2 w-full h-11 bg-[#F14724] text-white rounded-xl text-sm font-semibold hover:bg-[#d63d1e] transition-colors"
+            className="mt-2 w-full h-11 bg-brand text-white rounded-xl text-sm font-semibold hover:bg-brand-hover transition-colors"
           >
             Done
           </button>
@@ -76,7 +76,7 @@ export const EscalateModal = ({ isOpen, onClose, shiftMate }: EscalateModalProps
             <button
               onClick={handleConfirm}
               disabled={isPending}
-              className="flex-1 h-11 bg-[#F14724] text-white rounded-xl text-sm font-semibold hover:bg-[#d63d1e] transition-colors disabled:opacity-60"
+              className="flex-1 h-11 bg-brand text-white rounded-xl text-sm font-semibold hover:bg-brand-hover transition-colors disabled:opacity-60"
             >
               {isPending ? 'Escalating…' : 'Escalate'}
             </button>

@@ -25,7 +25,7 @@ export const RepLoginScreen = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
       <div className="w-full max-w-md bg-white shadow-xl border border-slate-200 rounded-2xl overflow-hidden relative">
-        <div className="absolute top-0 left-0 w-full h-1.5 bg-linear-to-r from-[#F14724] to-[#8B2915]" />
+        <div className="absolute top-0 left-0 w-full h-1.5 bg-linear-to-r from-brand to-brand-maroon" />
 
         <div className="p-8 pt-10">
           <div className="mb-8 text-center">
@@ -61,7 +61,7 @@ export const RepLoginScreen = () => {
             <button
               type="submit"
               disabled={isPending || !email.trim()}
-              className="w-full h-12 bg-[#0d1b3d] hover:bg-[#0d1b3d]/90 text-white font-medium text-base rounded-xl flex items-center justify-center gap-2 transition cursor-pointer shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full h-12 bg-brand-navy hover:bg-brand-navy/90 text-white font-medium text-base rounded-xl flex items-center justify-center gap-2 transition cursor-pointer shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isPending ? 'Sending OTP…' : 'Continue'}
               {!isPending && <i className="ri-arrow-right-line text-base" />}

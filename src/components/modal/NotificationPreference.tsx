@@ -135,7 +135,7 @@ export const NotificationPreference = ({ currentBranch }: NotificationPreference
                 {/* Header */}
                 <div className="text-left mb-4 sm:mb-6">
                     <div className="flex items-center gap-2 mb-2">
-                        <i className="ri-notification-3-line text-lg sm:text-xl text-[#F14724]" />
+                        <i className="ri-notification-3-line text-lg sm:text-xl text-brand" />
                         <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
                             Notification Preferences
                         </h1>
@@ -153,7 +153,7 @@ export const NotificationPreference = ({ currentBranch }: NotificationPreference
                                 <div className="flex flex-col items-center flex-1">
                                     <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sm sm:text-base font-semibold transition-all ${
                                         currentStep === step.number
-                                            ? 'bg-[#F14724] text-white'
+                                            ? 'bg-brand text-white'
                                             : currentStep > step.number
                                             ? 'bg-green-500 text-white'
                                             : 'bg-gray-200 text-gray-500'
@@ -162,7 +162,7 @@ export const NotificationPreference = ({ currentBranch }: NotificationPreference
                                     </div>
                                     <div className="mt-1 sm:mt-2 text-center">
                                         <p className={`text-[10px] sm:text-xs font-medium ${
-                                            currentStep === step.number ? 'text-[#F14724]' : 'text-gray-500'
+                                            currentStep === step.number ? 'text-brand' : 'text-gray-500'
                                         }`}>
                                             {step.title}
                                         </p>
@@ -249,7 +249,7 @@ export const NotificationPreference = ({ currentBranch }: NotificationPreference
                     {currentStep < 3 ? (
                         <button
                             onClick={handleNextStep}
-                            className="flex items-center gap-1 sm:gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-[#F14724] text-white rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold hover:bg-[#d63d1e] transition-all"
+                            className="flex items-center gap-1 sm:gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-brand text-white rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold hover:bg-brand-hover transition-all"
                         >
                             Next
                             <i className="ri-arrow-right-s-line text-base sm:text-lg" />
@@ -260,7 +260,7 @@ export const NotificationPreference = ({ currentBranch }: NotificationPreference
                             disabled={!selectedChannel}
                             className={`flex items-center gap-1 sm:gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold transition-all ${
                                 selectedChannel
-                                    ? 'bg-[#F14724] text-white hover:bg-[#d63d1e]'
+                                    ? 'bg-brand text-white hover:bg-brand-hover'
                                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                             }`}
                         >

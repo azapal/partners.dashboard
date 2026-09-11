@@ -80,7 +80,7 @@ export function SearchableSelect(props: SearchableSelectProps) {
           {selectedOpts.map((opt) => (
             <span
               key={opt.value}
-              className="flex items-center gap-1 bg-orange-50 border border-orange-100 text-[#F14724] text-xs font-semibold px-2 py-0.5 rounded-lg"
+              className="flex items-center gap-1 bg-orange-50 border border-orange-100 text-brand text-xs font-semibold px-2 py-0.5 rounded-lg"
             >
               {opt.label}
               <button
@@ -124,7 +124,7 @@ export function SearchableSelect(props: SearchableSelectProps) {
                     onClick={() => toggle(opt)}
                     className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-orange-50/60 cursor-pointer transition-colors"
                   >
-                    <i className="ri-add-circle-line text-[#F14724] text-base shrink-0" />
+                    <i className="ri-add-circle-line text-brand text-base shrink-0" />
                     {opt.label}
                   </li>
                 ))
@@ -196,13 +196,13 @@ export function SearchableSelect(props: SearchableSelectProps) {
                   onClick={() => handleSelect(opt)}
                   className={`flex items-center justify-between px-4 py-2.5 text-sm cursor-pointer transition-colors ${
                     opt.value === value
-                      ? 'bg-orange-50 text-[#F14724] font-medium'
+                      ? 'bg-orange-50 text-brand font-medium'
                       : 'text-gray-700 hover:bg-gray-50'
                   }`}
                 >
                   <span>{opt.label}</span>
                   {opt.value === value && (
-                    <i className="ri-check-line text-base text-[#F14724]" />
+                    <i className="ri-check-line text-base text-brand" />
                   )}
                 </li>
               ))

@@ -1,7 +1,14 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { DashboardLayout } from "../layouts/DashboardLayout";
 import { useGetTransactions } from "../hooks/useTransactions";
-import type { Transaction, TransactionPaymentStatus, TransactionStatus } from "../service/partnerService";
+import type { Transaction, TransactionPaymentStatus, TransactionStatus, TransactionStop } from "../service/partnerService";
+import { FilterPopover } from "../components/filters/FilterPopover";
+import { DefaultModal } from "../components/modal/DefaultModal";
+import { TransactionRouteMap } from "../components/transactions/TransactionRouteMap";
+import { formatStatusLabel, statusHexColor } from "../lib/orderStatus";
+
+const hasCoords = (s?: TransactionStop): s is TransactionStop & { lat: number; lon: number } =>
+  !!s && s.lat != null && s.lon != null;
 
 const STATUS_OPTIONS: (TransactionStatus | "All")[] = [
   "All", "pending", "approved", "shipped", "delivered", "canceled",
@@ -35,14 +42,23 @@ const formatDate = (iso: string) =>
 
 const StatusBadge = ({ value, styles }: { value: string; styles: Record<string, string> }) => (
   <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${styles[value] ?? "bg-gray-100 text-gray-600"}`}>
-    {value}
+    {formatStatusLabel(value)}
   </span>
+);
+
+const Field = ({ label, value }: { label: string; value: React.ReactNode }) => (
+  <div>
+    <p className="text-[11px] text-gray-400 font-medium">{label}</p>
+    <p className="text-sm text-gray-800 font-medium break-words">{value}</p>
+  </div>
 );
 
 export const TransactionsScreen = () => {
   const [status, setStatus] = useState<TransactionStatus | "All">("All");
   const [paymentStatus, setPaymentStatus] = useState<TransactionPaymentStatus | "All">("All");
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [activeTransaction, setActiveTransaction] = useState<Transaction | null>(null);
 
   const { data, isLoading, isFetching } = useGetTransactions({
     status: status === "All" ? undefined : status,
@@ -55,43 +71,71 @@ export const TransactionsScreen = () => {
   const count = data?.count ?? 0;
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
 
+  const filteredTransactions = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return transactions;
+    return transactions.filter((tx) => {
+      return (
+        tx.sender_id?.toLowerCase().includes(query) ||
+        String(tx.id).includes(query) ||
+        formatStatusLabel(tx.status).toLowerCase().includes(query)
+      );
+    });
+  }, [transactions, search]);
+
   const changeFilter = <T,>(setter: (v: T) => void) => (value: T) => {
     setter(value);
     setPage(1);
   };
 
+  const pickupStop = activeTransaction?.stops.find((s) => s.stop_type === "pickup");
+  const deliveryStop = activeTransaction?.stops.find((s) => s.stop_type === "delivery");
+
   return (
     <DashboardLayout>
       <div className="w-full flex flex-col gap-5">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Transactions</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            All delivery orders and their payment status.
-          </p>
-        </div>
+        {/* Top bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="relative w-full sm:max-w-xs">
+            <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search this page…"
+              className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-100 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-gray-200"
+            />
+          </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-gray-500 shrink-0">Status</span>
-            <select
-              className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-gray-200 focus:border-gray-300 outline-none capitalize"
-              value={status}
-              onChange={(e) => changeFilter(setStatus)(e.target.value as TransactionStatus | "All")}
-            >
-              {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-gray-500 shrink-0">Payment</span>
-            <select
-              className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-gray-200 focus:border-gray-300 outline-none capitalize"
-              value={paymentStatus}
-              onChange={(e) => changeFilter(setPaymentStatus)(e.target.value as TransactionPaymentStatus | "All")}
-            >
-              {PAYMENT_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
+          <FilterPopover
+            activeCount={(status !== "All" ? 1 : 0) + (paymentStatus !== "All" ? 1 : 0)}
+            panelClassName="w-64"
+          >
+            {() => (
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">Status</label>
+                  <select
+                    className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-gray-200 focus:border-gray-300 outline-none capitalize"
+                    value={status}
+                    onChange={(e) => changeFilter(setStatus)(e.target.value as TransactionStatus | "All")}
+                  >
+                    {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500">Payment</label>
+                  <select
+                    className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-gray-200 focus:border-gray-300 outline-none capitalize"
+                    value={paymentStatus}
+                    onChange={(e) => changeFilter(setPaymentStatus)(e.target.value as TransactionPaymentStatus | "All")}
+                  >
+                    {PAYMENT_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+          </FilterPopover>
         </div>
 
         {/* Table */}
@@ -117,15 +161,19 @@ export const TransactionsScreen = () => {
                       <i className="ri-loader-4-line animate-spin text-xl" />
                     </td>
                   </tr>
-                ) : transactions.length === 0 ? (
+                ) : filteredTransactions.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center py-14 text-gray-400 text-sm">
                       No transactions found
                     </td>
                   </tr>
                 ) : (
-                  transactions.map((tx) => (
-                    <tr key={tx.id} className="border-b border-gray-50 hover:bg-orange-50/40 transition-colors">
+                  filteredTransactions.map((tx) => (
+                    <tr
+                      key={tx.id}
+                      onClick={() => setActiveTransaction(tx)}
+                      className="border-b border-gray-50 hover:bg-orange-50/40 transition-colors cursor-pointer"
+                    >
                       <td className="px-5 py-3.5 text-gray-900 font-medium">#{tx.id}</td>
                       <td className="px-4 py-3.5 text-gray-600">{tx.sender_id}</td>
                       <td className="px-4 py-3.5 text-gray-900 font-semibold">{formatAmount(tx.total_amount)}</td>
@@ -146,11 +194,15 @@ export const TransactionsScreen = () => {
               <p className="text-center py-14 text-gray-400 text-sm">
                 <i className="ri-loader-4-line animate-spin text-xl" />
               </p>
-            ) : transactions.length === 0 ? (
+            ) : filteredTransactions.length === 0 ? (
               <p className="text-center py-14 text-gray-400 text-sm">No transactions found</p>
             ) : (
-              transactions.map((tx) => (
-                <div key={tx.id} className="flex flex-col gap-2 px-4 py-3.5">
+              filteredTransactions.map((tx) => (
+                <div
+                  key={tx.id}
+                  onClick={() => setActiveTransaction(tx)}
+                  className="flex flex-col gap-2 px-4 py-3.5 cursor-pointer active:bg-orange-50/40 transition-colors"
+                >
                   <div className="flex items-center justify-between">
                     <p className="font-semibold text-gray-900 text-sm">#{tx.id}</p>
                     <p className="font-semibold text-gray-900 text-sm">{formatAmount(tx.total_amount)}</p>
@@ -193,6 +245,71 @@ export const TransactionsScreen = () => {
           )}
         </div>
       </div>
+
+      {/* Transaction detail modal */}
+      <DefaultModal
+        isOpen={!!activeTransaction}
+        onClose={() => setActiveTransaction(null)}
+        title={activeTransaction ? `Transaction #${activeTransaction.id}` : ""}
+        subtitle={activeTransaction ? formatDate(activeTransaction.created_at) : undefined}
+        maxWidthClassName="max-w-2xl"
+      >
+        {activeTransaction && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <StatusBadge value={activeTransaction.status} styles={STATUS_STYLES} />
+              <StatusBadge value={activeTransaction.payment_status} styles={PAYMENT_STATUS_STYLES} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Amount" value={formatAmount(activeTransaction.total_amount)} />
+              <Field label="Delivery Method" value={activeTransaction.delivery_method?.replace(/_/g, " ") || "—"} />
+              <Field label="Sender" value={activeTransaction.sender_id} />
+              <Field
+                label="Branch"
+                value={
+                  activeTransaction.branch
+                    ? `${activeTransaction.branch.branch_code} · ${activeTransaction.branch.state}`
+                    : "Unassigned"
+                }
+              />
+              <Field
+                label="Driver"
+                value={
+                  activeTransaction.driver
+                    ? `${activeTransaction.driver.name}${activeTransaction.driver.phone ? ` · ${activeTransaction.driver.phone}` : ""}`
+                    : "Unassigned"
+                }
+              />
+              {activeTransaction.reference && <Field label="Reference" value={activeTransaction.reference} />}
+              {activeTransaction.session_code && <Field label="Session Code" value={activeTransaction.session_code} />}
+              {activeTransaction.pickup_code && <Field label="Pickup Code" value={activeTransaction.pickup_code} />}
+            </div>
+
+            {(activeTransaction.remarks || activeTransaction.delivery_instructions) && (
+              <div className="rounded-xl border border-gray-100 p-3 space-y-2">
+                {activeTransaction.remarks && <Field label="Remarks" value={activeTransaction.remarks} />}
+                {activeTransaction.delivery_instructions && (
+                  <Field label="Delivery Instructions" value={activeTransaction.delivery_instructions} />
+                )}
+              </div>
+            )}
+
+            <div>
+              <p className="text-[11px] text-gray-400 font-medium mb-1.5">Delivery Route</p>
+              {hasCoords(pickupStop) && hasCoords(deliveryStop) ? (
+                <TransactionRouteMap
+                  pickup={pickupStop}
+                  delivery={deliveryStop}
+                  routeColor={statusHexColor(activeTransaction.status)}
+                />
+              ) : (
+                <p className="text-xs text-gray-400 italic">No location data available for this delivery</p>
+              )}
+            </div>
+          </div>
+        )}
+      </DefaultModal>
     </DashboardLayout>
   );
 };

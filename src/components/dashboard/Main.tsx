@@ -7,6 +7,7 @@ import { useGetDashboardStats } from "../../hooks/useDashboard";
 import { useGetTransactions } from "../../hooks/useTransactions";
 import { useGetPartnerServices } from "../../hooks/useServices";
 import type { DashboardBranch, Transaction } from "../../service/partnerService";
+import { BRAND_ORANGE } from "../../lib/brandColors";
 import {
     BarChart,
     Bar,
@@ -25,27 +26,6 @@ const orders = [
     { amount: 6000, business_name: "Business Name", buyer_name: "Buyer Name", assigned_dispatch: "Assigned Dispatch" },
     { amount: 6000, business_name: "Business Name", buyer_name: "Buyer Name", assigned_dispatch: "Assigned Dispatch" },
     { amount: 6000, business_name: "Business Name", buyer_name: "Buyer Name", assigned_dispatch: "Assigned Dispatch" },
-];
-
-const productModules = [
-    {
-        code: "azapal-tms-fms",
-        name: "Azapal TMS/FMS",
-        fullName: "Transport/Fleet Management System",
-        description: "Plan routes, dispatch fleets, and track deliveries in real time.",
-        icon: "ri-truck-line",
-        iconBg: "bg-blue-50",
-        iconColor: "text-blue-500",
-    },
-    {
-        code: "azapal-ims",
-        name: "Azapal IMS",
-        fullName: "Inventory Management System",
-        description: "Track stock levels, warehouse movement, and reorder points.",
-        icon: "ri-archive-2-line",
-        iconBg: "bg-purple-50",
-        iconColor: "text-purple-500",
-    },
 ];
 
 const awsUsage = [
@@ -89,16 +69,7 @@ const SectionCard = ({ icon, iconColor, iconBg, title, children, className = "" 
 function Main() {
     const { containerRef, useResizer } = useResizeObserver();
     const [showAddBranch, setShowAddBranch] = useState(false);
-    const [moduleSearch, setModuleSearch] = useState("");
-    const [requestedModules, setRequestedModules] = useState<string[]>([]);
     const navigate = useNavigate();
-
-    const filteredModules = productModules.filter((m) =>
-        `${m.name} ${m.fullName} ${m.description}`.toLowerCase().includes(moduleSearch.trim().toLowerCase())
-    );
-
-    const requestModule = (code: string) =>
-        setRequestedModules((prev) => (prev.includes(code) ? prev : [...prev, code]));
 
     const { data: dashboardStats, isLoading: statsLoading } = useGetDashboardStats();
     const { data: pendingTransactions, isLoading: activityLoading } = useGetTransactions({
@@ -182,45 +153,35 @@ function Main() {
                     )}
                 </div>
             </SectionCard>
-            <SectionCard icon="ri-apps-2-line" iconColor="text-indigo-500" iconBg="bg-indigo-50" title="Product Modules" className="w-full">
-                <div className="relative mb-4 gap-1">
-                    <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base" />
-                    <input
-                        type="text"
-                        value={moduleSearch}
-                        onChange={(e) => setModuleSearch(e.target.value)}
-                        placeholder="Search product modules…"
-                        className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-100 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-gray-200"
-                    />
+            <SectionCard icon="ri-cloud-line" iconColor="text-sky-600" iconBg="bg-sky-50" title="Cloud Cost" className="w-full">
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                    <div className="bg-slate-50 rounded-xl p-3">
+                        <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Current cost</p>
+                        <p className="mt-1 text-base font-bold text-gray-900">${awsCostSummary.currentCost.toLocaleString()}</p>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-3">
+                        <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Forecast</p>
+                        <p className="mt-1 text-base font-bold text-gray-900">${awsCostSummary.estimatedMonthCost.toLocaleString()}</p>
+                    </div>
                 </div>
-                <div className="flex flex-col gap-2">
-                    {filteredModules.length === 0 ? (
-                        <p className="text-xs text-gray-400 py-2">No modules match your search.</p>
-                    ) : (
-                        filteredModules.map((mod) => (
-                            <div
-                                key={mod.code}
-                                className="flex  flex-col gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors"
-                            >
-                                <div className={`w-10 h-10 rounded-xl ${mod.iconBg} flex items-center justify-center shrink-0`}>
-                                    <i className={`${mod.icon} text-lg ${mod.iconColor}`} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-semibold text-gray-900 text-sm">{mod.name}</p>
-                                    <p className="text-xs text-gray-400">{mod.fullName}</p>
-                                    <p className="text-xs text-gray-500 mt-0.5">{mod.description}</p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => requestModule(mod.code)}
-                                    disabled={requestedModules.includes(mod.code)}
-                                    className="shrink-0 text-xs font-semibold px-3 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:bg-green-50 disabled:text-green-700 disabled:border-green-100 transition-colors"
-                                >
-                                    {requestedModules.includes(mod.code) ? "Subscribed" : "Subscribe"}
-                                </button>
-                            </div>
-                        ))
-                    )}
+                <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-gray-500">Resource usage</p>
+                    <span className="text-[10px] font-medium text-gray-400">This month</span>
+                </div>
+                <div className="h-48">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={awsUsage} barSize={18}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} width={28} />
+                            <Tooltip
+                                contentStyle={{ borderRadius: "10px", border: "1px solid #e5e7eb", fontSize: "12px" }}
+                                cursor={{ fill: "rgba(14,165,233,0.06)" }}
+                                formatter={(v: any) => [`$${Number(v).toLocaleString()}`, "Cost"]}
+                            />
+                            <Bar dataKey="value" fill="#0ea5e9" radius={[5, 5, 0, 0]} animationBegin={100} animationDuration={700} />
+                        </BarChart>
+                    </ResponsiveContainer>
                 </div>
             </SectionCard>
         </div>
@@ -240,7 +201,7 @@ function Main() {
                 <div className="flex w-full gap-4 flex-col md:flex-row">
                     {/* Left column */}
                     <div className="flex flex-col w-full gap-4">
-                        <SectionCard icon="ri-line-chart-line" iconColor="text-[#F14724]" iconBg="bg-orange-50" title="Recent Activity">
+                        <SectionCard icon="ri-line-chart-line" iconColor="text-brand" iconBg="bg-orange-50" title="Recent Activity">
                             <div className="flex flex-col">
                                 {activityLoading ? (
                                     [...Array(6)].map((_, i) => (
@@ -265,7 +226,7 @@ function Main() {
                             <div className="flex justify-end mb-4">
                                 <button
                                     onClick={() => navigate("/dashboard/performance")}
-                                    className="flex items-center gap-1.5 text-xs font-semibold text-[#F14724] hover:text-[#d63d1e] transition-colors"
+                                    className="flex items-center gap-1.5 text-xs font-semibold text-brand hover:text-brand-hover transition-colors"
                                 >
                                     View Monthly Performance
                                     <i className="ri-arrow-right-line text-sm" />
@@ -296,35 +257,7 @@ function Main() {
                                             contentStyle={{ borderRadius: "10px", border: "1px solid #e5e7eb", fontSize: "12px" }}
                                             cursor={{ fill: "rgba(241,71,36,0.05)" }}
                                         />
-                                        <Bar dataKey="value" fill="#F14724" radius={[6, 6, 0, 0]} animationBegin={100} animationDuration={700} />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </SectionCard>
-                        <SectionCard icon="ri-cloud-line" iconColor="text-orange-500" iconBg="bg-orange-50" title="Cloud Operations (AWS)" className="w-full">
-                            <div className="grid grid-cols-2 gap-3 mb-4">
-                                <div className="bg-gray-50 rounded-xl p-3">
-                                    <p className="text-[11px] text-gray-400 font-medium">Current Cost</p>
-                                    <p className="text-lg font-bold text-gray-900">${awsCostSummary.currentCost.toLocaleString()}</p>
-                                </div>
-                                <div className="bg-gray-50 rounded-xl p-3">
-                                    <p className="text-[11px] text-gray-400 font-medium">Est. Month Cost</p>
-                                    <p className="text-lg font-bold text-gray-900">${awsCostSummary.estimatedMonthCost.toLocaleString()}</p>
-                                </div>
-                            </div>
-                            <p className="text-xs font-semibold text-gray-500 mb-2">Resource Usage Cost ($)</p>
-                            <div className="h-56">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={awsUsage} barSize={28}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                                        <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                                        <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                                        <Tooltip
-                                            contentStyle={{ borderRadius: "10px", border: "1px solid #e5e7eb", fontSize: "12px" }}
-                                            cursor={{ fill: "rgba(249,115,22,0.05)" }}
-                                            formatter={(v: any) => [`$${Number(v).toLocaleString()}`, "Cost"]}
-                                        />
-                                        <Bar dataKey="value" fill="#f97316" radius={[6, 6, 0, 0]} animationBegin={100} animationDuration={700} />
+                                        <Bar dataKey="value" fill={BRAND_ORANGE} radius={[6, 6, 0, 0]} animationBegin={100} animationDuration={700} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
@@ -417,7 +350,7 @@ function Activity({ title, id, time }: ActivityProps) {
         <div className="flex items-center justify-between gap-3 py-2.5 px-2 hover:bg-gray-50 rounded-xl cursor-pointer transition-colors group">
             <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
-                    <i className="ri-package-line text-[#F14724] text-sm" />
+                    <i className="ri-package-line text-brand text-sm" />
                 </div>
                 <div>
                     <p className="font-medium text-xs text-gray-800">{title}</p>

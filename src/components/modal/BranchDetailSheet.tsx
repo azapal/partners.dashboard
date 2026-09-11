@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../../hooks/useAppStore';
 import { sheetActions } from '../../store/client/sheets';
 import type { BranchManager } from '../../service/partnerService';
@@ -43,6 +43,18 @@ export const BranchDetailSheet = () => {
   const [status, setStatus] = useState<BranchStatus>('Active');
   const [location, setLocation] = useState({ lat: '', lon: '', address: '' });
   const [managerIds, setManagerIds] = useState<string[]>([]);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const actionsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onOutside = (e: MouseEvent) => {
+      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) {
+        setActionsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onOutside);
+    return () => document.removeEventListener('mousedown', onOutside);
+  }, []);
 
   if (!branch) return null;
 
@@ -95,7 +107,7 @@ export const BranchDetailSheet = () => {
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as BranchStatus)}
-              className="w-full h-10 rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-[#F14724] focus:ring-2 focus:ring-orange-100"
+              className="w-full h-10 rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-orange-100"
             >
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
@@ -155,22 +167,62 @@ export const BranchDetailSheet = () => {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="px-5 pt-2 pb-5 border-b border-gray-100">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-orange-50 flex items-center justify-center shrink-0 shadow-sm">
-            <i className="ri-git-branch-line text-2xl text-[#F14724]" />
-          </div>
+        <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="font-bold text-gray-900 text-base leading-tight">{branch.name}</h2>
-            <p className="text-xs text-gray-400 mt-0.5">{branch.code}</p>
-            <span
-              className={`inline-block mt-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${
-                branch.status === 'Active'
-                  ? 'bg-green-50 text-green-700'
-                  : 'bg-slate-100 text-slate-600'
-              }`}
+            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
+              Branch
+            </p>
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-orange-50 flex items-center justify-center shrink-0 shadow-sm">
+                <i className="ri-git-branch-line text-2xl text-brand" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-bold text-gray-900 text-base leading-tight">{branch.name}</h2>
+                <p className="text-xs text-gray-400 mt-0.5">{branch.code}</p>
+                <span
+                  className={`inline-block mt-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${
+                    branch.status === 'Active'
+                      ? 'bg-green-50 text-green-700'
+                      : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {branch.status}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions dropdown */}
+          <div className="relative shrink-0" ref={actionsRef}>
+            <button
+              type="button"
+              onClick={() => setActionsOpen((open) => !open)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
             >
-              {branch.status}
-            </span>
+              Actions
+              <i className={`ri-arrow-${actionsOpen ? 'up' : 'down'}-s-line text-base text-gray-400`} />
+            </button>
+
+            {actionsOpen && (
+              <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-100 rounded-xl shadow-lg overflow-hidden z-10">
+                <button
+                  type="button"
+                  onClick={() => { setActionsOpen(false); handleStartEdit(); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left"
+                >
+                  <i className="ri-edit-line text-base text-gray-400" />
+                  Edit Branch
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActionsOpen(false); handleDelete(); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors text-left border-t border-gray-50"
+                >
+                  <i className="ri-delete-bin-line text-base" />
+                  Delete Branch
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -198,7 +250,7 @@ export const BranchDetailSheet = () => {
               <div key={manager.id} className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-3">
                   <div className="w-7 h-7 rounded-lg bg-orange-50 flex items-center justify-center shrink-0">
-                    <span className="text-[10px] font-bold text-[#F14724]">{index + 1}</span>
+                    <span className="text-[10px] font-bold text-brand">{index + 1}</span>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-800">
@@ -210,7 +262,7 @@ export const BranchDetailSheet = () => {
                 <a
                   href={`mailto:${manager.email}`}
                   title={`Email ${manager.first_name}`}
-                  className="h-7 w-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-[#F14724] hover:bg-orange-50 transition-colors"
+                  className="h-7 w-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-brand hover:bg-orange-50 transition-colors"
                 >
                   <i className="ri-mail-line text-sm" />
                 </a>
@@ -218,24 +270,6 @@ export const BranchDetailSheet = () => {
             ))
           )}
         </Section>
-      </div>
-
-      {/* Actions */}
-      <div className="px-5 py-4 border-t border-gray-100 space-y-2">
-        <button
-          onClick={handleStartEdit}
-          className="w-full flex items-center justify-center gap-2 py-2.5 bg-gray-900 hover:bg-gray-700 text-white rounded-xl text-sm font-semibold transition-colors"
-        >
-          <i className="ri-edit-line text-base" />
-          Edit Branch
-        </button>
-        <button
-          onClick={handleDelete}
-          className="w-full flex items-center justify-center gap-2 py-2.5 border border-red-200 hover:bg-red-50 text-red-500 rounded-xl text-sm font-semibold transition-colors"
-        >
-          <i className="ri-delete-bin-line text-base" />
-          Delete Branch
-        </button>
       </div>
     </div>
   );
@@ -258,7 +292,7 @@ function DetailRow({ icon, label, value }: { icon: string; label: string; value:
   return (
     <div className="flex items-center gap-3 px-4 py-3">
       <div className="w-7 h-7 rounded-lg bg-orange-50 flex items-center justify-center shrink-0">
-        <i className={`${icon} text-sm text-[#F14724]`} />
+        <i className={`${icon} text-sm text-brand`} />
       </div>
       <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
         <p className="text-xs text-gray-400 shrink-0">{label}</p>

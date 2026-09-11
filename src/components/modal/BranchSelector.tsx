@@ -74,14 +74,14 @@ export const BranchSelector = ({
                         >
                             <div className="flex items-center gap-2 sm:gap-3">
                                 <i className={`ri-building-2-line text-base sm:text-lg ${
-                                    selectedBranchId === branch.id ? 'text-[#F14724]' : 'text-gray-500'
+                                    selectedBranchId === branch.id ? 'text-brand' : 'text-gray-500'
                                 }`} />
                                 <div className="flex-1">
                                     <h4 className="text-xs sm:text-sm font-semibold text-gray-900">{branch.name}</h4>
                                     <p className="text-[10px] sm:text-xs text-gray-500">{branch.location}</p>
                                 </div>
                                 {selectedBranchId === branch.id && (
-                                    <div className="w-5 h-5 bg-[#F14724] rounded-full flex items-center justify-center">
+                                    <div className="w-5 h-5 bg-brand rounded-full flex items-center justify-center">
                                         <div className="w-2 h-2 bg-white rounded-full"></div>
                                     </div>
                                 )}

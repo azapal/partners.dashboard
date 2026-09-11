@@ -3,6 +3,7 @@ import Select from "react-select";
 import { DefaultTextInput } from "../inputs/DefaultTextInput";
 import { DefaultButton } from "../buttons/DefaultButton";
 import State from '../../utilities/states.json'
+import { BRAND_ORANGE } from '../../lib/brandColors';
 
 type AddNewBranchProps = {
     setShowAddBranch: (show: boolean) => void;
@@ -92,7 +93,7 @@ export const AddNewBranch = ({ setShowAddBranch }: AddNewBranchProps) => {
                                         control: (base) => ({
                                             ...base,
                                             borderColor: '#d1d5db',
-                                            '&:hover': { borderColor: '#F14724' },
+                                            '&:hover': { borderColor: BRAND_ORANGE },
                                             boxShadow: 'none',
                                         }),
                                     }}
@@ -116,7 +117,7 @@ export const AddNewBranch = ({ setShowAddBranch }: AddNewBranchProps) => {
                                         control: (base) => ({
                                             ...base,
                                             borderColor: '#d1d5db',
-                                            '&:hover': { borderColor: '#F14724' },
+                                            '&:hover': { borderColor: BRAND_ORANGE },
                                             boxShadow: 'none',
                                         }),
                                     }}
@@ -217,7 +218,7 @@ export const AddNewBranch = ({ setShowAddBranch }: AddNewBranchProps) => {
                                 Cancel
                             </button>
                             <button
-                                className="inline-flex justify-center rounded-md border border-transparent bg-[#F14724] py-2 px-6 text-sm font-semibold text-white shadow-sm hover:bg-[#d63d1e] focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 transition-colors"
+                                className="inline-flex justify-center rounded-md border border-transparent bg-brand py-2 px-6 text-sm font-semibold text-white shadow-sm hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 transition-colors"
                                 type="submit"
                             >
                                 Save Branch

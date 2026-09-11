@@ -4,7 +4,7 @@ export const AuthLayout = ({ children }: { children: ReactNode }) => {
         return (
                 <div className="min-h-screen bg-[#f4f7fb] text-slate-900">
                         <div className="grid min-h-screen lg:grid-cols-[1.15fr_0.85fr]">
-                                <div className="relative hidden overflow-hidden lg:flex flex-col justify-between p-10 xl:p-14 text-white bg-gradient-to-br from-[#0d1b3d] via-[#142449] to-[#091225]">
+                                <div className="relative hidden overflow-hidden lg:flex flex-col justify-between p-10 xl:p-14 text-white bg-gradient-to-br from-brand-navy via-[#142449] to-[#091225]">
                                         <div className="absolute inset-0 opacity-35 bg-[radial-gradient(circle_at_top_right,_rgba(59,130,246,0.45),_transparent_40%),radial-gradient(circle_at_bottom_left,_rgba(59,130,246,0.2),_transparent_30%)]" />
                                         <img
                                                 src="/logistics-trucks.jpg"

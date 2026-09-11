@@ -71,7 +71,7 @@ const RepProfileScreen = () => {
                 onClick={() => handleShiftChange(status)}
                 className={`flex-1 capitalize text-sm font-semibold px-4 py-2.5 rounded-xl border transition-colors
                   ${shiftStatus === status
-                    ? 'bg-[#F14724] text-white border-[#F14724]'
+                    ? 'bg-brand text-white border-brand'
                     : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
               >
                 {status}

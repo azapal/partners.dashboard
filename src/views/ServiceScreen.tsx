@@ -86,7 +86,7 @@ export const ServiceScreen = () => {
                     type="checkbox"
                     checked={selected.includes(c.value)}
                     onChange={() => setCheckbox(opt.id, c.value)}
-                    className="w-4 h-4 rounded accent-[#F14724] shrink-0"
+                    className="w-4 h-4 rounded accent-brand shrink-0"
                   />
                   <span className="text-sm text-gray-700">{c.display_text}</span>
                 </label>
@@ -130,7 +130,7 @@ export const ServiceScreen = () => {
             onChange={(e) => setTextValue(opt.id, e.target.value)}
             placeholder={opt.placeholder ?? 'Enter your response…'}
             rows={3}
-            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-[#F14724] resize-none"
+            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-brand resize-none"
           />
         </div>
       );
@@ -150,7 +150,7 @@ export const ServiceScreen = () => {
           value={(responses[opt.id] as string | undefined) ?? ''}
           onChange={(e) => setTextValue(opt.id, e.target.value)}
           placeholder={opt.placeholder ?? ''}
-          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-[#F14724]"
+          className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-brand"
         />
       </div>
     );
@@ -165,20 +165,15 @@ export const ServiceScreen = () => {
     <DashboardLayout>
       <div className="w-full flex flex-col gap-5">
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Services</h1>
-            <p className="text-sm text-slate-500 mt-1">
-              Complete your service details for customer reference.
-            </p>
-          </div>
-          <button
+          
+          {/* <button
             type="button"
             onClick={() => setShowPicker((prev) => !prev)}
             className="flex items-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors shrink-0"
           >
             <i className="ri-list-check-2 text-base" />
             <span className="hidden sm:inline">Manage Services</span>
-          </button>
+          </button> */}
         </div>
 
         {showPicker && (
@@ -210,7 +205,7 @@ export const ServiceScreen = () => {
                       checked={selectedIds.includes(service.id)}
                       disabled={!service.is_active}
                       onChange={() => toggleSelected(service.id)}
-                      className="w-4 h-4 rounded accent-[#F14724] shrink-0"
+                      className="w-4 h-4 rounded accent-brand shrink-0"
                     />
                     <span className="flex-1 min-w-0">
                       <span className="block text-sm text-gray-700">{service.name}</span>
@@ -231,7 +226,7 @@ export const ServiceScreen = () => {
                 type="button"
                 onClick={saveSelection}
                 disabled={updatePartnerServices.isPending}
-                className="flex items-center gap-2 bg-[#F14724] hover:bg-[#d63d1e] text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
+                className="flex items-center gap-2 bg-brand hover:bg-brand-hover text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
               >
                 {updatePartnerServices.isPending ? (
                   <i className="ri-loader-4-line animate-spin text-base" />
@@ -284,7 +279,7 @@ export const ServiceScreen = () => {
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center shrink-0">
-                          <i className="ri-settings-3-line text-base text-[#F14724]" />
+                          <i className="ri-settings-3-line text-base text-brand" />
                         </div>
                         <div>
                           <p className="font-semibold text-gray-900 text-sm">{service.name}</p>
@@ -321,7 +316,7 @@ export const ServiceScreen = () => {
                             <button
                               type="button"
                               onClick={handleSubmit}
-                              className="flex items-center gap-2 bg-[#F14724] hover:bg-[#d63d1e] text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                              className="flex items-center gap-2 bg-brand hover:bg-brand-hover text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors"
                             >
                               <i className="ri-check-line text-base" />
                               Submit
@@ -344,11 +339,11 @@ export const ServiceScreen = () => {
                 <div className="flex items-center gap-3">
                   <div className="w-36 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-[#F14724] rounded-full transition-all duration-300"
+                      className="h-full bg-brand rounded-full transition-all duration-300"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
-                  <span className="text-[#F14724] font-medium">{progress}%</span>
+                  <span className="text-brand font-medium">{progress}%</span>
                 </div>
               </div>
             )}

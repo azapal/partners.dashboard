@@ -75,7 +75,7 @@ export const SubBranchSelector = ({
             <div className="text-center p-8 bg-gray-50 rounded-xl border border-gray-200">
                 <i className="ri-store-2-line text-5xl text-gray-400 block mx-auto mb-3" />
                 <p className="text-sm text-gray-600">No sub-branches found for this branch</p>
-                <button className="mt-4 px-4 py-2 bg-[#F14724] text-white rounded-lg hover:bg-[#d63d1e] transition-colors text-sm font-medium">
+                <button className="mt-4 px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand-hover transition-colors text-sm font-medium">
                     Add Sub-Branch
                 </button>
             </div>
@@ -109,7 +109,7 @@ export const SubBranchSelector = ({
                                     <p className="text-[10px] sm:text-xs text-gray-500 truncate">{subBranch.location}</p>
                                 </div>
                                 {selectedSubBranchId === subBranch.id && (
-                                    <div className="w-5 h-5 bg-[#F14724] rounded-full flex items-center justify-center">
+                                    <div className="w-5 h-5 bg-brand rounded-full flex items-center justify-center">
                                         <div className="w-2 h-2 bg-white rounded-full"></div>
                                     </div>
                                 )}

@@ -4,6 +4,7 @@ import { useGetRepTransactions, useAssignDriverToOrder } from '../../hooks/useRe
 import { DriverAssignControl } from '../../components/support/DriverAssignControl';
 import { EscalateOrderControl } from '../../components/support/EscalateOrderControl';
 import type { Transaction, TransactionStatus } from '../../service/partnerService';
+import { FilterPopover } from '../../components/filters/FilterPopover';
 
 const STATUS_OPTIONS: (TransactionStatus | 'All')[] = [
   'All', 'pending', 'approved', 'shipped', 'delivered', 'canceled',
@@ -58,15 +59,21 @@ const OrdersScreen = () => {
         </p>
 
         {/* Filters */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-gray-500 shrink-0">Status</span>
-          <select
-            className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-gray-200 focus:border-gray-300 outline-none capitalize"
-            value={status}
-            onChange={(e) => changeStatus(e.target.value as TransactionStatus | 'All')}
-          >
-            {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+        <div className="flex items-center">
+          <FilterPopover activeCount={status !== 'All' ? 1 : 0} panelClassName="w-56">
+            {() => (
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-500">Status</label>
+                <select
+                  className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-gray-200 focus:border-gray-300 outline-none capitalize"
+                  value={status}
+                  onChange={(e) => changeStatus(e.target.value as TransactionStatus | 'All')}
+                >
+                  {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            )}
+          </FilterPopover>
         </div>
 
         {/* Table */}
@@ -108,7 +115,7 @@ const OrdersScreen = () => {
                       <td className="px-4 py-3.5 text-gray-500">{formatDate(order.created_at)}</td>
                       <td className="px-4 py-3.5 min-w-40">
                         <DriverAssignControl
-                          driverId={order.driver}
+                          driverId={order.driver?.id ?? null}
                           isPending={isAssigning}
                           onAssign={(driverId, { onSuccess, onError }) =>
                             assignDriver(
@@ -146,7 +153,7 @@ const OrdersScreen = () => {
                   <p className="text-xs text-gray-400">{order.sender_id} · {formatDate(order.created_at)}</p>
                   <StatusBadge value={order.status} styles={STATUS_STYLES} />
                   <DriverAssignControl
-                    driverId={order.driver}
+                    driverId={order.driver?.id ?? null}
                     isPending={isAssigning}
                     onAssign={(driverId, { onSuccess, onError }) =>
                       assignDriver(

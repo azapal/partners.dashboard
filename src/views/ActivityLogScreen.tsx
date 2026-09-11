@@ -4,6 +4,7 @@ import { useGetPartnerLogs, useGetPartnerSessions, useBranchManagerNames } from 
 import { useGetBranches } from "../hooks/useBranchPartner";
 import { sheetActions } from "../store/client/sheets";
 import type { PartnerLog, PartnerSession, LogAction, ActorType } from "../service/partnerService";
+import { FilterPopover } from "../components/filters/FilterPopover";
 
 const PAGE_SIZE = 20;
 
@@ -167,10 +168,19 @@ function ActivityTab() {
             className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-100 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-gray-200"
           />
         </div>
-        <Select label="Branch" value={branchId} onChange={(v) => { setBranchId(v); setPage(1); }}
-          options={[{ value: "All", label: "All" }, ...branches.map((b) => ({ value: b.id, label: b.branch_code }))]} />
-        <Select label="Action" value={action} onChange={(v) => { setAction(v as LogAction | "All"); setPage(1); }} options={toOptions(ACTION_OPTIONS)} />
-        <Select label="Actor" value={actorType} onChange={(v) => { setActorType(v as ActorType | "All"); setPage(1); }} options={toOptions(ACTOR_TYPE_OPTIONS)} />
+        <FilterPopover
+          activeCount={(branchId !== "All" ? 1 : 0) + (action !== "All" ? 1 : 0) + (actorType !== "All" ? 1 : 0)}
+          panelClassName="w-64"
+        >
+          {() => (
+            <div className="flex flex-col gap-3">
+              <Select label="Branch" value={branchId} onChange={(v) => { setBranchId(v); setPage(1); }}
+                options={[{ value: "All", label: "All" }, ...branches.map((b) => ({ value: b.id, label: b.branch_code }))]} />
+              <Select label="Action" value={action} onChange={(v) => { setAction(v as LogAction | "All"); setPage(1); }} options={toOptions(ACTION_OPTIONS)} />
+              <Select label="Actor" value={actorType} onChange={(v) => { setActorType(v as ActorType | "All"); setPage(1); }} options={toOptions(ACTOR_TYPE_OPTIONS)} />
+            </div>
+          )}
+        </FilterPopover>
       </FilterBar>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -242,10 +252,19 @@ function SessionsTab() {
   return (
     <>
       <FilterBar>
-        <Select label="Branch" value={branchId} onChange={(v) => { setBranchId(v); setPage(1); }}
-          options={[{ value: "All", label: "All" }, ...branches.map((b) => ({ value: b.id, label: b.branch_code }))]} />
-        <Select label="Actor" value={actorType} onChange={(v) => { setActorType(v as ActorType | "All"); setPage(1); }}
-          options={toOptions(["All", "partner", "employee"])} />
+        <FilterPopover
+          activeCount={(branchId !== "All" ? 1 : 0) + (actorType !== "All" ? 1 : 0)}
+          panelClassName="w-64"
+        >
+          {() => (
+            <div className="flex flex-col gap-3">
+              <Select label="Branch" value={branchId} onChange={(v) => { setBranchId(v); setPage(1); }}
+                options={[{ value: "All", label: "All" }, ...branches.map((b) => ({ value: b.id, label: b.branch_code }))]} />
+              <Select label="Actor" value={actorType} onChange={(v) => { setActorType(v as ActorType | "All"); setPage(1); }}
+                options={toOptions(["All", "partner", "employee"])} />
+            </div>
+          )}
+        </FilterPopover>
       </FilterBar>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -307,7 +326,7 @@ export const ActivityLogScreen = () => {
       onClick={() => setTab(key)}
       className={`h-9 px-4 rounded-xl text-sm font-medium border transition ${
         tab === key
-          ? "border-[#F14724] bg-orange-50 text-[#F14724]"
+          ? "border-brand bg-orange-50 text-brand"
           : "border-gray-200 text-gray-500 hover:bg-gray-50 bg-white"
       }`}
     >
@@ -318,12 +337,7 @@ export const ActivityLogScreen = () => {
   return (
     <DashboardLayout>
       <div className="w-full flex flex-col gap-5">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Activity Log</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            A record of actions and sign-ins across your portal.
-          </p>
-        </div>
+        
 
         <div className="flex items-center gap-2">
           {tabButton("activity", "Activity")}

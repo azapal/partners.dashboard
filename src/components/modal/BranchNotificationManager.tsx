@@ -39,7 +39,7 @@ export const BranchNotificationManager = ({ onAddBranch }: BranchNotificationMan
                 </div>
                 <button
                     onClick={onAddBranch}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#F14724] text-white rounded-lg hover:bg-[#d63d1e] transition-colors text-sm font-medium"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand-hover transition-colors text-sm font-medium"
                 >
                     <i className="ri-add-line text-sm" />
                     Add Branch
@@ -98,14 +98,14 @@ export const BranchNotificationManager = ({ onAddBranch }: BranchNotificationMan
                                                 </ul>
                                             </div>
                                         )}
-                                        <button className="text-sm text-[#F14724] hover:underline font-medium">
+                                        <button className="text-sm text-brand hover:underline font-medium">
                                             Edit Configuration
                                         </button>
                                     </div>
                                 ) : (
                                     <div className="text-center py-4">
                                         <p className="text-sm text-gray-600 mb-3">No notification preferences set for this branch</p>
-                                        <button className="px-4 py-2 bg-[#F14724] text-white rounded-lg hover:bg-[#d63d1e] transition-colors text-sm font-medium">
+                                        <button className="px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand-hover transition-colors text-sm font-medium">
                                             Configure Now
                                         </button>
                                     </div>

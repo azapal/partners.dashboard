@@ -27,7 +27,7 @@ export const LogDetailSheet = () => {
       <div className="px-5 pt-2 pb-5 border-b border-gray-100">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-2xl bg-orange-50 flex items-center justify-center shrink-0 shadow-sm">
-            <i className="ri-file-list-3-line text-2xl text-[#F14724]" />
+            <i className="ri-file-list-3-line text-2xl text-brand" />
           </div>
           <div className="min-w-0">
             <h2 className="font-bold text-gray-900 text-base leading-tight">{description ?? log.action}</h2>
@@ -81,7 +81,7 @@ function DetailRow({ icon, label, value }: { icon: string; label: string; value:
   return (
     <div className="flex items-center gap-3 px-4 py-3">
       <div className="w-7 h-7 rounded-lg bg-orange-50 flex items-center justify-center shrink-0">
-        <i className={`${icon} text-sm text-[#F14724]`} />
+        <i className={`${icon} text-sm text-brand`} />
       </div>
       <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
         <p className="text-xs text-gray-400 shrink-0">{label}</p>

@@ -1,15 +1,31 @@
 import React, { useState } from 'react';
 import Select from 'react-select';
+import { DefaultModal } from './DefaultModal';
+import { FormField } from '../inputs/FormField';
 import States from '../../utilities/states.json';
-import { CARGO_TYPES, FREQUENCIES } from '../../lib/data/logisticsNetwork';
-import type { CargoType, Frequency, LogisticsRoute } from '../../lib/data/logisticsNetwork';
+import { CARGO_TYPES } from '../../lib/data/logisticsNetwork';
+import type { CargoType } from '../../lib/data/logisticsNetwork';
+import type { PairingFrequency, PairingRoute } from '../../service/partnerService';
+import { BRAND_ORANGE } from '../../lib/brandColors';
+import {
+  useCreatePairingRoute,
+  useUpdatePairingRoute,
+  useDeletePairingRoute,
+} from '../../hooks/usePairingRoutes';
 
 interface AddRouteModalProps {
+  route?: PairingRoute | null;
   onClose: () => void;
-  onAdd: (route: LogisticsRoute) => void;
 }
 
 type Option = { value: string; label: string };
+
+const FREQUENCY_OPTIONS: { value: PairingFrequency; label: string }[] = [
+  { value: 'one_time', label: 'One-time' },
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+];
 
 const selectStyles = {
   control: (base: any, state: any) => ({
@@ -22,7 +38,7 @@ const selectStyles = {
   }),
   option: (base: any, state: any) => ({
     ...base,
-    backgroundColor: state.isSelected ? '#F14724' : state.isFocused ? '#f9fafb' : 'white',
+    backgroundColor: state.isSelected ? BRAND_ORANGE : state.isFocused ? '#f9fafb' : 'white',
     color: state.isSelected ? 'white' : '#374151',
     fontSize: '0.875rem',
   }),
@@ -31,207 +47,149 @@ const selectStyles = {
 };
 
 const stateOptions: Option[] = States.map((s) => ({ value: s.name, label: s.name }));
+const inputClass = 'h-11 px-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-400 bg-white w-full';
 
-export const AddRouteModal: React.FC<AddRouteModalProps> = ({ onClose, onAdd }) => {
-  const [businessName, setBusinessName] = useState('');
-  const [origin, setOrigin] = useState<Option | null>(null);
-  const [originAddress, setOriginAddress] = useState('');
-  const [destination, setDestination] = useState<Option | null>(null);
-  const [destinationAddress, setDestinationAddress] = useState('');
-  const [cargoType, setCargoType] = useState<CargoType>('General Goods');
-  const [frequency, setFrequency] = useState<Frequency>('One-time');
-  const [preferredDate, setPreferredDate] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+function minPreferredDate(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 7);
+  return d.toISOString().slice(0, 10);
+}
 
+export const AddRouteModal: React.FC<AddRouteModalProps> = ({ route, onClose }) => {
+  const isEdit = !!route;
+  const [origin, setOrigin] = useState<Option | null>(route ? { value: route.origin_state, label: route.origin_state } : null);
+  const [destination, setDestination] = useState<Option | null>(route ? { value: route.destination_state, label: route.destination_state } : null);
+  const [cargoType, setCargoType] = useState<CargoType>(route?.cargo_type ?? 'General Goods');
+  const [frequency, setFrequency] = useState<PairingFrequency>(route?.frequency ?? 'one_time');
+  const [preferredDate, setPreferredDate] = useState(route?.preferred_date ?? '');
+  const [minBudget, setMinBudget] = useState(route ? String(route.min_budget) : '');
+  const [maxBudget, setMaxBudget] = useState(route ? String(route.max_budget) : '');
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const createRoute = useCreatePairingRoute();
+  const updateRoute = useUpdatePairingRoute();
+  const deleteRoute = useDeletePairingRoute();
+
+  const isPending = createRoute.isPending || updateRoute.isPending || deleteRoute.isPending;
   const canSubmit =
-    businessName.trim() && origin && originAddress.trim() && destination && destinationAddress.trim() && preferredDate;
+    !!origin && !!destination && !!preferredDate &&
+    Number(minBudget) > 0 && Number(maxBudget) > 0 && Number(maxBudget) >= Number(minBudget);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit || !origin || !destination) return;
-    setSubmitting(true);
+    setFormError(null);
 
-    const route: LogisticsRoute = {
-      id: `RT-${Math.floor(1000 + Math.random() * 9000)}`,
-      businessName: businessName.trim(),
-      originState: origin.value,
-      originAddress: originAddress.trim(),
-      destinationState: destination.value,
-      destinationAddress: destinationAddress.trim(),
-      cargoType,
+    const payload = {
+      origin_state: origin.value,
+      destination_state: destination.value,
       frequency,
-      preferredDate,
-      status: 'Active',
-      createdAt: new Date().toISOString().slice(0, 10),
+      preferred_date: preferredDate,
+      cargo_type: cargoType,
+      min_budget: Number(minBudget),
+      max_budget: Number(maxBudget),
     };
 
-    // Simulated network delay — dummy data only, no backend yet.
-    setTimeout(() => {
-      onAdd(route);
-      setSubmitting(false);
-      onClose();
-    }, 500);
+    if (isEdit) {
+      updateRoute.mutate(
+        { id: route!.id, payload },
+        { onSuccess: onClose, onError: (err) => setFormError(err.message) }
+      );
+    } else {
+      createRoute.mutate(payload, { onSuccess: onClose, onError: (err) => setFormError(err.message) });
+    }
+  };
+
+  const handleDelete = () => {
+    if (!route) return;
+    if (window.confirm('Delete this route? This cannot be undone.')) {
+      deleteRoute.mutate(route.id, { onSuccess: onClose, onError: (err) => setFormError(err.message) });
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl my-4">
-        <div className="flex items-start justify-between gap-3 px-6 sm:px-8 pt-6 pb-4 border-b border-gray-100">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">Add Delivery Route</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Upload a departure and arrival route so we can pair it with other partners heading the same way.
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors shrink-0"
-          >
-            <i className="ri-close-line text-lg" />
-          </button>
+    <DefaultModal
+      isOpen
+      onClose={onClose}
+      title={isEdit ? 'Edit Route' : 'Add Route'}
+      subtitle="A scheduled route businesses can discover and join in the app."
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <FormField label="Origin State" required>
+            <Select options={stateOptions} value={origin} onChange={setOrigin} placeholder="Select…" styles={selectStyles} isClearable />
+          </FormField>
+          <FormField label="Destination State" required>
+            <Select options={stateOptions} value={destination} onChange={setDestination} placeholder="Select…" styles={selectStyles} isClearable />
+          </FormField>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 sm:px-8 py-6 space-y-5 max-h-[75vh] overflow-y-auto">
-          <FormField label="Customer / Business Name" required>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <FormField label="Cargo Type">
+            <select value={cargoType} onChange={(e) => setCargoType(e.target.value as CargoType)} className={inputClass}>
+              {CARGO_TYPES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Frequency">
+            <select value={frequency} onChange={(e) => setFrequency(e.target.value as PairingFrequency)} className={inputClass}>
+              {FREQUENCY_OPTIONS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+            </select>
+          </FormField>
+        </div>
+
+        <FormField label="Preferred Date" required>
+          <input
+            type="date"
+            value={preferredDate}
+            min={minPreferredDate()}
+            onChange={(e) => setPreferredDate(e.target.value)}
+            className={inputClass}
+          />
+        </FormField>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <FormField label="Min Budget (₦)" required>
             <input
-              type="text"
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              placeholder="e.g., Greenline Foods"
-              required
-              className="h-11 px-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-400 bg-white w-full"
+              type="number" min={1} step="any" value={minBudget} onChange={(e) => setMinBudget(e.target.value)}
+              placeholder="e.g., 30000" className={inputClass}
             />
           </FormField>
+          <FormField label="Max Budget (₦)" required>
+            <input
+              type="number" min={1} step="any" value={maxBudget} onChange={(e) => setMaxBudget(e.target.value)}
+              placeholder="e.g., 100000" className={inputClass}
+            />
+          </FormField>
+        </div>
 
-          {/* Departure */}
-          <div className="rounded-2xl border border-gray-100 p-4 bg-gray-50/60">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                <i className="ri-map-pin-2-line text-blue-500 text-sm" />
-              </div>
-              <p className="text-sm font-semibold text-gray-800">Departure</p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <FormField label="State" required>
-                <Select
-                  options={stateOptions}
-                  value={origin}
-                  onChange={setOrigin}
-                  placeholder="Select origin state…"
-                  styles={selectStyles}
-                  isClearable
-                />
-              </FormField>
-              <FormField label="Pickup Address" required>
-                <input
-                  type="text"
-                  value={originAddress}
-                  onChange={(e) => setOriginAddress(e.target.value)}
-                  placeholder="e.g., Wuse Zone 4 Depot"
-                  required
-                  className="h-11 px-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-400 bg-white w-full"
-                />
-              </FormField>
-            </div>
-          </div>
+        {formError && <p className="text-xs text-red-500">{formError}</p>}
 
-          {/* Arrival */}
-          <div className="rounded-2xl border border-gray-100 p-4 bg-gray-50/60">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-green-50 flex items-center justify-center shrink-0">
-                <i className="ri-flag-2-line text-green-600 text-sm" />
-              </div>
-              <p className="text-sm font-semibold text-gray-800">Arrival</p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <FormField label="State" required>
-                <Select
-                  options={stateOptions}
-                  value={destination}
-                  onChange={setDestination}
-                  placeholder="Select destination state…"
-                  styles={selectStyles}
-                  isClearable
-                />
-              </FormField>
-              <FormField label="Drop-off Address" required>
-                <input
-                  type="text"
-                  value={destinationAddress}
-                  onChange={(e) => setDestinationAddress(e.target.value)}
-                  placeholder="e.g., Ikeja Distribution Yard"
-                  required
-                  className="h-11 px-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-400 bg-white w-full"
-                />
-              </FormField>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <FormField label="Cargo Type">
-              <select
-                value={cargoType}
-                onChange={(e) => setCargoType(e.target.value as CargoType)}
-                className="h-11 px-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-400 bg-white w-full"
-              >
-                {CARGO_TYPES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </FormField>
-            <FormField label="Frequency">
-              <select
-                value={frequency}
-                onChange={(e) => setFrequency(e.target.value as Frequency)}
-                className="h-11 px-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-400 bg-white w-full"
-              >
-                {FREQUENCIES.map((f) => (
-                  <option key={f} value={f}>{f}</option>
-                ))}
-              </select>
-            </FormField>
-            <FormField label="Preferred Date" required>
-              <input
-                type="date"
-                value={preferredDate}
-                onChange={(e) => setPreferredDate(e.target.value)}
-                required
-                className="h-11 px-3 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-400 bg-white w-full"
-              />
-            </FormField>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+        <div className="flex justify-between gap-3 pt-2 border-t border-gray-100">
+          {isEdit ? (
             <button
               type="button"
-              onClick={onClose}
-              className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+              onClick={handleDelete}
+              disabled={isPending}
+              className="px-5 py-2.5 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors disabled:opacity-60"
             >
+              Delete
+            </button>
+          ) : <span />}
+          <div className="flex gap-3">
+            <button type="button" onClick={onClose} className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">
               Cancel
             </button>
             <button
               type="submit"
-              disabled={!canSubmit || submitting}
-              className="px-6 py-2.5 text-sm font-semibold text-white bg-[#F14724] hover:bg-[#d63d1e] rounded-xl transition-colors disabled:opacity-60 flex items-center gap-2"
+              disabled={!canSubmit || isPending}
+              className="px-6 py-2.5 text-sm font-semibold text-white bg-brand hover:bg-brand-hover rounded-xl transition-colors disabled:opacity-60 flex items-center gap-2"
             >
-              {submitting && <i className="ri-loader-4-line animate-spin text-base" />}
-              {submitting ? 'Saving…' : 'Save Route'}
+              {isPending && <i className="ri-loader-4-line animate-spin text-base" />}
+              {isPending ? 'Saving…' : isEdit ? 'Save Changes' : 'Save Route'}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+        </div>
+      </form>
+    </DefaultModal>
   );
 };
-
-function FormField({ label, children, required }: { label: string; children: React.ReactNode; required?: boolean }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium text-gray-700">
-        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
-      </label>
-      {children}
-    </div>
-  );
-}

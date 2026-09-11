@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import Select from 'react-select';
 import { useCreateBranch } from '../../hooks/useBranchPartner';
 import { useGetInvites } from '../../hooks/useInvites';
-import { usePartnerProfile } from '../../hooks/useAuth';
 import { MapLocationPicker } from '../map/MapLocationPicker';
 import States from '../../utilities/states.json';
 import type { CreateBranchPayload } from '../../service/partnerService';
+import { BRAND_ORANGE } from '../../lib/brandColors';
 
 interface CreateBranchDrawerProps {
   onClose: () => void;
@@ -31,7 +31,7 @@ const selectStyles = {
   }),
   option: (base: any, state: any) => ({
     ...base,
-    backgroundColor: state.isSelected ? '#F14724' : state.isFocused ? '#f9fafb' : 'white',
+    backgroundColor: state.isSelected ? BRAND_ORANGE : state.isFocused ? '#f9fafb' : 'white',
     color: state.isSelected ? 'white' : '#374151',
     fontSize: '0.875rem',
   }),
@@ -47,7 +47,6 @@ export const CreateBranchDrawer: React.FC<CreateBranchDrawerProps> = ({ onClose 
 
   const { mutate: createBranch, isPending } = useCreateBranch();
   const { data: invites = [] } = useGetInvites();
-  const profile = usePartnerProfile();
 
   const stateOptions = States.map((s) => ({ value: s.name, label: s.name }));
   const lgaOptions = selectedState
@@ -69,7 +68,9 @@ export const CreateBranchDrawer: React.FC<CreateBranchDrawerProps> = ({ onClose 
         state: selectedState?.value ?? '',
         lga: selectedLga?.value ?? '',
         branch_manager: selectedManagers.map((m) => m.value),
-        country: profile?.partner_country ?? '',
+        // Omitted — the backend fills this in from the caller's own partner
+        // record, which works the same whether the caller is a partner-owner
+        // or a Tenant Admin/Super Admin employee session.
       },
       { onSuccess: onClose }
     );
@@ -105,7 +106,7 @@ export const CreateBranchDrawer: React.FC<CreateBranchDrawerProps> = ({ onClose 
               />
               {managerOptions.length === 0 && (
                 <p className="text-xs text-gray-400 mt-1">
-                  No users yet. <a href="/users" className="text-[#F14724] font-medium hover:underline">Invite users first →</a>
+                  No users yet. <a href="/users" className="text-brand font-medium hover:underline">Invite users first →</a>
                 </p>
               )}
             </FormSection>
@@ -142,7 +143,7 @@ export const CreateBranchDrawer: React.FC<CreateBranchDrawerProps> = ({ onClose 
               <button
                 type="submit"
                 disabled={isPending || selectedManagers.length === 0 || !form.lat || !form.lon}
-                className="px-6 py-2.5 text-sm font-semibold text-white bg-[#F14724] hover:bg-[#d63d1e] rounded-xl transition-colors disabled:opacity-60 flex items-center gap-2"
+                className="px-6 py-2.5 text-sm font-semibold text-white bg-brand hover:bg-brand-hover rounded-xl transition-colors disabled:opacity-60 flex items-center gap-2"
               >
                 {isPending && <i className="ri-loader-4-line animate-spin text-base" />}
                 {isPending ? 'Creating…' : 'Create Branch'}

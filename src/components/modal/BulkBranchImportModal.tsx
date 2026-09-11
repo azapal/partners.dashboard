@@ -112,7 +112,7 @@ export const BulkBranchImportModal: React.FC<BulkBranchImportModalProps> = ({ is
           <button
             type="button"
             onClick={() => downloadTemplate(TEMPLATE_HEADERS, 'branch_template.xlsx')}
-            className="flex items-center gap-1.5 text-sm font-semibold text-[#F14724] hover:underline"
+            className="flex items-center gap-1.5 text-sm font-semibold text-brand hover:underline"
           >
             <i className="ri-download-2-line text-base" />
             Template
@@ -127,7 +127,7 @@ export const BulkBranchImportModal: React.FC<BulkBranchImportModalProps> = ({ is
           onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
         >
           <i className="ri-file-upload-line text-3xl text-gray-300 mb-2 block" />
-          <p className="text-sm font-medium text-gray-600">Drop file here or <span className="text-[#F14724]">browse</span></p>
+          <p className="text-sm font-medium text-gray-600">Drop file here or <span className="text-brand">browse</span></p>
           <p className="text-xs text-gray-400 mt-1">Accepts .csv and .xlsx</p>
           <input
             ref={fileRef}
@@ -172,7 +172,7 @@ export const BulkBranchImportModal: React.FC<BulkBranchImportModalProps> = ({ is
                       <td className="px-3 py-2 text-gray-700 truncate max-w-[100px]">{row.address || '—'}</td>
                       <td className="px-3 py-2">
                         {row.lat && row.lon ? (
-                          <i className="ri-map-pin-2-fill text-[#F14724] text-sm" title={`${row.lat}, ${row.lon}`} />
+                          <i className="ri-map-pin-2-fill text-brand text-sm" title={`${row.lat}, ${row.lon}`} />
                         ) : (
                           <span className="text-gray-300" title="No coordinates provided">—</span>
                         )}
@@ -214,7 +214,7 @@ export const BulkBranchImportModal: React.FC<BulkBranchImportModalProps> = ({ is
               type="button"
               onClick={handleImport}
               disabled={importing}
-              className="px-5 py-2.5 text-sm font-semibold text-white bg-[#F14724] hover:bg-[#d63d1e] rounded-xl transition-colors disabled:opacity-60 flex items-center gap-2"
+              className="px-5 py-2.5 text-sm font-semibold text-white bg-brand hover:bg-brand-hover rounded-xl transition-colors disabled:opacity-60 flex items-center gap-2"
             >
               {importing && <i className="ri-loader-4-line animate-spin text-base" />}
               {importing ? 'Importing…' : `Import ${rows.length} branches`}

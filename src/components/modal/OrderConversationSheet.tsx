@@ -103,7 +103,7 @@ export const OrderConversationSheet = () => {
               <button
                 onClick={handleEscalate}
                 disabled={isEscalating || !note.trim()}
-                className="flex-1 h-9 bg-[#F14724] text-white rounded-xl text-xs font-semibold hover:bg-[#d63d1e] transition-colors disabled:opacity-60"
+                className="flex-1 h-9 bg-brand text-white rounded-xl text-xs font-semibold hover:bg-brand-hover transition-colors disabled:opacity-60"
               >
                 {isEscalating ? 'Escalating…' : 'Send to manager'}
               </button>
@@ -130,7 +130,7 @@ export const OrderConversationSheet = () => {
               const isCustomer = msg.role === 'user' || msg.role === 'customer';
               const bubbleClass = isCustomer
                 ? 'bg-gray-100 text-gray-800 self-start'
-                : 'bg-orange-50 text-[#8B2915] self-start';
+                : 'bg-orange-50 text-brand-maroon self-start';
               const label = isCustomer ? (conversation.customer_name || 'Customer') : msg.role;
 
               return (

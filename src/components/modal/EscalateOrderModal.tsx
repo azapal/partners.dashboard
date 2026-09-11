@@ -64,7 +64,7 @@ export function EscalateOrderModal({ isOpen, onClose, orderId, orderLabel }: Esc
           </p>
           <button
             onClick={onClose}
-            className="mt-2 w-full h-11 bg-[#F14724] text-white rounded-xl text-sm font-semibold hover:bg-[#d63d1e] transition-colors"
+            className="mt-2 w-full h-11 bg-brand text-white rounded-xl text-sm font-semibold hover:bg-brand-hover transition-colors"
           >
             Done
           </button>
@@ -84,7 +84,7 @@ export function EscalateOrderModal({ isOpen, onClose, orderId, orderLabel }: Esc
                     key={member.id}
                     onClick={() => setTargetId(member.id)}
                     className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border text-left transition-colors ${
-                      targetId === member.id ? 'border-[#F14724] bg-orange-50' : 'border-gray-100 hover:bg-gray-50'
+                      targetId === member.id ? 'border-brand bg-orange-50' : 'border-gray-100 hover:bg-gray-50'
                     }`}
                   >
                     <div className="min-w-0">
@@ -94,7 +94,7 @@ export function EscalateOrderModal({ isOpen, onClose, orderId, orderLabel }: Esc
                         <span className="text-[11px] text-gray-400">{member.role}</span>
                       </span>
                     </div>
-                    {targetId === member.id && <i className="ri-check-line text-[#F14724] text-lg shrink-0" />}
+                    {targetId === member.id && <i className="ri-check-line text-brand text-lg shrink-0" />}
                   </button>
                 ))}
               </div>
@@ -127,7 +127,7 @@ export function EscalateOrderModal({ isOpen, onClose, orderId, orderLabel }: Esc
             <button
               onClick={handleConfirm}
               disabled={isPending || !targetId || !reason.trim()}
-              className="flex-1 h-11 bg-[#F14724] text-white rounded-xl text-sm font-semibold hover:bg-[#d63d1e] transition-colors disabled:opacity-60"
+              className="flex-1 h-11 bg-brand text-white rounded-xl text-sm font-semibold hover:bg-brand-hover transition-colors disabled:opacity-60"
             >
               {isPending ? 'Escalating…' : 'Escalate'}
             </button>

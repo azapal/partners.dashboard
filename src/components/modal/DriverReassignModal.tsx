@@ -80,7 +80,7 @@ export function DriverReassignModal({
           <button
             onClick={handleConfirm}
             disabled={isPending || !hasChanged}
-            className="flex-1 h-11 bg-[#F14724] text-white rounded-xl text-sm font-semibold hover:bg-[#d63d1e] transition-colors disabled:opacity-60"
+            className="flex-1 h-11 bg-brand text-white rounded-xl text-sm font-semibold hover:bg-brand-hover transition-colors disabled:opacity-60"
           >
             {isPending ? 'Reassigning…' : 'Reassign driver'}
           </button>

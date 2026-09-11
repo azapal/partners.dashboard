@@ -56,7 +56,7 @@ export const RepHeaderLayout = () => {
               <p className="text-xs font-semibold text-gray-800 leading-tight">{displayName}</p>
               <p className="text-[10px] text-gray-400 leading-tight">{profile?.invite_role?.name ?? ""}</p>
             </div>
-            <div className="w-7 h-7 rounded-lg bg-[#F14724] flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-brand flex items-center justify-center">
               <span className="text-white text-[10px] font-bold">{initials}</span>
             </div>
           </div>
