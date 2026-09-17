@@ -178,8 +178,10 @@ function OrderRow({ order, phone }: {
           {order.order_ref ?? `Order #${order.id}`}
         </span>
         <div className="flex items-center gap-2">
-          {order.amount != null && (
-            <span className="text-gray-500 text-xs">₦{order.amount.toLocaleString()}</span>
+          {order.total_amount != null ? (
+            <span className="text-gray-500 text-xs">₦{order.total_amount.toLocaleString()}</span>
+          ) : (
+            <span className="text-amber-600 text-xs font-semibold">Unpriced</span>
           )}
           {order.status && (
             <span className="text-xs capitalize text-gray-400">{order.status}</span>
@@ -191,10 +193,13 @@ function OrderRow({ order, phone }: {
         <div className="flex-1 min-w-0">
           <DriverAssignControl
             driverId={order.driver}
+            // A WhatsApp booking arrives unpriced; the server refuses to dispatch
+            // it until a fee is set, so the modal collects one here.
+            requiresFee={order.total_amount == null && !order.dispatch_amount}
             isPending={isPending}
-            onAssign={(driverId, { onSuccess, onError }) =>
+            onAssign={(driverId, { onSuccess, onError }, dispatchAmount) =>
               assignDriver(
-                { orderId: order.id, driverId, phone },
+                { orderId: order.id, driverId, phone, dispatchAmount },
                 { onSuccess, onError: (err: any) => onError(err?.message ?? 'Failed to assign driver.') }
               )
             }

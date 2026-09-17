@@ -24,6 +24,7 @@ import {ActivityLogScreen} from "./views/ActivityLogScreen";
 import {LogisticsNetworkScreen} from "./views/LogisticsNetworkScreen";
 import {RatesScreen} from "./views/RatesScreen";
 import {FinancialsScreen} from "./views/FinancialsScreen";
+import {StakeholdersScreen} from "./views/StakeholdersScreen";
 
 import ContactPage from "./views/ContactPage.jsx";
 import HelpCenter from "./views/HelpCenter.jsx";
@@ -58,6 +59,7 @@ export const AppRoutes = () => {
       <Route path="/rates" element={<RequireAuth><RatesScreen /></RequireAuth>} />
       <Route path="/logistics-network" element={<RequireAuth><LogisticsNetworkScreen /></RequireAuth>} />
       <Route path="/financials" element={<RequireAuth><FinancialsScreen /></RequireAuth>} />
+      <Route path="/stakeholders" element={<RequireAuth><StakeholdersScreen /></RequireAuth>} />
       <Route
         path="/partners/onboarding"
         element={

@@ -10,7 +10,14 @@ interface DriverReassignModalProps {
   isLoadingDrivers?: boolean;
   currentDriverId?: number | null;
   isPending: boolean;
-  onAssign: (driverId: number, callbacks: { onSuccess: () => void; onError: (message: string) => void }) => void;
+  // The order has no price yet (a WhatsApp booking). The server won't dispatch
+  // it unpriced, so the fee is collected here and sent with the assignment.
+  requiresFee?: boolean;
+  onAssign: (
+    driverId: number,
+    callbacks: { onSuccess: () => void; onError: (message: string) => void },
+    dispatchAmount?: number,
+  ) => void;
 }
 
 const AVAILABILITY_LABEL: Record<ShiftStatus, string> = {
@@ -20,9 +27,10 @@ const AVAILABILITY_LABEL: Record<ShiftStatus, string> = {
 };
 
 export function DriverReassignModal({
-  isOpen, onClose, drivers, isLoadingDrivers, currentDriverId, isPending, onAssign,
+  isOpen, onClose, drivers, isLoadingDrivers, currentDriverId, isPending, requiresFee, onAssign,
 }: DriverReassignModalProps) {
   const [selectedId, setSelectedId] = useState('');
+  const [fee, setFee] = useState('');
   const [error, setError] = useState('');
 
   // Reset local selection each time the modal reopens, otherwise a stale
@@ -30,6 +38,7 @@ export function DriverReassignModal({
   useEffect(() => {
     if (isOpen) {
       setSelectedId(currentDriverId != null ? String(currentDriverId) : '');
+      setFee('');
       setError('');
     }
   }, [isOpen, currentDriverId]);
@@ -42,11 +51,19 @@ export function DriverReassignModal({
   const handleConfirm = () => {
     const id = Number(selectedId);
     if (!id) { setError('Pick a driver to continue.'); return; }
+    let dispatchAmount: number | undefined;
+    if (requiresFee) {
+      dispatchAmount = Number(fee);
+      if (!Number.isInteger(dispatchAmount) || dispatchAmount <= 0) {
+        setError('Enter the delivery fee in whole naira.');
+        return;
+      }
+    }
     setError('');
     onAssign(id, {
       onSuccess: () => { setError(''); onClose(); },
       onError: (message) => setError(message),
-    });
+    }, dispatchAmount);
   };
 
   const hasChanged = !!selectedId && Number(selectedId) !== currentDriverId;
@@ -55,8 +72,8 @@ export function DriverReassignModal({
     <DefaultModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Reassign driver"
-      subtitle="Choose a driver for this order."
+      title={currentDriverId ? 'Reassign driver' : 'Assign driver'}
+      subtitle={requiresFee ? 'This order has no price yet — set the delivery fee and pick a driver.' : 'Choose a driver for this order.'}
     >
       <div className="flex flex-col gap-4">
         <SearchableSelect
@@ -67,6 +84,25 @@ export function DriverReassignModal({
           loading={isLoadingDrivers}
           placeholder="Search drivers…"
         />
+
+        {requiresFee && (
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-gray-700">Delivery fee (₦)</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              step={1}
+              value={fee}
+              onChange={(e) => setFee(e.target.value)}
+              placeholder="e.g. 1500"
+              className="h-11 px-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-brand"
+            />
+            <span className="text-[11px] text-gray-400">
+              The customer is sent this price with a payment link on WhatsApp.
+            </span>
+          </label>
+        )}
 
         {error && <p className="text-xs text-red-500">{error}</p>}
 
@@ -82,7 +118,7 @@ export function DriverReassignModal({
             disabled={isPending || !hasChanged}
             className="flex-1 h-11 bg-brand text-white rounded-xl text-sm font-semibold hover:bg-brand-hover transition-colors disabled:opacity-60"
           >
-            {isPending ? 'Reassigning…' : 'Reassign driver'}
+            {isPending ? 'Saving…' : requiresFee ? 'Set fee & assign' : currentDriverId ? 'Reassign driver' : 'Assign driver'}
           </button>
         </div>
       </div>

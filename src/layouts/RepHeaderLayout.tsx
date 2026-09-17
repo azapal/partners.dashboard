@@ -1,6 +1,7 @@
 import { useLocation } from "react-router-dom";
 import { useRepProfile, useRepLogout } from "../hooks/useRepAuth";
 import { useNavigate } from "react-router-dom";
+import { restartProductTour } from "../components/tour/ProductTour";
 
 const PAGE_TITLES: Record<string, string> = {
   "support-dashboard": "Dashboard",
@@ -60,6 +61,14 @@ export const RepHeaderLayout = () => {
               <span className="text-white text-[10px] font-bold">{initials}</span>
             </div>
           </div>
+          <button
+            onClick={() => restartProductTour("support")}
+            className="w-9 h-9 rounded-xl flex items-center justify-center bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors shadow-sm"
+            aria-label="Replay workspace tour"
+            title="Replay workspace tour"
+          >
+            <i className="ri-play-circle-line text-base" />
+          </button>
         </div>
       </header>
     </div>

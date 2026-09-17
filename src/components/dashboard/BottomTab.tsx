@@ -19,11 +19,12 @@ const tabs: TabItem[] = [
 export const BottomTab = () => {
   return (
     <div className="w-full flex md:hidden items-center justify-center fixed bottom-0 right-0 left-0 pb-safe z-30">
-      <nav className="flex bg-white/90 backdrop-blur-sm border border-gray-100 gap-1 p-1.5 mx-4 mb-3 rounded-2xl shadow-lg w-fit max-w-full overflow-x-auto">
+      <nav data-tour="main-bottom-nav" className="flex bg-white/90 backdrop-blur-sm border border-gray-100 gap-1 p-1.5 mx-4 mb-3 rounded-2xl shadow-lg w-fit max-w-full overflow-x-auto">
         {tabs.map(({ to, icon, label }) => (
           <NavLink
             key={to}
             to={to}
+            data-tour={`nav-${to.replace(/^\//, "")}`}
             className={({ isActive }) =>
               `flex flex-col items-center gap-0.5 px-5 py-2 rounded-xl transition-all duration-200 min-w-16
               ${isActive

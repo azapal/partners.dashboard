@@ -79,6 +79,12 @@ export interface WaOrder {
   id: string | number;
   order_ref?: string;
   amount?: number;
+  // What the conversation endpoint actually sends: it serializes each order with
+  // the full TransactionSerializer, so these are the real price fields (`amount`
+  // and `order_ref` above are never populated by it).
+  total_amount?: number | null;
+  dispatch_amount?: number | null;
+  reference?: string | null;
   status?: string;
   created_at: string;
   // Bare employee id, not a {id, name} ref — the assign-driver response
@@ -432,10 +438,15 @@ export const repOrderService = {
     };
   },
 
-  async assignDriver(orderId: string | number, driverId: number): Promise<Transaction> {
+  // dispatchAmount prices the order in the same call — required by the server for an
+  // order that arrived with no fee (a WhatsApp booking), ignored otherwise.
+  async assignDriver(orderId: string | number, driverId: number, dispatchAmount?: number): Promise<Transaction> {
     const response = await fetchWithRepAuth(
       `${API_BASE_URL}/partner/transactions/${encodeURIComponent(String(orderId))}/assign-driver`,
-      { method: 'PATCH', body: JSON.stringify({ driver: driverId }) },
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ driver: driverId, ...(dispatchAmount != null ? { dispatch_amount: dispatchAmount } : {}) }),
+      },
     );
 
     if (!response.ok) await handleError(response);

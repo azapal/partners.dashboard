@@ -1,6 +1,7 @@
 import RepSideBar from "../components/support/RepSideBar";
 import { RepHeaderLayout } from "./RepHeaderLayout";
 import { RepBottomTab } from "../components/support/RepBottomTab";
+import { ProductTour } from "../components/tour/ProductTour";
 
 export const RepDashboardLayout = ({ children }: any) => {
   return (
@@ -15,6 +16,7 @@ export const RepDashboardLayout = ({ children }: any) => {
       </div>
 
       <RepBottomTab />
+      <ProductTour variant="support" />
     </section>
   );
 };

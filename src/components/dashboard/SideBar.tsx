@@ -44,6 +44,7 @@ function SideBar() {
 
   return (
     <aside
+      data-tour="main-sidebar"
       className={`flex-col gap-1 py-5 relative hidden md:flex transition-all duration-300 bg-white border-r border-gray-100 shadow-sm
         ${isCollapsed ? "w-[68px] px-2" : "w-56 px-4"}`}
     >
@@ -86,9 +87,11 @@ function SideBar() {
               </p>
             )}
             {group.items.map((item) => (
-              <SidebarButton key={item.to} to={item.to} className={item.icon} isCollapsed={isCollapsed}>
+              <div data-tour={`nav-${item.to.replace(/^\//, "")}`} key={item.to}>
+                <SidebarButton to={item.to} className={item.icon} isCollapsed={isCollapsed}>
                 {item.label}
-              </SidebarButton>
+                </SidebarButton>
+              </div>
             ))}
           </div>
         ))}

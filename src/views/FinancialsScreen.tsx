@@ -4,11 +4,18 @@ import { OpenWalletAccountModal } from "../components/modal/OpenWalletAccountMod
 import { InvoiceModal } from "../components/modal/InvoiceModal";
 import { ReceiptModal } from "../components/modal/ReceiptModal";
 import { DocumentPreviewModal } from "../components/modal/DocumentPreviewModal";
+import { SettleInvoiceSplitModal } from "../components/modal/SettleInvoiceSplitModal";
+import { InvoicePaymentLinkModal } from "../components/modal/InvoicePaymentLinkModal";
+import { SettlementAccountCard } from "../components/modal/SettlementAccountCard";
+import { PayoutSplitsPanel } from "../components/modal/PayoutSplitsPanel";
+import { IncomingPaymentsPanel } from "../components/modal/IncomingPaymentsPanel";
+import { DocumentBrandingModal } from "../components/modal/DocumentBrandingModal";
 import { useGetWalletBalance, useGetWalletTransactions, useHasAnyWalletAccount } from "../hooks/useWallet";
 import { useGetVirtualAccounts, useDeactivateVirtualAccount } from "../hooks/useVirtualAccounts";
 import { useGetInvoices } from "../hooks/useInvoices";
 import { useGetReceipts } from "../hooks/useReceipts";
 import { useGetPartnerSplit, useSavePartnerSplit } from "../hooks/usePartnerSplit";
+import { useGetStakeholders } from "../hooks/useStakeholders";
 import { useGetBranches } from "../hooks/useBranchPartner";
 import { FilterPopover } from "../components/filters/FilterPopover";
 import { WALLET_REASON_LABELS } from "../service/partnerService";
@@ -333,6 +340,9 @@ function InvoicesPanel() {
   const { data: invoices = [], isLoading } = useGetInvoices(branchFilter);
   const [showCreate, setShowCreate] = useState(false);
   const [preview, setPreview] = useState<Invoice | null>(null);
+  const [settling, setSettling] = useState<Invoice | null>(null);
+  const [showBranding, setShowBranding] = useState(false);
+  const [linking, setLinking] = useState<Invoice | null>(null);
 
   return (
     <div className="flex flex-col gap-3">
@@ -360,11 +370,22 @@ function InvoicesPanel() {
             )}
           </FilterPopover>
         ) : <span />}
-        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 bg-brand text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-brand-hover transition-colors">
-          <i className="ri-add-line text-base" />
-          Create Invoice
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowBranding(true)}
+            className="flex items-center gap-2 border border-gray-200 text-gray-600 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors"
+          >
+            <i className="ri-palette-line text-base" />
+            Design
+          </button>
+          <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 bg-brand text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-brand-hover transition-colors">
+            <i className="ri-add-line text-base" />
+            Create Invoice
+          </button>
+        </div>
       </div>
+
+      <IncomingPaymentsPanel branchId={branchFilter ?? null} />
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 overflow-hidden">
         {isLoading ? (
@@ -373,24 +394,47 @@ function InvoicesPanel() {
           <p className="text-center py-14 text-gray-400 text-sm">No invoices yet</p>
         ) : (
           invoices.map((inv) => (
-            <button
-              key={inv.id}
-              onClick={() => setPreview(inv)}
-              className="w-full flex items-center gap-4 p-5 text-left hover:bg-orange-50/40 transition-colors"
-            >
-              <div className="flex-1 min-w-0">
+            <div key={inv.id} className="w-full flex items-center gap-4 p-5 hover:bg-orange-50/40 transition-colors">
+              <button onClick={() => setPreview(inv)} className="flex-1 min-w-0 text-left">
                 <p className="font-semibold text-gray-900">{inv.invoice_number} · {inv.customer_name}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{formatDate(inv.created_at)}</p>
-              </div>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {formatDate(inv.created_at)}
+                  {inv.payment_link && inv.status !== "paid" && " · payment link sent"}
+                  {inv.settled_at && " · split distributed"}
+                </p>
+              </button>
               <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize shrink-0 ${INVOICE_STATUS_STYLES[inv.status]}`}>{inv.status}</span>
               <p className="text-sm font-semibold text-gray-900 shrink-0 w-24 text-right">{formatAmount(inv.total)}</p>
-            </button>
+              {/* A link can be created for anything unpaid, and reopened afterwards
+                  to copy it again. Once paid there's nothing left to collect. */}
+              {inv.status !== "paid" && (
+                <button
+                  onClick={() => setLinking(inv)}
+                  className="text-brand hover:text-brand-hover text-sm font-semibold shrink-0"
+                >
+                  {inv.payment_link ? "Payment link" : "Get paid"}
+                </button>
+              )}
+              {/* Only a paid, not-yet-distributed invoice can be split — the money
+                  has to have actually arrived before it can be shared out. */}
+              {inv.status === "paid" && !inv.settled_at && (
+                <button
+                  onClick={() => setSettling(inv)}
+                  className="text-brand hover:text-brand-hover text-sm font-semibold shrink-0"
+                >
+                  Distribute
+                </button>
+              )}
+            </div>
           ))
         )}
       </div>
 
       {showCreate && <InvoiceModal onClose={() => setShowCreate(false)} />}
       {preview && <DocumentPreviewModal document={{ kind: "invoice", data: preview }} onClose={() => setPreview(null)} />}
+      {settling && <SettleInvoiceSplitModal invoice={settling} onClose={() => setSettling(null)} />}
+      {linking && <InvoicePaymentLinkModal key={linking.id} invoice={linking} onClose={() => setLinking(null)} />}
+      {showBranding && <DocumentBrandingModal onClose={() => setShowBranding(false)} />}
     </div>
   );
 }
@@ -403,6 +447,7 @@ function ReceiptsPanel() {
   const { data: receipts = [], isLoading } = useGetReceipts(branchFilter);
   const [showCreate, setShowCreate] = useState(false);
   const [preview, setPreview] = useState<Receipt | null>(null);
+  const [showBranding, setShowBranding] = useState(false);
 
   return (
     <div className="flex flex-col gap-3">
@@ -430,10 +475,19 @@ function ReceiptsPanel() {
             )}
           </FilterPopover>
         ) : <span />}
-        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 bg-brand text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-brand-hover transition-colors">
-          <i className="ri-add-line text-base" />
-          Create Receipt
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowBranding(true)}
+            className="flex items-center gap-2 border border-gray-200 text-gray-600 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors"
+          >
+            <i className="ri-palette-line text-base" />
+            Design
+          </button>
+          <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 bg-brand text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-brand-hover transition-colors">
+            <i className="ri-add-line text-base" />
+            Create Receipt
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 overflow-hidden">
@@ -460,6 +514,7 @@ function ReceiptsPanel() {
 
       {showCreate && <ReceiptModal onClose={() => setShowCreate(false)} />}
       {preview && <DocumentPreviewModal document={{ kind: "receipt", data: preview }} onClose={() => setPreview(null)} />}
+      {showBranding && <DocumentBrandingModal onClose={() => setShowBranding(false)} />}
     </div>
   );
 }
@@ -476,23 +531,121 @@ function emptyMember(): SplitMember {
   return { external_user_id: "", label: "", share_percent: 0 };
 }
 
+/**
+ * Resolves percentage shares into actual naira for one amount, mirroring
+ * wallet-service's own arithmetic exactly so the preview can't disagree with what
+ * settlement will do: every member except the last is rounded to the cent, and the
+ * last absorbs whatever is left so the parts always total the whole.
+ *
+ * The partner is the last member here because the server appends their remainder
+ * after the stakeholders — see PartnerSplitView.put.
+ */
+function resolveShares(amount: number, members: SplitMember[], yourShare: number) {
+  const stakeholderAmounts = members.map(
+    (m) => Math.round(amount * (Number(m.share_percent) || 0) / 100 * 100) / 100,
+  );
+
+  // Whoever is last in the list wallet-service receives absorbs the remainder.
+  // That's the partner when they have a share — the server appends them last —
+  // but when stakeholders already take the full 100% no partner member is
+  // appended at all, and the last *stakeholder* absorbs it instead. Getting this
+  // wrong makes the preview disagree with settlement by a cent.
+  if (yourShare <= 0) {
+    if (stakeholderAmounts.length > 0) {
+      const allocated = stakeholderAmounts.slice(0, -1).reduce((sum, a) => sum + a, 0);
+      stakeholderAmounts[stakeholderAmounts.length - 1] = Math.round((amount - allocated) * 100) / 100;
+    }
+    return { stakeholderAmounts, yourAmount: 0 };
+  }
+
+  const allocated = stakeholderAmounts.reduce((sum, a) => sum + a, 0);
+  return { stakeholderAmounts, yourAmount: Math.round((amount - allocated) * 100) / 100 };
+}
+
 function SplitPanel({ branchId }: { branchId: number | null }) {
   const { data: config, isLoading } = useGetPartnerSplit(branchId);
+  const { data: stakeholders = [] } = useGetStakeholders(branchId);
+  const { data: invoices = [] } = useGetInvoices(branchId ?? undefined);
+  // The wallet the distribution actually draws on. Shown next to the preview
+  // because a percentage split can look perfectly valid while the branch has no
+  // balance to distribute — an invoice paid in cash being the obvious case.
+  const { data: walletBalance } = useGetWalletBalance(branchId);
   const save = useSavePartnerSplit(branchId);
 
   const [name, setName] = useState("");
   const [members, setMembers] = useState<SplitMember[]>([emptyMember(), emptyMember()]);
   const [loadedFor, setLoadedFor] = useState<number | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+  const [previewInvoiceId, setPreviewInvoiceId] = useState<number | null>(null);
+  const [distributing, setDistributing] = useState<Invoice | null>(null);
 
   if (loadedFor !== branchId && config !== undefined) {
     setLoadedFor(branchId);
     setName(config?.name ?? "");
-    setMembers(config?.members.length ? config.members : [emptyMember(), emptyMember()]);
+    // Drop the partner's own member: it's derived from the remainder now, and
+    // leaving it in the editable list would double-count against the 100% the
+    // server re-appends on save.
+    const stakeholderMembers = (config?.members ?? []).filter((m) => m.external_user_id !== config?.partnerRef);
+    setMembers(stakeholderMembers.length ? stakeholderMembers : [emptyMember()]);
   }
 
-  const total = members.reduce((sum, m) => sum + (Number(m.share_percent) || 0), 0);
-  const isValid = Math.abs(total - 100) < 0.005 && members.every((m) => m.external_user_id.trim());
+  // Only the stakeholders' shares are edited here. The partner's own share is
+  // whatever's left — you aren't your own stakeholder, and making people "add
+  // themselves" to reach 100% was the confusing part of the old form. wallet-service
+  // still requires exactly 100, so the partner is appended as a member on save.
+  const stakeholderTotal = members.reduce((sum, m) => sum + (Number(m.share_percent) || 0), 0);
+  const yourShare = 100 - stakeholderTotal;
+  const isValid =
+    yourShare >= 0 && stakeholderTotal > 0 && members.every((m) => m.external_user_id.trim());
+
+  // Any invoice can be previewed — modelling "what would everyone get if INV-0020
+  // gets paid" is a normal planning question, and the amount is known long before
+  // the money arrives. Distributing is the part that requires a paid invoice.
+  // Actionable ones sort first so the common case is at the top of the list.
+  const previewableInvoices = [...invoices].sort((a, b) => {
+    const rank = (inv: Invoice) => (inv.status === "paid" && !inv.settled_at ? 0 : inv.status === "paid" ? 1 : 2);
+    return rank(a) - rank(b) || b.id - a.id;
+  });
+  const previewInvoice = previewableInvoices.find((inv) => inv.id === previewInvoiceId) ?? null;
+  const preview = previewInvoice ? resolveShares(previewInvoice.total, members, yourShare) : null;
+
+  const canDistribute = !!previewInvoice && previewInvoice.status === "paid" && !previewInvoice.settled_at;
+  // The distribution draws on this wallet, not on the invoice — they can disagree.
+  // Only a shortfall on something actually distributable is a problem worth
+  // warning about; on an unpaid invoice it's just noise.
+  const availableBalance = Number(walletBalance?.balance ?? 0);
+  const shortBalance = canDistribute && availableBalance < (previewInvoice?.total ?? 0);
+
+  // Members come back from wallet-service as bare wallet identities, so re-associate
+  // them with the stakeholder directory by external_user_id to show real names.
+  const stakeholderByExternalId = new Map(stakeholders.map((s) => [s.external_user_id, s]));
+
+  function selectStakeholder(index: number, stakeholderId: string) {
+    const stakeholder = stakeholders.find((s) => String(s.id) === stakeholderId);
+    if (!stakeholder) return;
+    const primary = stakeholder.collaborators.find((c) => c.is_primary) ?? stakeholder.collaborators[0];
+    updateMember(index, {
+      stakeholder_id: stakeholder.id,
+      external_user_id: stakeholder.external_user_id,
+      // Default to the org's primary contact; the label itself is composed
+      // server-side so the ledger always agrees with what was chosen here.
+      collaborator_id: primary?.id,
+      label: primary ? `${stakeholder.organisation_name} · ${primary.full_name}` : stakeholder.organisation_name,
+    });
+  }
+
+  function selectCollaborator(index: number, collaboratorId: string) {
+    const member = members[index];
+    const stakeholder = stakeholderByExternalId.get(member.external_user_id);
+    if (!stakeholder) return;
+    const collaborator = stakeholder.collaborators.find((c) => String(c.id) === collaboratorId);
+    updateMember(index, {
+      collaborator_id: collaborator?.id,
+      label: collaborator
+        ? `${stakeholder.organisation_name} · ${collaborator.full_name}`
+        : stakeholder.organisation_name,
+    });
+  }
 
   function updateMember(index: number, patch: Partial<SplitMember>) {
     setMembers((prev) => prev.map((m, i) => (i === index ? { ...m, ...patch } : m)));
@@ -518,11 +671,102 @@ function SplitPanel({ branchId }: { branchId: number | null }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <PayoutSplitsPanel />
+
+      {/* The original single split, kept because partners who configured one
+          before named splits existed still settle through it when no named
+          arrangement applies. See resolve_split's fallback. */}
+      <details className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+        <summary className="cursor-pointer px-5 py-3 text-sm font-semibold text-gray-500">
+          Legacy single split
+        </summary>
+      <div className="p-5 pt-0">
         <p className="text-sm text-gray-500 mb-4">
-          How a settled amount splits between you and your own dispatchers or stakeholders. Shares must add up to
-          exactly 100%.
+          Used only when no named split above applies. How an amount splits between you and your stakeholders. Set only what each stakeholder takes —
+          whatever's left is your share. Applied automatically when a delivery completes, and whenever you
+          distribute a paid invoice.
         </p>
+
+        {stakeholders.length === 0 && (
+          <div className="mb-4 flex items-start gap-2 rounded-xl bg-orange-50 p-3 text-sm text-orange-800">
+            <i className="ri-information-line mt-0.5" />
+            <p>
+              You have no stakeholders yet. Add the businesses you share payouts with under{" "}
+              <a href="/stakeholders" className="font-semibold underline">
+                Stakeholders
+              </a>
+              , then come back to set their shares.
+            </p>
+          </div>
+        )}
+
+        {previewableInvoices.length > 0 && (
+          <div className="mb-5 rounded-xl border border-gray-100 bg-gray-50/60 p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  Preview against an invoice
+                </label>
+                <select
+                  value={previewInvoiceId ?? ""}
+                  onChange={(e) => setPreviewInvoiceId(e.target.value ? Number(e.target.value) : null)}
+                  className={`${inputClass} mt-1.5`}
+                >
+                  <option value="">Percentages only</option>
+                  {previewableInvoices.map((inv) => (
+                    <option key={inv.id} value={inv.id}>
+                      {inv.invoice_number} · {inv.customer_name} · {formatAmount(inv.total)} ·{" "}
+                      {inv.settled_at ? "distributed" : inv.status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {previewInvoice && (
+                <div className="sm:text-right shrink-0">
+                  <p className="text-[11px] text-gray-400 font-medium">Branch wallet balance</p>
+                  <p className={`text-sm font-bold ${shortBalance ? "text-red-600" : "text-gray-900"}`}>
+                    {formatAmount(availableBalance)}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {previewInvoice && (
+              <>
+                {/* A split can be perfectly valid and still undistributable — the
+                    money comes from the wallet, so an invoice paid in cash has
+                    nothing behind it here. Better said before the click. */}
+                {shortBalance && (
+                  <p className="mt-3 flex items-start gap-1.5 text-xs text-red-600">
+                    <i className="ri-error-warning-line mt-0.5" />
+                    This branch's wallet holds less than the invoice total, so distributing it will fail.
+                    The payment has to have landed in this wallet first.
+                  </p>
+                )}
+                {previewInvoice.settled_at ? (
+                  <p className="mt-3 text-xs text-gray-500">
+                    Already distributed on {formatDate(previewInvoice.settled_at)} — shown here for reference.
+                  </p>
+                ) : canDistribute ? (
+                  <button
+                    onClick={() => setDistributing(previewInvoice)}
+                    disabled={!isValid || shortBalance}
+                    className="mt-3 bg-brand text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-brand-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Distribute {formatAmount(previewInvoice.total)}
+                  </button>
+                ) : (
+                  <p className="mt-3 flex items-start gap-1.5 text-xs text-gray-500">
+                    <i className="ri-information-line mt-0.5" />
+                    Preview only — this invoice is{" "}
+                    <span className="font-semibold">{previewInvoice.status}</span>. It can be distributed once
+                    the customer has paid it.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Split name</label>
         <input
@@ -536,30 +780,64 @@ function SplitPanel({ branchId }: { branchId: number | null }) {
         <div className="flex flex-col gap-3">
           {members.map((m, i) => (
             <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_120px_auto] gap-2 items-center">
-              <input
-                type="text"
-                value={m.external_user_id}
-                onChange={(e) => updateMember(i, { external_user_id: e.target.value })}
-                placeholder="Recipient reference"
+              <select
+                value={stakeholderByExternalId.get(m.external_user_id)?.id ?? ""}
+                onChange={(e) => selectStakeholder(i, e.target.value)}
                 className={inputClass}
-              />
-              <input
-                type="text"
-                value={m.label ?? ""}
-                onChange={(e) => updateMember(i, { label: e.target.value })}
-                placeholder="Label (e.g. Dispatcher)"
-                className={inputClass}
-              />
-              <input
-                type="number"
-                min={0}
-                max={100}
-                step="0.01"
-                value={m.share_percent}
-                onChange={(e) => updateMember(i, { share_percent: Number(e.target.value) })}
-                placeholder="Share %"
-                className={inputClass}
-              />
+                aria-label="Stakeholder"
+              >
+                <option value="">Select stakeholder…</option>
+                {stakeholders.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.organisation_name}
+                  </option>
+                ))}
+                {/* A member configured before the stakeholder directory existed, or
+                    pointing at a wallet with no stakeholder record, would otherwise
+                    vanish from the dropdown and be silently dropped on save. */}
+                {m.external_user_id && !stakeholderByExternalId.has(m.external_user_id) && (
+                  <option value="">{m.label || m.external_user_id} (unlinked)</option>
+                )}
+              </select>
+              {/* Names the contact on this line. The organisation is still the
+                  payee — this only decides what the ledger entry reads as. */}
+              <select
+                value={m.collaborator_id ?? ""}
+                onChange={(e) => selectCollaborator(i, e.target.value)}
+                disabled={!stakeholderByExternalId.get(m.external_user_id)?.collaborators.length}
+                className={`${inputClass} disabled:bg-gray-50 disabled:text-gray-400`}
+                aria-label="Contact"
+              >
+                <option value="">
+                  {stakeholderByExternalId.get(m.external_user_id)?.collaborators.length
+                    ? "Organisation only"
+                    : "No contacts"}
+                </option>
+                {(stakeholderByExternalId.get(m.external_user_id)?.collaborators ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.full_name}
+                    {c.role_label ? ` · ${c.role_label}` : ""}
+                  </option>
+                ))}
+              </select>
+              <div className="flex flex-col">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.01"
+                  value={m.share_percent}
+                  onChange={(e) => updateMember(i, { share_percent: Number(e.target.value) })}
+                  placeholder="Share %"
+                  className={inputClass}
+                  aria-label="Share percent"
+                />
+                {preview && (
+                  <span className="mt-1 text-[11px] font-semibold text-gray-600 text-right">
+                    {formatAmount(preview.stakeholderAmounts[i] ?? 0)}
+                  </span>
+                )}
+              </div>
               {members.length > 1 && (
                 <button
                   onClick={() => removeMember(i)}
@@ -577,12 +855,24 @@ function SplitPanel({ branchId }: { branchId: number | null }) {
           className="mt-3 flex items-center gap-1.5 text-sm font-semibold text-brand hover:text-brand-hover transition-colors"
         >
           <i className="ri-add-line text-base" />
-          Add recipient
+          Add stakeholder to split
         </button>
 
+        {/* Your own share is the remainder, not a row you have to add. The server
+            appends it as a real split member so wallet-service still sees 100%. */}
+        <div className="mt-4 flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+          <span className="text-sm font-semibold text-gray-700">Your share</span>
+          <span className={`text-sm font-bold ${yourShare < 0 ? "text-red-600" : "text-gray-900"}`}>
+            {preview && <span className="mr-2 font-semibold text-gray-500">{formatAmount(preview.yourAmount)}</span>}
+            {yourShare.toFixed(2)}%
+          </span>
+        </div>
+
         <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4">
-          <p className={`text-sm font-semibold ${Math.abs(total - 100) < 0.005 ? "text-green-700" : "text-red-600"}`}>
-            Total: {total.toFixed(2)}%
+          <p className={`text-sm font-semibold ${yourShare < 0 ? "text-red-600" : "text-gray-500"}`}>
+            {yourShare < 0
+              ? `Stakeholders are over 100% by ${Math.abs(yourShare).toFixed(2)}%`
+              : `Stakeholders take ${stakeholderTotal.toFixed(2)}%`}
           </p>
           <button
             onClick={handleSave}
@@ -596,6 +886,16 @@ function SplitPanel({ branchId }: { branchId: number | null }) {
         {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
         {save.isSuccess && !error && <p className="text-sm text-green-700 mt-3">Split saved.</p>}
       </div>
+      </details>
+
+      <SettlementAccountCard />
+
+      {distributing && (
+        <SettleInvoiceSplitModal
+          invoice={distributing}
+          onClose={() => setDistributing(null)}
+        />
+      )}
     </div>
   );
 }

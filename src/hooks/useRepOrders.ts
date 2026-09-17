@@ -116,8 +116,8 @@ export const useAssignDriver = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ orderId, driverId }: { orderId: string | number; driverId: number; phone: string }) =>
-      repOrderService.assignDriver(orderId, driverId),
+    mutationFn: ({ orderId, driverId, dispatchAmount }: { orderId: string | number; driverId: number; phone: string; dispatchAmount?: number }) =>
+      repOrderService.assignDriver(orderId, driverId, dispatchAmount),
     onSuccess: (_data, { phone }) => {
       queryClient.invalidateQueries({ queryKey: repConversationKeys.detail(phone) });
     },

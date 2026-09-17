@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  createInvoicePaymentLink,
   invoiceService,
   type CreateInvoicePayload,
+  type CreatePaymentLinkPayload,
   type UpdateInvoicePayload,
 } from '../service/partnerService';
 
@@ -35,6 +37,18 @@ export const useDeleteInvoice = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => invoiceService.delete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: invoiceKeys.lists() }),
+  });
+};
+
+/**
+ * Creates the hosted payment link. Invalidates invoices because the call also
+ * moves a draft invoice to sent and stamps the routing onto it.
+ */
+export const useCreateInvoicePaymentLink = (invoiceId: number) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreatePaymentLinkPayload) => createInvoicePaymentLink(invoiceId, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: invoiceKeys.lists() }),
   });
 };

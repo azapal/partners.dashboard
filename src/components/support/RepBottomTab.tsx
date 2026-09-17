@@ -22,11 +22,12 @@ export const RepBottomTab = () => {
 
   return (
     <div className="w-full flex md:hidden items-center justify-center fixed bottom-0 right-0 left-0 pb-safe z-30">
-      <nav className="flex bg-white/90 backdrop-blur-sm border border-gray-100 gap-1 p-1.5 mx-4 mb-3 rounded-2xl shadow-lg w-fit">
+      <nav data-tour="support-bottom-nav" className="flex bg-white/90 backdrop-blur-sm border border-gray-100 gap-1 p-1.5 mx-4 mb-3 rounded-2xl shadow-lg w-fit">
         {visibleTabs.map(({ to, icon, label }) => (
           <NavLink
             key={to}
             to={to}
+            data-tour={`support-${to.replace("/support/", "")}`}
             className={({ isActive }) =>
               `flex flex-col items-center gap-0.5 px-5 py-2 rounded-xl transition-all duration-200 min-w-16
               ${isActive

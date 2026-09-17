@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { DashboardLayout } from '../layouts/DashboardLayout';
-import { useGetServices, useGetPartnerServices, useUpdatePartnerServices } from '../hooks/useServices';
+import {
+  useGetServices,
+  useGetPartnerServices,
+  useGetServiceConfig,
+  useSaveServiceConfig,
+  useUpdatePartnerServices,
+} from '../hooks/useServices';
 import type { ServiceOption } from '../service/partnerService';
 import { SearchableSelect } from '../components/inputs/SearchableSelect';
 
@@ -16,10 +22,25 @@ export const ServiceScreen = () => {
   const [showPicker, setShowPicker] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle');
+  const [submitState, setSubmitState] = useState<'idle' | 'saved' | 'error'>('idle');
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const { data: savedConfig } = useGetServiceConfig();
+  const saveConfig = useSaveServiceConfig();
 
   useEffect(() => {
     if (partnerServices) setSelectedIds(partnerServices.map((s) => s.id));
   }, [partnerServices]);
+
+  // Seed the form from what's already saved. Keyed by option id as a string on the
+  // wire; the form keys by number, so it's converted once on load rather than
+  // stringifying at every lookup.
+  useEffect(() => {
+    if (!savedConfig) return;
+    setResponses(
+      Object.fromEntries(Object.entries(savedConfig).map(([optionId, value]) => [Number(optionId), value])),
+    );
+  }, [savedConfig]);
 
   const toggleSelected = (id: number) => {
     setSaveState('idle');
@@ -41,6 +62,7 @@ export const ServiceScreen = () => {
     setOpenId((prev) => (prev === id ? null : id));
 
   const setCheckbox = (optionId: number, value: string) => {
+    setSubmitState('idle');
     setResponses((prev) => {
       const current = (prev[optionId] as string[] | undefined) ?? [];
       return {
@@ -52,8 +74,10 @@ export const ServiceScreen = () => {
     });
   };
 
-  const setTextValue = (optionId: number, value: string) =>
+  const setTextValue = (optionId: number, value: string) => {
+    setSubmitState('idle');
     setResponses((prev) => ({ ...prev, [optionId]: value }));
+  };
 
   const handleNext = (currentId: number) => {
     const idx = activeServices.findIndex((s) => s.id === currentId);
@@ -63,7 +87,20 @@ export const ServiceScreen = () => {
   };
 
   const handleSubmit = () => {
-    console.log('Service responses:', responses);
+    setSubmitError(null);
+    setSubmitState('idle');
+    // Sent whole rather than per-service: the server treats an emptied answer as a
+    // removal, so posting only the touched ones could never clear anything.
+    saveConfig.mutate(
+      Object.fromEntries(Object.entries(responses).map(([optionId, value]) => [String(optionId), value])),
+      {
+        onSuccess: () => setSubmitState('saved'),
+        onError: (e: any) => {
+          setSubmitState('error');
+          setSubmitError(e?.message || 'Could not save your service details');
+        },
+      },
+    );
   };
 
   const renderOption = (opt: ServiceOption) => {
@@ -266,16 +303,23 @@ export const ServiceScreen = () => {
                 const isOpen = openId === service.id;
                 const isLast = idx === activeServices.length - 1;
 
+                // No overflow-hidden on the card: it clips the SearchableSelect
+                // dropdown in the body, which is absolutely positioned and escapes
+                // the card bounds. overflow:hidden clips regardless of z-index, so
+                // the dropdown's z-50 can't save it. The header rounds its own
+                // corners instead, which is all the clipping was ever for.
                 return (
                   <div
                     key={service.id}
-                    className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
+                    className="bg-white rounded-2xl border border-gray-100 shadow-sm"
                   >
                     {/* Header */}
                     <button
                       type="button"
                       onClick={() => toggle(service.id)}
-                      className="w-full flex items-center justify-between px-5 py-4 hover:bg-orange-50/40 transition-colors text-left"
+                      className={`w-full flex items-center justify-between px-5 py-4 hover:bg-orange-50/40 transition-colors text-left rounded-t-2xl ${
+                        isOpen ? '' : 'rounded-b-2xl'
+                      }`}
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center shrink-0">
@@ -302,8 +346,20 @@ export const ServiceScreen = () => {
                             .map((opt) => renderOption(opt))}
                         </div>
 
-                        <div className="flex justify-end mt-6">
-                          {!isLast ? (
+                        <div className="flex items-center justify-end gap-2 mt-6">
+                          {submitState === 'saved' && (
+                            <span className="text-sm font-medium text-green-700 mr-auto">
+                              <i className="ri-check-line mr-1" />
+                              Saved
+                            </span>
+                          )}
+                          {submitState === 'error' && submitError && (
+                            <span className="text-sm text-red-600 mr-auto">{submitError}</span>
+                          )}
+                          {/* Save sits on every panel. It persists the whole form, so
+                              gating it behind the last service just meant scrolling
+                              to the end before anything could be kept. */}
+                          {!isLast && (
                             <button
                               type="button"
                               onClick={() => handleNext(service.id)}
@@ -312,16 +368,16 @@ export const ServiceScreen = () => {
                               Next
                               <i className="ri-arrow-right-line text-base" />
                             </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={handleSubmit}
-                              className="flex items-center gap-2 bg-brand hover:bg-brand-hover text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-                            >
-                              <i className="ri-check-line text-base" />
-                              Submit
-                            </button>
                           )}
+                          <button
+                            type="button"
+                            onClick={handleSubmit}
+                            disabled={saveConfig.isPending}
+                            className="flex items-center gap-2 bg-brand hover:bg-brand-hover text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                          >
+                            <i className="ri-check-line text-base" />
+                            {saveConfig.isPending ? 'Saving…' : 'Submit'}
+                          </button>
                         </div>
                       </div>
                     )}

@@ -1,6 +1,7 @@
 import SideBar from "../components/dashboard/SideBar";
 import { DashboardHeaderLayout } from "./DashboardHeaderLayout";
 import { BottomTab } from "../components/dashboard/BottomTab";
+import { ProductTour } from "../components/tour/ProductTour";
 
 export const DashboardLayout = ({ children }: any) => {
   return (
@@ -15,6 +16,7 @@ export const DashboardLayout = ({ children }: any) => {
       </div>
 
       <BottomTab />
+      <ProductTour variant="main" />
     </section>
   );
 };

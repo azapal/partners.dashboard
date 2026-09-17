@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { usePartnerProfile, useCurrentUserDisplay } from "../hooks/useAuth";
+import { restartProductTour } from "../components/tour/ProductTour";
 
 const PAGE_TITLES: Record<string, string> = {
   dashboard: "Dashboard",
@@ -40,7 +41,7 @@ export const DashboardHeaderLayout = () => {
 
   return (
     <div className="w-full mb-6 sticky top-0 z-20 bg-white pt-1">
-      <header className="flex items-center justify-between py-3 border-b border-gray-100">
+      <header data-tour="dashboard-header" className="flex items-center justify-between py-3 border-b border-gray-100">
         <div>
           <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-0.5">
             {displayName}
@@ -96,6 +97,13 @@ export const DashboardHeaderLayout = () => {
                 >
                   <i className="ri-settings-3-line text-base text-gray-400" />
                   Settings
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); restartProductTour("main"); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors text-left"
+                >
+                  <i className="ri-play-circle-line text-base text-gray-400" />
+                  Replay workspace tour
                 </button>
                 <button
                   onClick={() => (location.href = "/LogoutScreen")}

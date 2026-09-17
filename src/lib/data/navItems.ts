@@ -43,6 +43,12 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Financials",
         keywords: ["invoice", "invoices", "receipt", "receipts", "wallet", "balance", "bank details", "virtual account", "payout"],
       },
+      {
+        to: "/stakeholders",
+        icon: "ri-team-line",
+        label: "Stakeholders",
+        keywords: ["stakeholder", "stakeholders", "split", "payout split", "dispatcher", "third party", "partner share", "revenue share"],
+      },
     ],
   },
 ];

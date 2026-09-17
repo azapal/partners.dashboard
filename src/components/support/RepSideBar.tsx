@@ -10,6 +10,7 @@ function RepSideBar() {
 
   return (
     <aside
+      data-tour="support-sidebar"
       className={`flex-col gap-1 py-5 relative hidden md:flex transition-all duration-300 bg-white border-r border-gray-100 shadow-sm
         ${isCollapsed ? "w-[68px] px-2" : "w-56 px-4"}`}
     >
@@ -53,19 +54,25 @@ function RepSideBar() {
           Dashboard
         </SidebarButton>
 
-        <SidebarButton to="/support/orders" className="ri-truck-line" isCollapsed={isCollapsed}>
+        <div data-tour="support-orders">
+          <SidebarButton to="/support/orders" className="ri-truck-line" isCollapsed={isCollapsed}>
           Orders
-        </SidebarButton>
+          </SidebarButton>
+        </div>
 
         {isManager && (
-          <SidebarButton to="/support/team" className="ri-team-line" isCollapsed={isCollapsed}>
+          <div data-tour="support-team">
+            <SidebarButton to="/support/team" className="ri-team-line" isCollapsed={isCollapsed}>
             Team Overview
-          </SidebarButton>
+            </SidebarButton>
+          </div>
         )}
 
-        <SidebarButton to="/support/shift-mates" className="ri-group-line" isCollapsed={isCollapsed}>
+        <div data-tour="support-shift-mates">
+          <SidebarButton to="/support/shift-mates" className="ri-group-line" isCollapsed={isCollapsed}>
           Shift Mates
-        </SidebarButton>
+          </SidebarButton>
+        </div>
 
         <SidebarButton to="/support/profile" className="ri-user-settings-line" isCollapsed={isCollapsed}>
           Profile

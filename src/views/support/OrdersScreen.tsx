@@ -20,6 +20,39 @@ const STATUS_STYLES: Record<string, string> = {
 
 const PAGE_SIZE = 20;
 
+const PAYMENT_STATUS_STYLES: Record<string, string> = {
+  approved: 'bg-green-50 text-green-700',
+  pending: 'bg-yellow-50 text-yellow-700',
+  failed: 'bg-red-50 text-red-600',
+  reversed: 'bg-orange-50 text-orange-700',
+  refund: 'bg-purple-50 text-purple-700',
+};
+
+// The hosted checkout the customer was sent on WhatsApp. Surfaced here so a rep
+// can re-send it when the customer says they never got it.
+const CopyLinkButton = ({ url }: { url: string }) => {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      title={url}
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(url);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        } catch {
+          /* clipboard unavailable (insecure context) — the title still shows the URL */
+        }
+      }}
+      className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:text-brand-hover transition-colors"
+    >
+      <i className={copied ? 'ri-check-line' : 'ri-link'} />
+      {copied ? 'Copied' : 'Copy payment link'}
+    </button>
+  );
+};
+
 const formatAmount = (n: number | null) => (n != null ? `₦${n.toLocaleString()}` : 'Pending price');
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
@@ -86,6 +119,7 @@ const OrdersScreen = () => {
                   <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Order</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Customer</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Amount</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Payment</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Driver</th>
@@ -95,13 +129,13 @@ const OrdersScreen = () => {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-14 text-gray-400 text-sm">
+                    <td colSpan={8} className="text-center py-14 text-gray-400 text-sm">
                       <i className="ri-loader-4-line animate-spin text-xl" />
                     </td>
                   </tr>
                 ) : orders.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-14 text-gray-400 text-sm">
+                    <td colSpan={8} className="text-center py-14 text-gray-400 text-sm">
                       No orders found
                     </td>
                   </tr>
@@ -111,15 +145,24 @@ const OrdersScreen = () => {
                       <td className="px-5 py-3.5 text-gray-900 font-medium">#{order.id}</td>
                       <td className="px-4 py-3.5 text-gray-600">{order.sender_id}</td>
                       <td className="px-4 py-3.5 text-gray-900 font-semibold">{formatAmount(order.total_amount)}</td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex flex-col items-start gap-1">
+                          <StatusBadge value={order.payment_status} styles={PAYMENT_STATUS_STYLES} />
+                          {order.payment_status !== 'approved' && order.authorization_url && (
+                            <CopyLinkButton url={order.authorization_url} />
+                          )}
+                        </div>
+                      </td>
                       <td className="px-4 py-3.5"><StatusBadge value={order.status} styles={STATUS_STYLES} /></td>
                       <td className="px-4 py-3.5 text-gray-500">{formatDate(order.created_at)}</td>
                       <td className="px-4 py-3.5 min-w-40">
                         <DriverAssignControl
                           driverId={order.driver?.id ?? null}
+                          requiresFee={order.total_amount == null && !order.dispatch_amount}
                           isPending={isAssigning}
-                          onAssign={(driverId, { onSuccess, onError }) =>
+                          onAssign={(driverId, { onSuccess, onError }, dispatchAmount) =>
                             assignDriver(
-                              { orderId: order.id, driverId },
+                              { orderId: order.id, driverId, dispatchAmount },
                               { onSuccess, onError: (err: any) => onError(err?.message ?? 'Failed to assign driver.') }
                             )
                           }
@@ -151,13 +194,20 @@ const OrdersScreen = () => {
                     <p className="font-semibold text-gray-900 text-sm">{formatAmount(order.total_amount)}</p>
                   </div>
                   <p className="text-xs text-gray-400">{order.sender_id} · {formatDate(order.created_at)}</p>
-                  <StatusBadge value={order.status} styles={STATUS_STYLES} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusBadge value={order.status} styles={STATUS_STYLES} />
+                    <StatusBadge value={order.payment_status} styles={PAYMENT_STATUS_STYLES} />
+                    {order.payment_status !== 'approved' && order.authorization_url && (
+                      <CopyLinkButton url={order.authorization_url} />
+                    )}
+                  </div>
                   <DriverAssignControl
                     driverId={order.driver?.id ?? null}
+                    requiresFee={order.total_amount == null && !order.dispatch_amount}
                     isPending={isAssigning}
-                    onAssign={(driverId, { onSuccess, onError }) =>
+                    onAssign={(driverId, { onSuccess, onError }, dispatchAmount) =>
                       assignDriver(
-                        { orderId: order.id, driverId },
+                        { orderId: order.id, driverId, dispatchAmount },
                         { onSuccess, onError: (err: any) => onError(err?.message ?? 'Failed to assign driver.') }
                       )
                     }

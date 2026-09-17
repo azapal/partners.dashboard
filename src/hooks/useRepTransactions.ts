@@ -38,8 +38,8 @@ export const useAssignDriverToOrder = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ orderId, driverId }: { orderId: string | number; driverId: number }) =>
-      repOrderService.assignDriver(orderId, driverId),
+    mutationFn: ({ orderId, driverId, dispatchAmount }: { orderId: string | number; driverId: number; dispatchAmount?: number }) =>
+      repOrderService.assignDriver(orderId, driverId, dispatchAmount),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: repTransactionKeys.all });
     },

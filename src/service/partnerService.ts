@@ -1195,6 +1195,10 @@ export interface Transaction {
   status: TransactionStatus;
   payment_status: TransactionPaymentStatus;
   total_amount: number | null;
+  // Null on a WhatsApp booking until the branch prices it — see DriverAssignControl's requiresFee.
+  dispatch_amount?: number | null;
+  channel?: string | null;
+  authorization_url?: string | null;
   delivery_method: string;
   reference?: string | null;
   session_code?: string | null;
@@ -1342,6 +1346,9 @@ export const logisticsService = {
 
 // ── Partner Service Selection ─────────────────────────────────────────────────
 
+/** Keyed by option id as a string — what survives a JSON round trip. */
+export type ServiceConfigResponses = Record<string, string | string[]>;
+
 export const partnerServicesService = {
   async getSelected(): Promise<Service[]> {
     const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/services`, {});
@@ -1356,6 +1363,28 @@ export const partnerServicesService = {
     });
     if (!res.ok) await handleError(res);
     return extractList<Service>(await res.json());
+  },
+
+  /**
+   * The answers to each service's configuration options, keyed by option id.
+   * Separate from the selection above: that records *which* services a partner
+   * offers, this records *how* they deliver them.
+   */
+  async getConfig(): Promise<ServiceConfigResponses> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/service-config`, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? {};
+  },
+
+  async saveConfig(responses: ServiceConfigResponses): Promise<ServiceConfigResponses> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/service-config`, {
+      method: 'PUT',
+      body: JSON.stringify({ responses }),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? {};
   },
 };
 
@@ -1483,6 +1512,19 @@ export interface SplitMember {
   external_user_id: string;
   label: string | null;
   share_percent: number;
+  /**
+   * Set when this member was picked from the stakeholder directory. Sending it
+   * instead of a raw external_user_id lets the server resolve the wallet identity
+   * and, in doing so, enforce that you only split with your own stakeholders.
+   * Absent on members read back from wallet-service, which only stores the
+   * resolved identity — match on external_user_id to re-associate them.
+   */
+  stakeholder_id?: number;
+  /**
+   * Which contact at that organisation this line names. Label only — the
+   * organisation is still the payee. Omitted means the org's primary contact.
+   */
+  collaborator_id?: number;
 }
 
 export interface SplitConfig {
@@ -1524,6 +1566,10 @@ export const splitService = {
         name,
         branch_id: branchId || undefined,
         members: members.map((m) => ({
+          // stakeholder_id wins server-side when both are present; external_user_id
+          // is still sent so a legacy member with no stakeholder record keeps working.
+          ...(m.stakeholder_id ? { stakeholder_id: m.stakeholder_id } : {}),
+          ...(m.collaborator_id ? { collaborator_id: m.collaborator_id } : {}),
           external_user_id: m.external_user_id,
           label: m.label || undefined,
           share_percent: m.share_percent,
@@ -1741,8 +1787,48 @@ export interface Invoice {
   status: InvoiceStatus;
   due_date: string | null;
   notes: string | null;
+  /**
+   * When this invoice's total was distributed across the payout split. Distinct
+   * from status='paid', which only says the customer paid — not that the
+   * proceeds have been shared out. Null means it can still be settled.
+   */
+  settled_at: string | null;
+  /** Hosted Paystack checkout for this invoice; null until one is created. */
+  payment_link: string | null;
+  payment_reference: string | null;
+  payment_route: PaymentRoute | null;
+  post_payment_action: PostPaymentAction | null;
+  payment_link_created_at: string | null;
+  paid_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Where the money actually splits.
+ *  wallet          — collects into the branch wallet, then the stakeholder split
+ *                    distributes it. Everything downstream stays available.
+ *  paystack_split  — Paystack settles each party's share straight to their bank at
+ *                    collection. Nothing passes through the wallet, so there is
+ *                    nothing left to distribute or pay out afterwards, and every
+ *                    member of the split needs real bank details.
+ */
+export type PaymentRoute = 'wallet' | 'paystack_split';
+
+/** What runs the moment payment is confirmed. Forced to mark_paid on paystack_split. */
+export type PostPaymentAction = 'mark_paid' | 'distribute' | 'distribute_and_payout';
+
+export interface CreatePaymentLinkPayload {
+  payment_route: PaymentRoute;
+  post_payment_action: PostPaymentAction;
+  callback_url?: string;
+}
+
+export interface PaymentLinkResult {
+  payment_link: string;
+  payment_reference: string;
+  payment_route: PaymentRoute;
+  post_payment_action: PostPaymentAction;
 }
 
 export interface CreateInvoicePayload {
@@ -1859,5 +1945,713 @@ export const receiptService = {
   async delete(id: number): Promise<void> {
     const res = await fetchWithAuth(`${RECEIPT_ENDPOINT}/${id}/`, { method: 'DELETE' });
     if (!res.ok) await handleError(res);
+  },
+};
+
+// ── Stakeholders ────────────────────────────────────────────────────────────────
+// The counterparties behind the payout-split members above — see
+// modules/business/partner_stakeholders.py in azapal-backend.
+//
+// A stakeholder is an ORGANISATION, and it is paid once, as an organisation, into
+// the single account below. Collaborators are the people you deal with there:
+// contacts, never payees, with no bank details of their own. They exist so a split
+// line can read "Swift Dispatch · John Okafor (Operations Lead)" and so contacts can
+// churn without anyone touching payout configuration.
+//
+// Two kinds, and the difference is where the money lands:
+//  - network_partner → another Azapal partner (or one of their branches); credits go
+//    to the wallet they already see in their own dashboard.
+//  - external        → a business with no Azapal account; credits accrue in a wallet
+//    that exists only to be paid out to their bank account.
+
+export type StakeholderType = 'external' | 'network_partner';
+export type StakeholderStatus = 'active' | 'inactive';
+
+export interface StakeholderCollaborator {
+  id: number;
+  first_name: string;
+  last_name: string | null;
+  full_name: string;
+  role_label: string | null;
+  email: string | null;
+  phone: string | null;
+  /** The contact named on a split line when none is picked explicitly. */
+  is_primary: boolean;
+}
+
+export interface Stakeholder {
+  id: number;
+  stakeholder_code: string;
+  organisation_name: string;
+  stakeholder_type: StakeholderType;
+  reason_for_partnership: string | null;
+  status: StakeholderStatus;
+  branch_id: number | null;
+  bank_code: string | null;
+  bank_name: string | null;
+  account_number: string | null;
+  account_name: string | null;
+  /** False until a bank account is registered — they can accrue, but not be paid out. */
+  payout_ready: boolean;
+  external_user_id: string;
+  network_partner: { id: number; partner_code: string; partner_name: string } | null;
+  network_branch: { id: number; branch_code: string; address: string } | null;
+  /** Who at that partner facilitates this. A contact, never a payee. */
+  network_contact: { id: number; full_name: string; email: string | null; phone: string | null; role: string | null } | null;
+  collaborators: StakeholderCollaborator[];
+  /** Only present when the list was fetched with includeBalances, or on a detail fetch. */
+  balance?: string | null;
+  /** Set when the bank account was rejected at save time; the record still exists. */
+  bank_warning?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CollaboratorPayload {
+  first_name: string;
+  last_name?: string | null;
+  role_label?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  is_primary?: boolean;
+}
+
+export interface CreateStakeholderPayload {
+  organisation_name: string;
+  stakeholder_type: StakeholderType;
+  reason_for_partnership?: string | null;
+  branch_id?: number | null;
+  /** All three come from the directory search — never typed by hand. */
+  network_partner_code?: string;
+  network_branch_code?: string;
+  network_contact_id?: number | null;
+  bank_code?: string | null;
+  account_number?: string | null;
+  collaborators?: CollaboratorPayload[];
+}
+
+export type UpdateStakeholderPayload = Partial<{
+  organisation_name: string;
+  reason_for_partnership: string | null;
+  status: StakeholderStatus;
+  bank_code: string;
+  account_number: string;
+  network_partner_code: string;
+  network_branch_code: string;
+  network_contact_id: number | null;
+}>;
+
+// ── Partner directory ───────────────────────────────────────────────────────────
+// Two tiers by design (see modules/business/partner_network.py): fuzzy search
+// returns identity only, so browsing can't be turned into a scrape of every
+// partner's contact details; you need an exact partner_code to see contacts,
+// branches and facilitators.
+
+export interface NetworkPartnerResult {
+  partner_code: string;
+  partner_name: string;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  is_verified: boolean;
+  branch_count: number;
+}
+
+export interface NetworkPartnerFacilitator {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  role: string;
+  branch_code: string | null;
+}
+
+export interface NetworkPartnerDetail extends NetworkPartnerResult {
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  branches: { id: number; branch_code: string; address: string; state: string; lga: string }[];
+  /** People at that partner whose role lets them agree a partnership. */
+  facilitators: NetworkPartnerFacilitator[];
+}
+
+export interface Bank {
+  name: string;
+  slug: string;
+  code: string;
+}
+
+export interface ResolvedAccount {
+  accountNumber: string;
+  accountName: string;
+}
+
+export type PayoutStatus = 'pending' | 'success' | 'failed' | 'reversed';
+
+export interface StakeholderPayout {
+  id: number;
+  reference: string;
+  amount: string;
+  status: PayoutStatus;
+  failureReason: string | null;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatePayoutPayload {
+  amount: number;
+  description?: string;
+  /** Supply to make a retry idempotent; the server mints one otherwise. */
+  reference?: string;
+}
+
+export interface SettlementAccount {
+  bank_code: string | null;
+  bank_name: string | null;
+  account_number: string | null;
+  account_name: string | null;
+  /** Whether the Paystack-split route can include this partner's own share. */
+  is_configured: boolean;
+}
+
+export interface SaveSettlementAccountPayload {
+  bank_code: string;
+  account_number: string;
+  bank_name?: string | null;
+}
+
+const STAKEHOLDER_ENDPOINT = `${PARTNER_ENDPOINT}/stakeholders`;
+
+export const stakeholderService = {
+  async getAll(options: { branchId?: number | null; includeBalances?: boolean } = {}): Promise<Stakeholder[]> {
+    const params = new URLSearchParams();
+    if (options.branchId) params.set('branch_id', String(options.branchId));
+    if (options.includeBalances) params.set('include_balances', '1');
+    const qs = params.toString() ? `?${params}` : '';
+    const res = await fetchWithAuth(`${STAKEHOLDER_ENDPOINT}${qs}`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<Stakeholder>(await res.json());
+  },
+
+  async getById(id: number): Promise<Stakeholder> {
+    const res = await fetchWithAuth(`${STAKEHOLDER_ENDPOINT}/${id}`, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async create(payload: CreateStakeholderPayload): Promise<Stakeholder> {
+    const res = await fetchWithAuth(STAKEHOLDER_ENDPOINT, { method: 'POST', body: JSON.stringify(payload) });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async update(id: number, payload: UpdateStakeholderPayload): Promise<Stakeholder> {
+    const res = await fetchWithAuth(`${STAKEHOLDER_ENDPOINT}/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  /** Soft delete. Refused with a 409 while the stakeholder is still owed money. */
+  async remove(id: number): Promise<void> {
+    const res = await fetchWithAuth(`${STAKEHOLDER_ENDPOINT}/${id}`, { method: 'DELETE' });
+    if (!res.ok) await handleError(res);
+  },
+
+  // ── Collaborators (contacts at the organisation) ─────────────────────────────
+
+  async addCollaborator(stakeholderId: number, payload: CollaboratorPayload): Promise<StakeholderCollaborator> {
+    const res = await fetchWithAuth(`${STAKEHOLDER_ENDPOINT}/${stakeholderId}/collaborators`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async updateCollaborator(
+    stakeholderId: number,
+    collaboratorId: number,
+    payload: Partial<CollaboratorPayload>,
+  ): Promise<StakeholderCollaborator> {
+    const res = await fetchWithAuth(`${STAKEHOLDER_ENDPOINT}/${stakeholderId}/collaborators/${collaboratorId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async removeCollaborator(stakeholderId: number, collaboratorId: number): Promise<void> {
+    const res = await fetchWithAuth(`${STAKEHOLDER_ENDPOINT}/${stakeholderId}/collaborators/${collaboratorId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) await handleError(res);
+  },
+
+  // ── Payouts ──────────────────────────────────────────────────────────────────
+
+  async getPayouts(id: number): Promise<{ payouts: StakeholderPayout[]; total: number }> {
+    const res = await fetchWithAuth(`${STAKEHOLDER_ENDPOINT}/${id}/payouts`, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return { payouts: raw.data?.payouts ?? [], total: raw.data?.total ?? 0 };
+  },
+
+  async payout(id: number, payload: CreatePayoutPayload): Promise<StakeholderPayout> {
+    const res = await fetchWithAuth(`${STAKEHOLDER_ENDPOINT}/${id}/payouts`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  // ── Banks / account verification ─────────────────────────────────────────────
+
+  async getBanks(): Promise<Bank[]> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/banks`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<Bank>(await res.json());
+  },
+
+  /** Name enquiry, so the partner can confirm who they're about to pay. */
+  async resolveAccount(accountNumber: string, bankCode: string): Promise<ResolvedAccount> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/resolve-account`, {
+      method: 'POST',
+      body: JSON.stringify({ account_number: accountNumber, bank_code: bankCode }),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  // ── The partner's own settlement account ─────────────────────────────────────
+  // Their bank, for their own share on the Paystack-split route. Distinct from
+  // their wallet: a wallet holds a balance this platform controls, a settlement
+  // account is where Paystack sends money directly.
+
+  async getSettlementAccount(): Promise<SettlementAccount> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/settlement-account`, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  /** Verified with Paystack before it's stored, so account_name is authoritative. */
+  async saveSettlementAccount(payload: SaveSettlementAccountPayload): Promise<SettlementAccount> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/settlement-account`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async removeSettlementAccount(): Promise<SettlementAccount> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/settlement-account`, { method: 'DELETE' });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  // ── Partner directory ────────────────────────────────────────────────────────
+
+  /** Identity-only. Requires at least 2 characters server-side. */
+  async searchNetwork(query: string): Promise<NetworkPartnerResult[]> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/network/search?q=${encodeURIComponent(query)}`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<NetworkPartnerResult>(await res.json());
+  },
+
+  /** The full card — contacts, branches, facilitators — by exact partner code. */
+  async getNetworkPartner(partnerCode: string): Promise<NetworkPartnerDetail> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/network/${encodeURIComponent(partnerCode)}`, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+};
+
+/**
+ * Opens a hosted Paystack checkout for an invoice. The routing and the
+ * post-payment behaviour are fixed at this point and stored on the invoice —
+ * the webhook that fires when the customer pays reads them back.
+ */
+export async function createInvoicePaymentLink(
+  invoiceId: number,
+  payload: CreatePaymentLinkPayload,
+): Promise<PaymentLinkResult> {
+  const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/invoices/${invoiceId}/payment-link`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) await handleError(res);
+  const raw = await res.json();
+  return raw.data ?? raw;
+}
+
+/** Distributes a paid invoice's total across the stakeholder split. */
+export async function settleInvoiceSplit(invoiceId: number): Promise<unknown> {
+  const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/invoices/${invoiceId}/settle-split`, { method: 'POST' });
+  if (!res.ok) await handleError(res);
+  const raw = await res.json();
+  return raw.data ?? raw;
+}
+
+// ── Incoming payments (bank transfers awaiting reconciliation) ──────────────────
+// Money that arrived in a virtual account before anyone said what it was for. A
+// bank transfer identifies the account it reached and nothing else — no reference
+// survives to Paystack — so these are queued for a human rather than guessed at.
+// See modules/models.py's IncomingPayment.
+
+export interface InvoiceSuggestion {
+  id: number;
+  invoice_number: string;
+  customer_name: string;
+  total: string;
+  status: InvoiceStatus;
+  branch_id: number | null;
+  created_at: string;
+  /** The amount matches to the kobo — likely, but never proof on its own. */
+  exact_amount: boolean;
+}
+
+export interface IncomingPayment {
+  id: number;
+  reference: string;
+  amount: string;
+  /** Whatever the transfer carried about the sender. Hints, not identity. */
+  payer_name: string | null;
+  sender_bank: string | null;
+  narration: string | null;
+  paid_at: string | null;
+  branch_id: number | null;
+  matched_invoice_id: number | null;
+  matched_at: string | null;
+  ignored_at: string | null;
+  created_at: string;
+  /** Open invoices this might settle, best guess first. */
+  suggestions?: InvoiceSuggestion[];
+}
+
+export interface MatchPaymentResult extends IncomingPayment {
+  invoice: { id: number; invoice_number: string; status: InvoiceStatus };
+  distributed: boolean;
+  /** The match stands even if distribution failed; retry from the invoice. */
+  distribution_warning?: string;
+}
+
+const INCOMING_PAYMENT_ENDPOINT = `${PARTNER_ENDPOINT}/incoming-payments`;
+
+export const incomingPaymentService = {
+  async getAll(options: { branchId?: number | null; all?: boolean } = {}): Promise<IncomingPayment[]> {
+    const params = new URLSearchParams();
+    if (options.branchId) params.set('branch_id', String(options.branchId));
+    if (options.all) params.set('state', 'all');
+    const qs = params.toString() ? `?${params}` : '';
+    const res = await fetchWithAuth(`${INCOMING_PAYMENT_ENDPOINT}${qs}`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<IncomingPayment>(await res.json());
+  },
+
+  /** Confirms this credit settles that invoice, and runs its post-payment action. */
+  async match(id: number, invoiceId: number): Promise<MatchPaymentResult> {
+    const res = await fetchWithAuth(`${INCOMING_PAYMENT_ENDPOINT}/${id}/match`, {
+      method: 'POST',
+      body: JSON.stringify({ invoice_id: invoiceId }),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  /** Takes it out of the queue without attaching it to anything. Reversible. */
+  async ignore(id: number, undo = false): Promise<IncomingPayment> {
+    const res = await fetchWithAuth(`${INCOMING_PAYMENT_ENDPOINT}/${id}/ignore`, {
+      method: 'POST',
+      body: JSON.stringify({ undo }),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+};
+
+// ── Document branding ───────────────────────────────────────────────────────────
+// How this partner's invoices and receipts look. See
+// modules/business/partner_branding.py. Artwork is uploaded straight from the
+// browser to S3 through a presigned POST — it never passes through the API — and
+// only the resulting URL is stored.
+
+export type DocumentTemplateKey = 'plain' | 'classic' | 'modern' | 'bold';
+
+export interface DocumentBranding {
+  template: DocumentTemplateKey;
+  logo_url: string | null;
+  /** A full-page sheet or watermark behind the document body. */
+  watermark_url: string | null;
+  /** 0–100. Kept low by default so it can't compete with the text. */
+  watermark_opacity: number;
+  accent_color: string | null;
+  footer_note: string | null;
+  /** False means they're on Azapal's default and have never changed anything. */
+  is_customised: boolean;
+}
+
+export type UpdateBrandingPayload = Partial<Omit<DocumentBranding, 'is_customised'>>;
+
+export interface BrandingUploadTicket {
+  /** S3 presigned POST: post `fields` plus the file to `url` as multipart/form-data. */
+  upload: { url: string; fields: Record<string, string> };
+  /** Where the object lands once the POST succeeds. Send this back on save. */
+  public_url: string;
+  max_bytes: number;
+}
+
+export const brandingService = {
+  async get(): Promise<DocumentBranding> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/branding`, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async update(payload: UpdateBrandingPayload): Promise<DocumentBranding> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/branding`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  /** Back to Azapal's default design. */
+  async reset(): Promise<DocumentBranding> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/branding`, { method: 'DELETE' });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  /**
+   * Uploads artwork and returns its public URL. Two steps by design: the API only
+   * issues a ticket, and the bytes go straight to S3, which enforces the size cap
+   * itself rather than trusting the browser to.
+   */
+  async uploadAsset(kind: 'logo' | 'watermark', file: File): Promise<string> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/branding/upload`, {
+      method: 'POST',
+      body: JSON.stringify({ kind, filename: file.name, content_type: file.type }),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    const ticket: BrandingUploadTicket = raw.data ?? raw;
+
+    const form = new FormData();
+    Object.entries(ticket.upload.fields).forEach(([key, value]) => form.append(key, value));
+    // Must come last: S3 ignores anything after the file part.
+    form.append('file', file);
+
+    const upload = await fetch(ticket.upload.url, { method: 'POST', body: form });
+    if (!upload.ok) {
+      throw new Error(
+        upload.status === 403
+          ? `That image is too large — the limit is ${Math.round(ticket.max_bytes / 1024 / 1024)}MB.`
+          : 'The upload failed. Please try again.',
+      );
+    }
+    return ticket.public_url;
+  },
+};
+
+// ── Named payout splits ─────────────────────────────────────────────────────────
+// A partner's library of revenue-sharing arrangements — one per counterparty group
+// rather than one per branch. See modules/business/payout_splits.py.
+//
+// Which one settles a given piece of work: an invoice's own choice beats the
+// branch's pinned default, which beats the partner's. A suspended split refuses to
+// settle rather than falling back, so a paused arrangement can't quietly pay a
+// different set of people.
+
+export type PayoutSplitStatus = 'active' | 'suspended' | 'terminated';
+export type SplitSettlementSource = 'delivery' | 'invoice' | 'manual';
+
+export interface PayoutSplitMember {
+  stakeholder_id: number | null;
+  collaborator_id: number | null;
+  external_user_id: string;
+  label: string | null;
+  share_percent: number;
+  /** The partner's own remainder, which has no stakeholder behind it. */
+  is_own_share: boolean;
+}
+
+export interface PayoutSplit {
+  id: number;
+  split_code: string;
+  name: string;
+  description: string | null;
+  status: PayoutSplitStatus;
+  is_partner_default: boolean;
+  /** Branch codes pinned to this arrangement. Empty is normal. */
+  default_for_branches: string[];
+  terminated_at: string | null;
+  members: PayoutSplitMember[];
+  settlement_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PayoutSplitMemberPayload {
+  stakeholder_id: number;
+  collaborator_id?: number | null;
+  share_percent: number;
+}
+
+export interface CreatePayoutSplitPayload {
+  name: string;
+  description?: string | null;
+  members: PayoutSplitMemberPayload[];
+}
+
+export interface SplitSettlement {
+  id: number;
+  reference: string;
+  amount: string;
+  source: SplitSettlementSource;
+  branch_code: string | null;
+  invoice_number: string | null;
+  transaction_id: number | null;
+  /** Snapshotted at settle time, so history survives the split changing later. */
+  credits: { externalUserId: string; label?: string | null; amount: string }[];
+  settled_at: string;
+}
+
+const PAYOUT_SPLIT_ENDPOINT = `${PARTNER_ENDPOINT}/splits`;
+
+export const payoutSplitService = {
+  /** Terminated splits are excluded unless asked for — pass 'all' or a status. */
+  async getAll(status?: PayoutSplitStatus | 'all'): Promise<PayoutSplit[]> {
+    const qs = status ? `?status=${status}` : '';
+    const res = await fetchWithAuth(`${PAYOUT_SPLIT_ENDPOINT}${qs}`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<PayoutSplit>(await res.json());
+  },
+
+  async create(payload: CreatePayoutSplitPayload): Promise<PayoutSplit> {
+    const res = await fetchWithAuth(PAYOUT_SPLIT_ENDPOINT, { method: 'POST', body: JSON.stringify(payload) });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async update(id: number, payload: Partial<CreatePayoutSplitPayload>): Promise<PayoutSplit> {
+    const res = await fetchWithAuth(`${PAYOUT_SPLIT_ENDPOINT}/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  /** Suspending or terminating also clears any default pointing at it. */
+  async setStatus(id: number, status: PayoutSplitStatus): Promise<PayoutSplit> {
+    const res = await fetchWithAuth(`${PAYOUT_SPLIT_ENDPOINT}/${id}/status`, {
+      method: 'POST',
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  /** Omit branchId to make it the partner-wide default. */
+  async setDefault(id: number, branchId?: number | null): Promise<PayoutSplit> {
+    const res = await fetchWithAuth(`${PAYOUT_SPLIT_ENDPOINT}/${id}/default`, {
+      method: 'POST',
+      body: JSON.stringify(branchId ? { branch_id: branchId } : {}),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async getSettlements(id: number): Promise<SplitSettlement[]> {
+    const res = await fetchWithAuth(`${PAYOUT_SPLIT_ENDPOINT}/${id}/settlements`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<SplitSettlement>(await res.json());
+  },
+};
+
+// ── Notification preferences ────────────────────────────────────────────────────
+// Who is told what, on which channel. See
+// modules/business/notification_preferences.py.
+//
+// The GET returns the *whole* catalogue — every event that can be notified on,
+// including ones nobody has configured, which come back disabled with no channels.
+// That way the screen renders one uniform list instead of reconciling "configured"
+// against "possible" itself. Recipients come back in the same payload so the
+// picker needs no second call.
+
+export type NotificationChannel = 'whatsapp' | 'sms' | 'email';
+
+export interface NotificationPreferenceRow {
+  event: string;
+  /** Human-readable, from the server, so the catalogue stays in one place. */
+  label: string;
+  is_enabled: boolean;
+  channels: NotificationChannel[];
+  recipient_ids: number[];
+  extra_contacts: string[];
+}
+
+export interface NotificationRecipient {
+  id: number;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: string | null;
+  branch_code: string | null;
+}
+
+export interface NotificationPreferences {
+  branch_id: number | null;
+  channels: { id: NotificationChannel; label: string }[];
+  preferences: NotificationPreferenceRow[];
+  recipients: NotificationRecipient[];
+}
+
+export const notificationPreferenceService = {
+  async get(branchId?: number | null): Promise<NotificationPreferences> {
+    const qs = branchId ? `?branch_id=${branchId}` : '';
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/notification-preferences${qs}`, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  /** Saves the whole set at once — the server validates all of it before writing any. */
+  async save(
+    branchId: number | null,
+    preferences: Omit<NotificationPreferenceRow, 'label'>[],
+  ): Promise<NotificationPreferences> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/notification-preferences`, {
+      method: 'PUT',
+      body: JSON.stringify({ branch_id: branchId, preferences }),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
   },
 };
