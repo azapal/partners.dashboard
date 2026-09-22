@@ -42,6 +42,13 @@ import RepProfileScreen from "./views/support/RepProfileScreen";
 import ShiftMateScreen from "./views/support/ShiftMateScreen";
 import { RepRequireAuth } from "./components/support/RepRequireAuth";
 import { RequireAuth } from "./components/RequireAuth";
+import { BillsScreen } from "./views/BillsScreen";
+import { FleetListingScreen } from "./views/FleetListingScreen";
+import { CustodyScreen } from "./views/CustodyScreen";
+import { MobilityScreen } from "./views/MobilityScreen";
+import { ChargeableWeightScreen } from "./views/ChargeableWeightScreen";
+import { MoveRatesScreen } from "./views/MoveRatesScreen";
+import { PublicQuoteScreen } from "./views/PublicQuoteScreen";
 
 export const AppRoutes = () => {
   return (
@@ -49,6 +56,14 @@ export const AppRoutes = () => {
       <Route path="/" element={<LoginScreen />} />
       <Route path="/customers" element={<RequireAuth><CustomerScreen /></RequireAuth>} />
       <Route path="/branches" element={<RequireAuth><BranchScreen /></RequireAuth>} />
+      <Route path="/bills" element={<RequireAuth><BillsScreen /></RequireAuth>} />
+      <Route path="/fleet-listing" element={<RequireAuth><FleetListingScreen /></RequireAuth>} />
+      <Route path="/custody" element={<RequireAuth><CustodyScreen /></RequireAuth>} />
+      <Route path="/mobility" element={<RequireAuth><MobilityScreen /></RequireAuth>} />
+      <Route path="/chargeable-weight" element={<RequireAuth><ChargeableWeightScreen /></RequireAuth>} />
+      <Route path="/move-rates" element={<RequireAuth><MoveRatesScreen /></RequireAuth>} />
+      {/* Public: a partner's customers, no login. */}
+      <Route path="/quote/:slug" element={<PublicQuoteScreen />} />
       <Route path="/login/otp" element={<OtpScreen />} />
       <Route path="/select-workspace" element={<RequireAuth><SelectWorkspaceScreen /></RequireAuth>} />
       <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />

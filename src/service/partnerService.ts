@@ -7,6 +7,7 @@
 
 import config from '../../config/config';
 import type { CargoType } from '../lib/data/logisticsNetwork';
+import type { MoveCustomField, MoveModifier } from '../lib/data/moveRates';
 
 // ============================================================================
 // Types
@@ -94,6 +95,8 @@ export interface PartnerInvite {
   email: string;
   first_name: string;
   last_name: string;
+  /** Often typed the local way ("0803…"); the server reads it against the partner's country. */
+  phone?: string | null;
   status: boolean;
   two_fa_code?: string | null;
   branch: InviteBranch | null;
@@ -903,6 +906,252 @@ export const deliveryMethodRateCardService = {
   async delete(id: number): Promise<void> {
     const res = await fetchWithAuth(`${DELIVERY_METHOD_RATE_ENDPOINT}/${id}/`, { method: 'DELETE' });
     if (!res.ok) await handleError(res);
+  },
+};
+
+// ── Move Rates ────────────────────────────────────────────────────────────────
+// Relocation price lists, one per country, keyed by the country name rather
+// than an id. PUT replaces a whole list and creates it if absent — see
+// partner_move_rates_api.md in the backend repo.
+
+export interface MoveRateSetDTO {
+  country: string;
+  /** Fixed by the server when the list is first created. */
+  currency: string;
+  base: Record<string, number>;
+  modifiers: MoveModifier[];
+  custom_fields: MoveCustomField[];
+  updated_at: string;
+}
+
+export type SaveMoveRateSetPayload = Pick<MoveRateSetDTO, 'base' | 'modifiers' | 'custom_fields'>;
+
+const MOVE_RATE_ENDPOINT = `${PARTNER_ENDPOINT}/move-rates`;
+
+export const moveRateService = {
+  async getAll(): Promise<MoveRateSetDTO[]> {
+    const res = await fetchWithAuth(`${MOVE_RATE_ENDPOINT}`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<MoveRateSetDTO>(await res.json());
+  },
+
+  async save(country: string, payload: SaveMoveRateSetPayload): Promise<MoveRateSetDTO> {
+    const res = await fetchWithAuth(`${MOVE_RATE_ENDPOINT}/${encodeURIComponent(country)}/`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async delete(country: string): Promise<void> {
+    const res = await fetchWithAuth(`${MOVE_RATE_ENDPOINT}/${encodeURIComponent(country)}/`, { method: 'DELETE' });
+    if (!res.ok) await handleError(res);
+  },
+};
+
+// ── Quote Page ────────────────────────────────────────────────────────────────
+// A partner's public quote page (/quote/<slug>) priced off their move rates, and
+// the leads it collects — see partner_quote_page_api.md in the backend repo.
+
+export type QuoteContactChannel = 'whatsapp' | 'instagram' | 'email' | 'sms';
+/** Channels that reach a person's phone, and so hold a list of people. */
+export type QuoteListChannel = 'whatsapp' | 'sms';
+
+/** Someone a quote-page contact can point at. */
+export interface QuoteTeammate {
+  id: number;
+  name: string;
+  /** Often the local form ("0803…"); the server reads it against the partner's country. */
+  phone: string | null;
+  role: string | null;
+}
+
+export interface QuoteContact {
+  /** Set when the contact is a teammate; their number is then read from their profile. */
+  employee_id: number | null;
+  /** The typed number, or null for a teammate. */
+  phone: string | null;
+  label: string;
+}
+
+export interface QuoteContactList {
+  contacts: QuoteContact[];
+  /** Point each new quote at the next contact rather than always the first. */
+  interchange: boolean;
+}
+
+export interface QuoteContactChannels {
+  email?: string;
+  instagram?: string;
+  whatsapp?: QuoteContactList;
+  sms?: QuoteContactList;
+}
+export type QuoteCopyChannel = 'email' | 'whatsapp' | 'sms';
+export type QuoteRequestStatus = 'new' | 'contacted' | 'booked' | 'lost';
+export type QuoteCopyStatus = 'not_requested' | 'sent' | 'failed' | 'limited';
+
+export interface QuotePageSettings {
+  /** False until the partner first saves — the rest are then suggested defaults. */
+  exists: boolean;
+  slug: string;
+  is_published: boolean;
+  headline: string;
+  intro: string;
+  follow_up_note: string;
+  countries: string[];
+  contact_channels: QuoteContactChannels;
+  copy_channels: QuoteCopyChannel[];
+  /** What Azapal can actually send right now, whatever the partner switched on. */
+  available_copy_channels: QuoteCopyChannel[];
+  updated_at: string | null;
+}
+
+export type SaveQuotePagePayload = Omit<QuotePageSettings, 'exists' | 'available_copy_channels' | 'updated_at'>;
+
+export interface QuoteRequestLine {
+  label: string;
+  detail: string | null;
+  amount: number;
+}
+
+export interface QuoteRequestRecord {
+  reference: string;
+  country: string;
+  currency: string;
+  property_size: string;
+  distance_band: string;
+  lines: QuoteRequestLine[];
+  /** Answers to questions that carry no price. */
+  answers: { label: string; value: string }[];
+  total: number;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string | null;
+  copy_channel: QuoteCopyChannel | null;
+  copy_status: QuoteCopyStatus;
+  contacted_via: QuoteContactChannel[];
+  /** Whose phone this quote was pointed at, per channel — see interchange. */
+  assigned_contacts: Partial<Record<QuoteListChannel, QuoteContact>>;
+  status: QuoteRequestStatus;
+  created_at: string;
+  /** Only on the public create response: the text a customer sends the partner. */
+  message?: string;
+  /** Only on the public create response: the addresses this quote should go to. */
+  contacts?: Partial<Record<QuoteContactChannel, string>>;
+}
+
+export interface PublicRateSet {
+  country: string;
+  currency: string;
+  base: Record<string, number>;
+  /** Enabled ones only. */
+  modifiers: MoveModifier[];
+  custom_fields: MoveCustomField[];
+}
+
+export interface PublicQuotePage {
+  slug: string;
+  partner_name: string;
+  logo_url: string | null;
+  accent_color: string | null;
+  headline: string;
+  intro: string;
+  follow_up_note: string;
+  contact_channels: Partial<Record<QuoteContactChannel, string>>;
+  copy_channels: QuoteCopyChannel[];
+  rate_sets: PublicRateSet[];
+}
+
+/** Choices only — the server prices the move itself and ignores anything else. */
+export interface SubmitQuotePayload {
+  country: string;
+  property_size: string;
+  distance_band: string;
+  selections: Record<string, number>;
+  answers: Record<string, string | number | boolean>;
+  name: string;
+  phone: string;
+  email?: string;
+  copy_channel?: QuoteCopyChannel | null;
+}
+
+const QUOTE_REQUEST_ENDPOINT = `${PARTNER_ENDPOINT}/quote-requests`;
+
+export const quotePageService = {
+  async getSettings(): Promise<QuotePageSettings> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/quote-page`, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async saveSettings(payload: SaveQuotePagePayload): Promise<QuotePageSettings> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/quote-page`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async listTeammates(): Promise<QuoteTeammate[]> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/quote-page/teammates`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<QuoteTeammate>(await res.json());
+  },
+
+  async listRequests(): Promise<QuoteRequestRecord[]> {
+    const res = await fetchWithAuth(`${QUOTE_REQUEST_ENDPOINT}`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<QuoteRequestRecord>(await res.json());
+  },
+
+  async updateRequestStatus(reference: string, status: QuoteRequestStatus): Promise<QuoteRequestRecord> {
+    const res = await fetchWithAuth(`${QUOTE_REQUEST_ENDPOINT}/${encodeURIComponent(reference)}/`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+};
+
+// Plain fetch, never fetchWithAuth: these run for anonymous customers, and a
+// 403 here must not wipe a partner's session if one happens to be in the tab.
+const PUBLIC_QUOTE_ENDPOINT = `${API_BASE_URL}/quote-pages`;
+const publicInit = (init: RequestInit = {}): RequestInit => ({
+  ...init,
+  headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+});
+
+export const publicQuoteService = {
+  async getPage(slug: string): Promise<PublicQuotePage> {
+    const res = await fetch(`${PUBLIC_QUOTE_ENDPOINT}/${encodeURIComponent(slug)}`, publicInit());
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async submit(slug: string, payload: SubmitQuotePayload): Promise<QuoteRequestRecord> {
+    const res = await fetch(
+      `${PUBLIC_QUOTE_ENDPOINT}/${encodeURIComponent(slug)}/requests`,
+      publicInit({ method: 'POST', body: JSON.stringify(payload) }),
+    );
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  /** Best effort — a lost record must never get in the way of the customer reaching the partner. */
+  async recordContact(slug: string, reference: string, channel: QuoteContactChannel): Promise<void> {
+    await fetch(
+      `${PUBLIC_QUOTE_ENDPOINT}/${encodeURIComponent(slug)}/requests/${encodeURIComponent(reference)}/contact`,
+      publicInit({ method: 'POST', body: JSON.stringify({ channel }), keepalive: true }),
+    ).catch(() => undefined);
   },
 };
 
@@ -2456,19 +2705,35 @@ export const brandingService = {
     if (!res.ok) await handleError(res);
     const raw = await res.json();
     const ticket: BrandingUploadTicket = raw.data ?? raw;
+    const tooLarge = `That image is too large — the limit is ${Math.round(ticket.max_bytes / 1024 / 1024)}MB.`;
+    const failed = "Couldn't upload that image. Please try again — if it keeps happening, contact Azapal support.";
+
+    // S3 would refuse it anyway; saying so now saves uploading megabytes to learn it.
+    if (file.size > ticket.max_bytes) throw new Error(tooLarge);
 
     const form = new FormData();
     Object.entries(ticket.upload.fields).forEach(([key, value]) => form.append(key, value));
     // Must come last: S3 ignores anything after the file part.
     form.append('file', file);
 
-    const upload = await fetch(ticket.upload.url, { method: 'POST', body: form });
+    let upload: Response;
+    try {
+      upload = await fetch(ticket.upload.url, { method: 'POST', body: form });
+    } catch (e) {
+      // fetch throws, rather than returning a response, when the browser blocks
+      // the POST — almost always the bucket's CORS rules not listing this origin.
+      // Nothing the partner can fix, so they get the plain message and we get this.
+      console.error(`[branding upload] S3 POST blocked from ${window.location.origin} — check the bucket's CORS rules allow POST from it.`, e);
+      throw new Error(failed);
+    }
     if (!upload.ok) {
-      throw new Error(
-        upload.status === 403
-          ? `That image is too large — the limit is ${Math.round(ticket.max_bytes / 1024 / 1024)}MB.`
-          : 'The upload failed. Please try again.',
-      );
+      // S3 answers in XML with a Code. A size breach is 400 EntityTooLarge; a 403
+      // is a signing or credential problem on our side, never the partner's file.
+      const code = (await upload.text().catch(() => '')).match(/<Code>([^<]+)<\/Code>/)?.[1];
+      if (code === 'EntityTooLarge') throw new Error(tooLarge);
+      if (code === 'EntityTooSmall') throw new Error('That file is empty.');
+      console.error(`[branding upload] S3 rejected the POST: ${upload.status} ${code ?? '(no code)'}`);
+      throw new Error(failed);
     }
     return ticket.public_url;
   },

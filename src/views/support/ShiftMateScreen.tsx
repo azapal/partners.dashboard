@@ -50,7 +50,7 @@ const ShiftMateScreen = () => {
               return (
                 <div
                   key={mate.id}
-                  className="flex items-center justify-between gap-3 bg-white rounded-2xl border border-gray-100 shadow-sm p-4"
+                  className="flex items-center justify-between gap-3 bg-white rounded-2xl p-4 shadow-card"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="relative shrink-0">

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useAssistantAction } from "../lib/assistant/registry";
 import { DashboardLayout } from "../layouts/DashboardLayout";
 import { OpenWalletAccountModal } from "../components/modal/OpenWalletAccountModal";
 import { InvoiceModal } from "../components/modal/InvoiceModal";
@@ -36,8 +38,35 @@ const formatAmount = (n: number) => `₦${n.toLocaleString()}`;
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 
+const isTab = (value: string | null): value is Tab =>
+  TABS.some((t) => t.key === value);
+
 export const FinancialsScreen = () => {
-  const [tab, setTab] = useState<Tab>("wallet");
+  // ?tab= lets the workspace launcher deep-link straight to a surface (invoices,
+  // splits, …) instead of always landing on Wallet. Read once for the initial
+  // value only — the tab strip owns it from then on, so clicking a tab doesn't
+  // have to keep the URL in step.
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => {
+    const requested = searchParams.get("tab");
+    return isTab(requested) ? requested : "wallet";
+  });
+
+  // Assistant entry points. Registered here rather than on the panels because a
+  // panel only mounts while its tab is active — the assistant has to be able to
+  // switch tabs first. Counters, not flags, so a repeat request re-opens.
+  const [openInvoiceCreate, setOpenInvoiceCreate] = useState(0);
+  const [openSplitCreate, setOpenSplitCreate] = useState(0);
+
+  useAssistantAction("invoice.create", () => {
+    setTab("invoices");
+    setOpenInvoiceCreate((n) => n + 1);
+  });
+
+  useAssistantAction("split.create", () => {
+    setTab("split");
+    setOpenSplitCreate((n) => n + 1);
+  });
   const [showOpenWallet, setShowOpenWallet] = useState(false);
   // null = "Partner Default" (not tied to any branch) — shared across the Wallet,
   // Virtual Accounts, and Split tabs, since they're all views into the same
@@ -68,7 +97,7 @@ export const FinancialsScreen = () => {
     <DashboardLayout>
       <div className="w-full flex flex-col gap-5 overflow-y-auto">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-1 bg-white border border-gray-100 rounded-xl p-1 w-fit shadow-sm overflow-x-auto">
+          <div className="flex items-center gap-1 bg-white rounded-xl p-1 w-fit overflow-x-auto shadow-card">
             {TABS.map((t) => (
               <button
                 key={t.key}
@@ -102,9 +131,9 @@ export const FinancialsScreen = () => {
 
         {tab === "wallet" && <WalletPanel branchId={walletBranchId} />}
         {tab === "accounts" && <VirtualAccountsPanel branchId={walletBranchId} />}
-        {tab === "invoices" && <InvoicesPanel />}
+        {tab === "invoices" && <InvoicesPanel openCreateSignal={openInvoiceCreate} />}
         {tab === "receipts" && <ReceiptsPanel />}
-        {tab === "split" && <SplitPanel branchId={walletBranchId} />}
+        {tab === "split" && <SplitPanel branchId={walletBranchId} openCreateSignal={openSplitCreate} />}
       </div>
     </DashboardLayout>
   );
@@ -114,7 +143,7 @@ export const FinancialsScreen = () => {
 
 function FinancialsIntroScreen({ onOpenWallet }: { onOpenWallet: () => void }) {
   return (
-    <div className="w-full h-full bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden grid grid-cols-1 lg:grid-cols-2">
+    <div className="w-full h-full bg-white rounded-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-2 shadow-card">
       <div className="relative hidden lg:block">
         <img src="/wallet-onboarding.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-brand-navy/95 via-[#142449]/70 to-transparent" />
@@ -171,13 +200,13 @@ function WalletPanel({ branchId }: { branchId: number | null }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div className="bg-white rounded-2xl p-5 shadow-card">
           <p className="text-xs text-gray-400 font-medium">Available balance</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">
             {isLoadingBalance ? "—" : formatAmount(balance?.balance ?? 0)}
           </p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div className="bg-white rounded-2xl p-5 shadow-card">
           <p className="text-xs text-gray-400 font-medium">Pending balance</p>
           <p className="text-2xl font-bold text-gray-500 mt-1">
             {isLoadingBalance ? "—" : formatAmount(balance?.pending_balance ?? 0)}
@@ -185,7 +214,7 @@ function WalletPanel({ branchId }: { branchId: number | null }) {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl overflow-hidden shadow-card">
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -284,7 +313,7 @@ function VirtualAccountsPanel({ branchId }: { branchId: number | null }) {
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl divide-y divide-gray-100 overflow-hidden shadow-card">
         {isLoading ? (
           <p className="text-center py-14 text-gray-400 text-sm"><i className="ri-loader-4-line animate-spin text-xl" /></p>
         ) : accounts.length === 0 ? (
@@ -334,11 +363,15 @@ const INVOICE_STATUS_STYLES: Record<InvoiceStatus, string> = {
   void: "bg-gray-100 text-gray-400",
 };
 
-function InvoicesPanel() {
+function InvoicesPanel({ openCreateSignal = 0 }: { openCreateSignal?: number }) {
   const { data: branches = [] } = useGetBranches();
   const [branchFilter, setBranchFilter] = useState<number | undefined>(undefined);
   const { data: invoices = [], isLoading } = useGetInvoices(branchFilter);
   const [showCreate, setShowCreate] = useState(false);
+
+  useEffect(() => {
+    if (openCreateSignal > 0) setShowCreate(true);
+  }, [openCreateSignal]);
   const [preview, setPreview] = useState<Invoice | null>(null);
   const [settling, setSettling] = useState<Invoice | null>(null);
   const [showBranding, setShowBranding] = useState(false);
@@ -387,7 +420,7 @@ function InvoicesPanel() {
 
       <IncomingPaymentsPanel branchId={branchFilter ?? null} />
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl divide-y divide-gray-100 overflow-hidden shadow-card">
         {isLoading ? (
           <p className="text-center py-14 text-gray-400 text-sm"><i className="ri-loader-4-line animate-spin text-xl" /></p>
         ) : invoices.length === 0 ? (
@@ -490,7 +523,7 @@ function ReceiptsPanel() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl divide-y divide-gray-100 overflow-hidden shadow-card">
         {isLoading ? (
           <p className="text-center py-14 text-gray-400 text-sm"><i className="ri-loader-4-line animate-spin text-xl" /></p>
         ) : receipts.length === 0 ? (
@@ -562,7 +595,7 @@ function resolveShares(amount: number, members: SplitMember[], yourShare: number
   return { stakeholderAmounts, yourAmount: Math.round((amount - allocated) * 100) / 100 };
 }
 
-function SplitPanel({ branchId }: { branchId: number | null }) {
+function SplitPanel({ branchId, openCreateSignal = 0 }: { branchId: number | null; openCreateSignal?: number }) {
   const { data: config, isLoading } = useGetPartnerSplit(branchId);
   const { data: stakeholders = [] } = useGetStakeholders(branchId);
   const { data: invoices = [] } = useGetInvoices(branchId ?? undefined);
@@ -671,12 +704,12 @@ function SplitPanel({ branchId }: { branchId: number | null }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <PayoutSplitsPanel />
+      <PayoutSplitsPanel openCreateSignal={openCreateSignal} />
 
       {/* The original single split, kept because partners who configured one
           before named splits existed still settle through it when no named
           arrangement applies. See resolve_split's fallback. */}
-      <details className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+      <details className="bg-white rounded-2xl">
         <summary className="cursor-pointer px-5 py-3 text-sm font-semibold text-gray-500">
           Legacy single split
         </summary>

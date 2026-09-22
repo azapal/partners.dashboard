@@ -16,6 +16,12 @@ import {
 interface AddRouteModalProps {
   route?: PairingRoute | null;
   onClose: () => void;
+  /**
+   * Seed values for a NEW route, from the assistant. Deliberately separate from
+   * `route`: that prop flips the modal into edit mode (isEdit) and makes it PATCH
+   * an existing record, so a partial passed there would update the wrong thing.
+   */
+  prefill?: { origin_state?: string; destination_state?: string };
 }
 
 type Option = { value: string; label: string };
@@ -55,10 +61,15 @@ function minPreferredDate(): string {
   return d.toISOString().slice(0, 10);
 }
 
-export const AddRouteModal: React.FC<AddRouteModalProps> = ({ route, onClose }) => {
+export const AddRouteModal: React.FC<AddRouteModalProps> = ({ route, onClose, prefill }) => {
   const isEdit = !!route;
-  const [origin, setOrigin] = useState<Option | null>(route ? { value: route.origin_state, label: route.origin_state } : null);
-  const [destination, setDestination] = useState<Option | null>(route ? { value: route.destination_state, label: route.destination_state } : null);
+  const seed = (value?: string): Option | null => (value ? { value, label: value } : null);
+  const [origin, setOrigin] = useState<Option | null>(
+    route ? seed(route.origin_state) : seed(prefill?.origin_state),
+  );
+  const [destination, setDestination] = useState<Option | null>(
+    route ? seed(route.destination_state) : seed(prefill?.destination_state),
+  );
   const [cargoType, setCargoType] = useState<CargoType>(route?.cargo_type ?? 'General Goods');
   const [frequency, setFrequency] = useState<PairingFrequency>(route?.frequency ?? 'one_time');
   const [preferredDate, setPreferredDate] = useState(route?.preferred_date ?? '');

@@ -38,7 +38,7 @@ export const SettingsCards = ({ ...props }: SettingsCardsProps) => {
         </p>
       )}
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl overflow-hidden shadow-card">
         {props.children.map((item, index) => {
           const isLast = index === props.children.length - 1;
 

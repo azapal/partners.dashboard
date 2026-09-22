@@ -1,5 +1,4 @@
 import { sheetActions } from "../../store/client/sheets";
-import { useResizeObserver } from "../../hooks/useResizeObserver";
 import { AddNewBranch } from "../modal/AddNewBranch";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -28,19 +27,6 @@ const orders = [
     { amount: 6000, business_name: "Business Name", buyer_name: "Buyer Name", assigned_dispatch: "Assigned Dispatch" },
 ];
 
-const awsUsage = [
-    { label: "EC2", value: 420 },
-    { label: "S3", value: 180 },
-    { label: "RDS", value: 260 },
-    { label: "Lambda", value: 90 },
-    { label: "CloudFront", value: 140 },
-];
-
-const awsCostSummary = {
-    currentCost: 742.35,
-    estimatedMonthCost: 1090.5,
-};
-
 function formatRelativeTime(iso: string): string {
     const diffSec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
     if (diffSec < 60) return "just now";
@@ -67,7 +53,6 @@ const SectionCard = ({ icon, iconColor, iconBg, title, children, className = "" 
 
 
 function Main() {
-    const { containerRef, useResizer } = useResizeObserver();
     const [showAddBranch, setShowAddBranch] = useState(false);
     const navigate = useNavigate();
 
@@ -81,11 +66,17 @@ function Main() {
     const orderStats = dashboardStats?.orders;
     const formatAmount = (n?: number) => (statsLoading || n === undefined ? "—" : n.toLocaleString());
 
+    // Total leads, because the three delivery states below are its parts; it
+    // spans the grid so the relationship is visible rather than implied.
+    const headlineStat = {
+        icon: "ri-file-add-line", title: "Total Delivery Requests",
+        amount: formatAmount(orderStats?.total), iconBg: "bg-blue-50", iconColor: "text-blue-500",
+    };
+
     const statsConfig = [
-        { icon: "ri-file-add-line", title: "Total Delivery Requests", amount: formatAmount(orderStats?.total), iconBg: "bg-blue-50", iconColor: "text-blue-500" },
-        { icon: "ri-close-circle-line", title: "Failed Deliveries", amount: formatAmount(orderStats?.failed), iconBg: "bg-red-50", iconColor: "text-red-500" },
-        { icon: "ri-time-line", title: "Pending Deliveries", amount: formatAmount(orderStats?.pending), iconBg: "bg-yellow-50", iconColor: "text-yellow-500" },
-        { icon: "ri-folder-check-line", title: "Completed Deliveries", amount: formatAmount(orderStats?.completed), iconBg: "bg-green-50", iconColor: "text-green-500" },
+        { icon: "ri-folder-check-line", title: "Completed", amount: formatAmount(orderStats?.completed), iconBg: "bg-green-50", iconColor: "text-green-500" },
+        { icon: "ri-time-line", title: "Pending", amount: formatAmount(orderStats?.pending), iconBg: "bg-yellow-50", iconColor: "text-yellow-500" },
+        { icon: "ri-close-circle-line", title: "Failed", amount: formatAmount(orderStats?.failed), iconBg: "bg-red-50", iconColor: "text-red-500" },
         { icon: "ri-contacts-line", title: "Total Customers", amount: formatAmount(orderStats?.total_customers), iconBg: "bg-purple-50", iconColor: "text-purple-500" },
     ];
 
@@ -153,50 +144,12 @@ function Main() {
                     )}
                 </div>
             </SectionCard>
-            <SectionCard icon="ri-cloud-line" iconColor="text-sky-600" iconBg="bg-sky-50" title="Cloud Cost" className="w-full">
-                <div className="grid grid-cols-2 gap-2 mb-4">
-                    <div className="bg-slate-50 rounded-xl p-3">
-                        <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Current cost</p>
-                        <p className="mt-1 text-base font-bold text-gray-900">${awsCostSummary.currentCost.toLocaleString()}</p>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-3">
-                        <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Forecast</p>
-                        <p className="mt-1 text-base font-bold text-gray-900">${awsCostSummary.estimatedMonthCost.toLocaleString()}</p>
-                    </div>
-                </div>
-                <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-semibold text-gray-500">Resource usage</p>
-                    <span className="text-[10px] font-medium text-gray-400">This month</span>
-                </div>
-                <div className="h-48">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={awsUsage} barSize={18}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                            <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} width={28} />
-                            <Tooltip
-                                contentStyle={{ borderRadius: "10px", border: "1px solid #e5e7eb", fontSize: "12px" }}
-                                cursor={{ fill: "rgba(14,165,233,0.06)" }}
-                                formatter={(v: any) => [`$${Number(v).toLocaleString()}`, "Cost"]}
-                            />
-                            <Bar dataKey="value" fill="#0ea5e9" radius={[5, 5, 0, 0]} animationBegin={100} animationDuration={700} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-            </SectionCard>
         </div>
     );
 
     return (
         <>
             <main className="w-full flex flex-col gap-6 overflow-y-auto">
-                {/* Stats Row */}
-                <div ref={containerRef} className={`grid gap-3 ${useResizer ? "grid-cols-5" : "grid-cols-2"}`}>
-                    {statsConfig.map((stat) => (
-                        <StatsCard key={stat.title} {...stat} />
-                    ))}
-                </div>
-
                 {/* Main content grid */}
                 <div className="flex w-full gap-4 flex-col md:flex-row">
                     {/* Left column */}
@@ -265,7 +218,17 @@ function Main() {
                     </div>
 
                     {/* Right column */}
-                    <div className="flex flex-col w-full md:max-w-xs gap-4">
+                    <div className="flex w-full flex-col gap-4 md:w-[23rem] md:shrink-0 lg:w-[25rem]">
+                        <SectionCard icon="ri-pulse-line" iconColor="text-brand" iconBg="bg-orange-50" title="Last Mile Business Overview">
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="col-span-2">
+                                    <StatsCard {...headlineStat} />
+                                </div>
+                                {statsConfig.map((stat) => (
+                                    <StatsCard key={stat.title} {...stat} />
+                                ))}
+                            </div>
+                        </SectionCard>
                         <BranchesTable />
                     </div>
                 </div>
@@ -319,14 +282,14 @@ function StatsCard({ amount, title, icon, iconBg, iconColor, trend }: StatsCardP
     return (
         <div
             onClick={() => handleToggle(title!)}
-            className="flex flex-col gap-3 cursor-pointer bg-white border border-gray-100 p-4 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+            className="flex cursor-pointer flex-col gap-2 rounded-xl bg-gray-50 p-3 transition-colors hover:bg-gray-100"
         >
-            <div className={`w-9 h-9 rounded-xl ${iconBg} flex items-center justify-center`}>
-                <i className={`${icon} text-lg ${iconColor}`} />
+            <div className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center`}>
+                <i className={`${icon} text-base ${iconColor}`} />
             </div>
             <div>
-                <p className="text-[11px] font-medium text-gray-400 leading-tight mb-0.5">{title}</p>
-                <h3 className="font-bold text-xl text-gray-900">{amount}</h3>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-gray-400 leading-tight mb-0.5">{title}</p>
+                <h3 className="font-bold text-lg text-gray-900 leading-tight">{amount}</h3>
             </div>
             {trend && (
                 <span className={`text-[11px] font-semibold ${isPositive ? "text-green-600" : "text-red-500"}`}>

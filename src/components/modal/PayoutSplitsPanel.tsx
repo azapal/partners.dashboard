@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   useGetPayoutSplits,
   useSetDefaultPayoutSplit,
@@ -84,7 +84,7 @@ function SplitCard({ split, branches }: { split: PayoutSplit; branches: any[] })
   };
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+    <div className="rounded-2xl bg-white">
       <div className="flex items-start justify-between gap-3 p-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -232,9 +232,14 @@ function SplitCard({ split, branches }: { split: PayoutSplit; branches: any[] })
  * Replaces the single-split form: a partner can now run one arrangement per
  * counterparty group and point each branch at whichever applies.
  */
-export const PayoutSplitsPanel = () => {
+export const PayoutSplitsPanel = ({ openCreateSignal = 0 }: { openCreateSignal?: number }) => {
   const [filter, setFilter] = useState<PayoutSplitStatus | 'open'>('open');
   const [creating, setCreating] = useState(false);
+
+  // Raised by the assistant via FinancialsScreen; 0 is the initial no-op.
+  useEffect(() => {
+    if (openCreateSignal > 0) setCreating(true);
+  }, [openCreateSignal]);
 
   const { data: branches = [] } = useGetBranches();
   const { data: splits = [], isLoading } = useGetPayoutSplits(filter === 'open' ? undefined : filter);
@@ -242,7 +247,7 @@ export const PayoutSplitsPanel = () => {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-1 bg-white border border-gray-100 rounded-xl p-1 shadow-sm">
+        <div className="flex items-center gap-1 bg-white rounded-xl p-1 shadow-card">
           {FILTERS.map((f) => (
             <button
               key={f.key}

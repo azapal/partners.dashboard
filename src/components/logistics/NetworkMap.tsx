@@ -161,7 +161,7 @@ export function NetworkMap() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <div className="bg-white rounded-2xl p-4 shadow-card">
         <div className="rounded-xl overflow-hidden border border-gray-100" style={{ height: 480 }}>
           {loading ? (
             <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm gap-2">

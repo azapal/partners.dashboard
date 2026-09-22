@@ -65,7 +65,7 @@ export const SettlementAccountCard = () => {
   if (isLoading) return null;
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+    <div className="bg-white rounded-2xl p-5 shadow-card">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-gray-900">Your settlement account</p>

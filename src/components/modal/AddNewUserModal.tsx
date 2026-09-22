@@ -8,12 +8,18 @@ import { useGetBranches } from '../../hooks/useBranchPartner';
 interface AddNewUserModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * Seed values, used when the assistant opens this on the user's behalf.
+   * Applied in the same effect that clears the form on open — setting them as
+   * initial state alone would be wiped by that reset.
+   */
+  prefill?: { email?: string; first_name?: string; last_name?: string };
   onInvite: (user: { email: string; first_name: string; last_name: string; branch?: string; invite_role: string }) => void;
   error?: string | null;
   isSubmitting?: boolean;
 }
 
-export const AddNewUserModal: React.FC<AddNewUserModalProps> = ({ isOpen, onClose, onInvite, error, isSubmitting }) => {
+export const AddNewUserModal: React.FC<AddNewUserModalProps> = ({ isOpen, onClose, onInvite, error, isSubmitting, prefill }) => {
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -40,9 +46,9 @@ export const AddNewUserModal: React.FC<AddNewUserModalProps> = ({ isOpen, onClos
   // instead of being wiped out before we know whether the invite worked.
   useEffect(() => {
     if (isOpen) {
-      setEmail('');
-      setFirstName('');
-      setLastName('');
+      setEmail(prefill?.email ?? '');
+      setFirstName(prefill?.first_name ?? '');
+      setLastName(prefill?.last_name ?? '');
       setSelectedBranch('');
       setSelectedRole('');
     }

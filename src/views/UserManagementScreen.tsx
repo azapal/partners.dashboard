@@ -7,6 +7,7 @@ import { sheetActions } from '../store/client/sheets';
 import { useGetInvites, useCreateInvite, useUpdateInvite, useDeleteInvite } from '../hooks/useInvites';
 import type { PartnerInvite } from '../service/partnerService';
 import { SplitCreateButton } from '../components/buttons/SplitCreateButton';
+import { useAssistantAction } from '../lib/assistant/registry';
 
 export interface User {
   id: string;
@@ -53,6 +54,15 @@ function avatarColor(id: string) {
 const UserManagementScreen: React.FC = () => {
   const [search, setSearch] = useState('');
   const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [invitePrefill, setInvitePrefill] = useState<{ email?: string; first_name?: string; last_name?: string }>({});
+
+  // Opens the invitation with whatever the assistant understood. Role and
+  // branch are left alone deliberately — those decide what the person can
+  // reach, and should be a conscious choice rather than a guess.
+  useAssistantAction('user.invite', (params) => {
+    setInvitePrefill({ email: params.email, first_name: params.first_name, last_name: params.last_name });
+    setIsInviteOpen(true);
+  });
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
@@ -165,7 +175,7 @@ const UserManagementScreen: React.FC = () => {
               { label: 'Suspended', value: users.filter((u) => u.status === 'suspended').length, icon: 'ri-forbid-line', color: 'text-orange-500', bg: 'bg-orange-50' },
             ] as const
           ).map(({ label, value, icon, color, bg }) => (
-            <div key={label} className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
+            <div key={label} className="bg-white rounded-2xl p-4 flex items-center gap-3 shadow-card">
               <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center shrink-0`}>
                 <i className={`${icon} text-lg ${color}`} />
               </div>
@@ -178,7 +188,7 @@ const UserManagementScreen: React.FC = () => {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl overflow-hidden shadow-card">
           {/* Desktop table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
@@ -286,7 +296,8 @@ const UserManagementScreen: React.FC = () => {
 
       <AddNewUserModal
         isOpen={isInviteOpen}
-        onClose={() => setIsInviteOpen(false)}
+        prefill={invitePrefill}
+        onClose={() => { setIsInviteOpen(false); setInvitePrefill({}); }}
         onInvite={handleInvite}
         error={inviteError}
         isSubmitting={isInviting}

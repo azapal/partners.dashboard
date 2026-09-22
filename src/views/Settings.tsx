@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "../layouts/DashboardLayout";
 import { SettingsCards } from "../components/dashboard/SettingsCards";
 import { NotificationPreference } from "../components/modal/NotificationPreference";
@@ -70,7 +71,7 @@ function AccountPanel() {
   if (!profile && repProfile) {
     const partner = repProfile.inviting_partner;
     return (
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-4">
+      <div className="bg-white rounded-2xl p-5 flex flex-col gap-4 shadow-card">
         <p className="text-sm text-gray-500">
           You're signed in as an employee of this business — business registration details can
           only be changed by the partner-owner account.
@@ -124,7 +125,7 @@ function AccountPanel() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-4">
+    <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-5 flex flex-col gap-4 shadow-card">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
           <p className="text-sm font-medium text-gray-700">Partner code</p>
@@ -185,7 +186,7 @@ function AccountPanel() {
 function SecurityPanel() {
   return (
     <div className="flex flex-col gap-5">
-      <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5 flex items-center justify-between gap-3">
+      <div className="bg-white rounded-2xl p-5 flex items-center justify-between gap-3 shadow-card">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
             <i className="ri-lock-2-line text-xl text-blue-600" />
@@ -212,7 +213,7 @@ function SecurityPanel() {
         {WHY_2FA.map((item) => (
           <div
             key={item.title}
-            className="flex items-start gap-3 p-4 rounded-xl border border-gray-100 bg-white shadow-sm"
+            className="flex items-start gap-3 p-4 rounded-xl bg-white shadow-card"
           >
             <i className={`${item.icon} text-xl ${item.iconColor} shrink-0 mt-0.5`} />
             <div>
@@ -255,7 +256,7 @@ function DeveloperPanel() {
   ];
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-2xl overflow-hidden shadow-card">
       {rows.map((row, index) => (
         <div
           key={row.label}
@@ -271,8 +272,18 @@ function DeveloperPanel() {
   );
 }
 
+const isTab = (value: string | null): value is Tab =>
+  NAV_ITEMS.some((item) => item.key === value);
+
 export const Settings = () => {
-  const [tab, setTab] = useState<Tab>("account");
+  // ?tab= lets the workspace launcher deep-link to Security, Notifications or
+  // Developer rather than always landing on Account. Initial value only — the
+  // nav owns the tab from then on, same as FinancialsScreen.
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => {
+    const requested = searchParams.get("tab");
+    return isTab(requested) ? requested : "account";
+  });
 
   return (
     <DashboardLayout>
@@ -280,7 +291,7 @@ export const Settings = () => {
        
 
         {/* Mobile: horizontal pill nav */}
-        <div className="md:hidden flex items-center gap-1 bg-white border border-gray-100 rounded-xl p-1 shadow-sm overflow-x-auto">
+        <div className="md:hidden flex items-center gap-1 bg-white rounded-xl p-1 overflow-x-auto shadow-card">
           {NAV_ITEMS.map(({ key, label, icon }) => (
             <button
               key={key}

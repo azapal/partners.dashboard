@@ -1,9 +1,18 @@
+import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import SideBar from "../components/dashboard/SideBar";
 import { DashboardHeaderLayout } from "./DashboardHeaderLayout";
 import { BottomTab } from "../components/dashboard/BottomTab";
 import { ProductTour } from "../components/tour/ProductTour";
+import { recordWorkspaceVisit } from "../lib/workspaceHistory";
 
 export const DashboardLayout = ({ children }: any) => {
+  const location = useLocation();
+
+  useEffect(() => {
+    recordWorkspaceVisit(location.pathname);
+  }, [location.pathname]);
+
   return (
     <section className="flex h-screen  overflow-hidden">
       <SideBar />

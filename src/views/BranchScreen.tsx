@@ -7,6 +7,8 @@ import { CreateBranchDrawer } from "../components/modal/CreateBranchDrawer";
 import { sheetActions } from "../store/client/sheets";
 import { SplitCreateButton } from "../components/buttons/SplitCreateButton";
 import { FilterPopover } from "../components/filters/FilterPopover";
+import { useAssistantAction } from "../lib/assistant/registry";
+import type { CreateBranchPayload } from "../service/partnerService";
 
 type BranchStatus = "Active" | "Inactive";
 
@@ -43,6 +45,14 @@ export const BranchScreen = () => {
   const [statusFilter, setStatusFilter] = useState<"All" | BranchStatus>("All");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [isBulkOpen, setIsBulkOpen] = useState(false);
+  const [branchPrefill, setBranchPrefill] = useState<Partial<CreateBranchPayload>>({});
+
+  // Lets the assistant open this drawer with fields already populated. It opens
+  // and fills only — creating the branch stays a deliberate click.
+  useAssistantAction("branch.create", (params) => {
+    setBranchPrefill({ state: params.state, lga: params.lga, address: params.address });
+    setShowCreateForm(true);
+  });
 
   const { data: apiData = [], isLoading } = useGetBranches();
   const { mutate: updateBranch } = useUpdateBranch();
@@ -160,7 +170,7 @@ export const BranchScreen = () => {
               { label: "Inactive", value: branchTotals.inactive, icon: "ri-forbid-line", color: "text-orange-500", bg: "bg-orange-50" },
             ] as const
           ).map(({ label, value, icon, color, bg }) => (
-            <div key={label} className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
+            <div key={label} className="bg-white rounded-2xl p-4 flex items-center gap-3 shadow-card">
               <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center shrink-0`}>
                 <i className={`${icon} text-lg ${color}`} />
               </div>
@@ -173,7 +183,7 @@ export const BranchScreen = () => {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl overflow-hidden shadow-card">
           {/* Desktop */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
@@ -295,7 +305,12 @@ export const BranchScreen = () => {
         </div>
       </div>
 
-      {showCreateForm && <CreateBranchDrawer onClose={() => setShowCreateForm(false)} />}
+      {showCreateForm && (
+        <CreateBranchDrawer
+          prefill={branchPrefill}
+          onClose={() => { setShowCreateForm(false); setBranchPrefill({}); }}
+        />
+      )}
       <BulkBranchImportModal isOpen={isBulkOpen} onClose={() => setIsBulkOpen(false)} />
     </DashboardLayout>
   );

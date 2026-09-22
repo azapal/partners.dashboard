@@ -40,7 +40,7 @@ const RepDashboardScreen = () => {
         {/* Stats Row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {statsConfig.map((stat) => (
-            <div key={stat.title} className="flex flex-col gap-3 bg-white border border-gray-100 p-4 rounded-2xl shadow-sm">
+            <div key={stat.title} className="flex flex-col gap-3 bg-white p-4 rounded-2xl shadow-card">
               <div className={`w-9 h-9 rounded-xl ${stat.iconBg} flex items-center justify-center`}>
                 <i className={`${stat.icon} text-lg ${stat.iconColor}`} />
               </div>
@@ -65,7 +65,7 @@ const RepDashboardScreen = () => {
         </div>
 
         {/* Conversations table */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl overflow-hidden shadow-card">
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

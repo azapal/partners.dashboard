@@ -109,7 +109,7 @@ const FormInput: React.FC<FormInputProps> = ({
 const Button: React.FC<ButtonProps> = ({
   onClick,
   variant = "primary",
-  icon: Icon,
+  icon,
   children,
   className = "",
 }) => {
@@ -125,7 +125,9 @@ const Button: React.FC<ButtonProps> = ({
             : "bg-red-50 text-red-700 hover:brightness-95 active:scale-[0.98]"
         } ${className}`}
     >
-      {Icon && <Icon size={18} className="sm:w-5 sm:h-5" />}
+      {/* Remix Icon class, per the project convention — `icon` has always been
+          typed as a string; the call sites had drifted to passing components. */}
+      {icon && <i className={`${icon} text-lg`} />}
       {children}
     </button>
   );
@@ -302,15 +304,15 @@ export default function PaymentMethodForm() {
         <div className="space-y-3">
           {isEditing ? (
             <>
-              <Button onClick={handleSave} icon={Check}>
+              <Button onClick={handleSave} icon="ri-check-line">
                 Save Changes
               </Button>
-              <Button onClick={handleCancel} variant="secondary" icon={X}>
+              <Button onClick={handleCancel} variant="secondary" icon="ri-close-line">
                 Cancel
               </Button>
             </>
           ) : (
-            <Button onClick={handleEdit} icon={Edit2}>
+            <Button onClick={handleEdit} icon="ri-edit-2-line">
               Edit Payment Method
             </Button>
           )}

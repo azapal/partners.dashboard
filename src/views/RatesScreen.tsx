@@ -1,5 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "../layouts/DashboardLayout";
+import { useAssistantAction } from "../lib/assistant/registry";
 import { RateModal } from "../components/modal/RateModal";
 import { RouteRateCardModal } from "../components/modal/RouteRateCardModal";
 import { CargoRateCardModal } from "../components/modal/CargoRateCardModal";
@@ -52,6 +54,16 @@ const CARD_TABS: { key: CardTab; label: string; icon: string }[] = [
 
 export const RatesScreen = () => {
   const [mode, setMode] = useState<Mode>("region");
+  // Bumped by the assistant to ask the region panel to open its create modal.
+  // A counter, not a flag, so a second request re-opens after a dismissal.
+  const [openRegionCreate, setOpenRegionCreate] = useState(0);
+
+  // Registered on the screen rather than the panel because the panel only
+  // mounts in "region" mode — the assistant has to be able to switch to it.
+  useAssistantAction("rate.create", () => {
+    setMode("region");
+    setOpenRegionCreate((n) => n + 1);
+  });
 
   return (
     <DashboardLayout>
@@ -63,7 +75,7 @@ export const RatesScreen = () => {
               Set what you charge for deliveries.
             </p>
           </div> */}
-          <div className="flex items-center gap-1 bg-white border border-gray-100 rounded-xl p-1 w-fit shadow-sm">
+          <div className="flex items-center gap-1 bg-white rounded-xl p-1 w-fit shadow-card">
             <button
               onClick={() => setMode("region")}
               className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
@@ -83,17 +95,22 @@ export const RatesScreen = () => {
           </div>
         </div>
 
-        {mode === "region" ? <RegionRatesPanel /> : <RateCardsPanel />}
+        {mode === "region" ? <RegionRatesPanel openCreateSignal={openRegionCreate} /> : <RateCardsPanel />}
       </div>
     </DashboardLayout>
   );
 };
 
 /* ---------- Region / scope rates (partner/rates) ---------- */
-function RegionRatesPanel() {
+function RegionRatesPanel({ openCreateSignal = 0 }: { openCreateSignal?: number }) {
   const { data, isLoading } = useGetRates();
 
   const [showAdd, setShowAdd] = useState(false);
+
+  // Opens when the assistant raises the signal; ignores the initial 0.
+  useEffect(() => {
+    if (openCreateSignal > 0) setShowAdd(true);
+  }, [openCreateSignal]);
   const [editRate, setEditRate] = useState<Rate | null>(null);
 
   const rates = useMemo(() => {
@@ -122,7 +139,7 @@ function RegionRatesPanel() {
           </div>
         )}
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl overflow-hidden shadow-card">
           {isLoading ? (
             <p className="text-center py-14 text-gray-400 text-sm">Loading…</p>
           ) : rates.length === 0 ? (
@@ -203,7 +220,7 @@ function RateCardsPanel() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-1 bg-white border border-gray-100 rounded-xl p-1 w-fit shadow-sm flex-wrap">
+      <div className="flex items-center gap-1 bg-white rounded-xl p-1 w-fit flex-wrap shadow-card">
         {CARD_TABS.map(({ key, label, icon }) => (
           <button
             key={key}
@@ -237,7 +254,7 @@ function RateCardSection({ addLabel, onAdd, children }: { addLabel: string; onAd
           {addLabel}
         </button>
       </div>
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl overflow-hidden shadow-card">
         {children}
       </div>
     </div>
@@ -318,12 +335,29 @@ function RouteRatesTab() {
 }
 
 function CargoRatesTab() {
+  const navigate = useNavigate();
   const { data: rates = [], isLoading } = useGetCargoRates();
   const [showAdd, setShowAdd] = useState(false);
   const [editRate, setEditRate] = useState<CargoRateCard | null>(null);
 
   return (
     <>
+      {/*
+        Said here rather than buried in a doc because this is the screen where a
+        partner sets a per-kg price and reasonably assumes it gets applied. No
+        order, stop or transaction carries a weight — see the note in
+        useBillableCatalogue — so the per-kg half is adjusted by hand today.
+      */}
+      <div className="mb-4 flex items-start gap-2.5 rounded-xl bg-amber-50 px-4 py-3">
+        <i className="ri-scales-3-line mt-0.5 text-base text-amber-600" />
+        <p className="text-xs leading-5 text-amber-800">
+          <span className="font-semibold">Per-kg pricing isn't applied automatically yet.</span>{" "}
+          Consignments don't carry a weight or dimensions, so the base price is what gets billed
+          and the per-kg part has to be added by hand. Capturing weight — and chargeable weight
+          against it — is planned.
+        </p>
+      </div>
+
       <RateCardSection addLabel="Add Cargo Rate" onAdd={() => setShowAdd(true)}>
         {isLoading ? (
           <p className="text-center py-14 text-gray-400 text-sm">Loading…</p>

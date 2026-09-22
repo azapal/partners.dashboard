@@ -214,7 +214,7 @@ export const ServiceScreen = () => {
         </div>
 
         {showPicker && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="bg-white rounded-2xl p-5 shadow-card">
             <p className="text-sm font-semibold text-gray-800 mb-1">Select the services you offer</p>
             <p className="text-xs text-gray-400 mb-4">
               Only selected services will be shown to customers.
@@ -292,7 +292,7 @@ export const ServiceScreen = () => {
             ))}
           </div>
         ) : activeServices.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center shadow-sm">
+          <div className="bg-white rounded-2xl p-12 text-center shadow-card">
             <i className="ri-service-line text-3xl text-gray-300" />
             <p className="text-sm text-gray-400 mt-2">No services available yet.</p>
           </div>
@@ -311,7 +311,7 @@ export const ServiceScreen = () => {
                 return (
                   <div
                     key={service.id}
-                    className="bg-white rounded-2xl border border-gray-100 shadow-sm"
+                    className="bg-white rounded-2xl"
                   >
                     {/* Header */}
                     <button

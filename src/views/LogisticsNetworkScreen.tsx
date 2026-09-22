@@ -9,6 +9,7 @@ import { useGetPairingRoutes, useDeletePairingRoute } from "../hooks/usePairingR
 import type { PairableGroup, PairingRoute } from "../service/partnerService";
 import { formatStatusLabel, statusDotClass } from "../lib/orderStatus";
 import { FilterPopover } from "../components/filters/FilterPopover";
+import { useAssistantAction } from "../lib/assistant/registry";
 
 type MainTab = "routes" | "paired";
 type OpenFilter = "All" | "Open" | "Closed";
@@ -43,6 +44,12 @@ export const LogisticsNetworkScreen = () => {
   const [search, setSearch] = useState("");
   const [openFilter, setOpenFilter] = useState<OpenFilter>("All");
   const [showAddRoute, setShowAddRoute] = useState(false);
+  const [routePrefill, setRoutePrefill] = useState<{ origin_state?: string; destination_state?: string }>({});
+
+  useAssistantAction("route.create", (params) => {
+    setRoutePrefill({ origin_state: params.origin_state, destination_state: params.destination_state });
+    setShowAddRoute(true);
+  });
   const [editRoute, setEditRoute] = useState<PairingRoute | null>(null);
   const [activeRoute, setActiveRoute] = useState<PairingRoute | null>(null);
   const [previewRoute, setPreviewRoute] = useState<PairingRoute | null>(null);
@@ -98,7 +105,7 @@ export const LogisticsNetworkScreen = () => {
             { label: "Regions Clustered", value: pairableStats.regionCount, icon: "ri-map-pin-line", color: "text-brand", bg: "bg-orange-50" },
             { label: "Pairable Value", value: pairableStats.valueLabel, icon: "ri-money-dollar-circle-line", color: "text-green-600", bg: "bg-green-50" },
           ].map(({ label, value, icon, color, bg }) => (
-            <div key={label} className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
+            <div key={label} className="bg-white rounded-2xl p-4 flex items-center gap-3 shadow-card">
               <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center shrink-0`}>
                 <i className={`${icon} text-lg ${color}`} />
               </div>
@@ -111,7 +118,7 @@ export const LogisticsNetworkScreen = () => {
         </div>
 
         {/* Main tabs */}
-        <div className="flex items-center gap-1 bg-white border border-gray-100 rounded-xl p-1 w-fit shadow-sm">
+        <div className="flex items-center gap-1 bg-white rounded-xl p-1 w-fit shadow-card">
           <button
             onClick={() => setMainTab("routes")}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
@@ -177,7 +184,7 @@ export const LogisticsNetworkScreen = () => {
             </div>
 
             {/* Routes table */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl overflow-hidden shadow-card">
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -273,12 +280,12 @@ export const LogisticsNetworkScreen = () => {
             {/* Paired delivery clusters — real orders grouped by region from
                 GET /partner/transactions/pairable (2+ pairable orders per region) */}
             {pairableLoading ? (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-16 text-center">
+              <div className="bg-white rounded-2xl py-16 text-center shadow-card">
                 <i className="ri-loader-4-line animate-spin text-3xl text-gray-300 mb-2 block" />
                 <p className="text-sm text-gray-400">Loading pairable orders…</p>
               </div>
             ) : pairableGroups.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-16 text-center">
+              <div className="bg-white rounded-2xl py-16 text-center shadow-card">
                 <i className="ri-inbox-line text-3xl text-gray-300 mb-2 block" />
                 <p className="text-sm text-gray-400">No regions have 2+ pairable orders right now.</p>
               </div>
@@ -293,7 +300,12 @@ export const LogisticsNetworkScreen = () => {
         )}
       </div>
 
-      {showAddRoute && <AddRouteModal onClose={() => setShowAddRoute(false)} />}
+      {showAddRoute && (
+        <AddRouteModal
+          prefill={routePrefill}
+          onClose={() => { setShowAddRoute(false); setRoutePrefill({}); }}
+        />
+      )}
       {editRoute && <AddRouteModal route={editRoute} onClose={() => setEditRoute(null)} />}
       {previewRoute && <BudgetTargetPreviewModal route={previewRoute} onClose={() => setPreviewRoute(null)} />}
 
@@ -378,7 +390,7 @@ function PairableGroupTable({ group }: { group: PairableGroup }) {
   const regionLabel = [group.state, group.country].filter(Boolean).join(", ") || "Unspecified region";
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-2xl overflow-hidden shadow-card">
       <div className="flex items-center justify-between gap-2 px-5 py-3.5 border-b border-gray-100 bg-orange-50/60">
         <p className="text-sm font-semibold text-gray-900">{regionLabel}</p>
         <div className="flex items-center gap-2 shrink-0">

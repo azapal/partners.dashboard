@@ -153,7 +153,7 @@ export const StakeholdersScreen = () => {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {stats.map(({ label, value, icon, color, bg }) => (
-            <div key={label} className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
+            <div key={label} className="bg-white rounded-2xl p-4 flex items-center gap-3 shadow-card">
               <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center shrink-0`}>
                 <i className={`${icon} text-lg ${color}`} />
               </div>
@@ -165,7 +165,7 @@ export const StakeholdersScreen = () => {
           ))}
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl overflow-hidden shadow-card">
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

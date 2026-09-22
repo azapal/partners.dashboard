@@ -22,8 +22,18 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/service", icon: "ri-task-line", label: "Services", keywords: ["services", "coverage", "offerings"] },
       { to: "/rates", icon: "ri-price-tag-3-line", label: "Rates", keywords: ["rates", "pricing", "rate cards", "price"] },
+      { to: "/move-rates", icon: "ri-home-gear-line", label: "Move Rates", keywords: ["relocation", "moving", "removals", "house move", "office move", "cbm", "quote page", "quote requests", "leads"] },
+      { to: "/chargeable-weight", icon: "ri-scales-3-line", label: "Chargeable Weight", keywords: ["weight", "volumetric", "dim weight", "reweigh", "cubing"] },
       { to: "/branches", icon: "ri-git-branch-line", label: "Branches", keywords: ["branches", "locations", "offices"] },
       { to: "/logistics-network", icon: "ri-route-line", label: "Logistics Network", keywords: ["routes", "pairing routes", "network"] },
+      { to: "/custody", icon: "ri-shake-hands-line", label: "Custody", keywords: ["handover", "handoff", "chain of custody", "proof", "evidence", "reconcile items"] },
+    ],
+  },
+  {
+    label: "Network",
+    items: [
+      { to: "/mobility", icon: "ri-smartphone-line", label: "Mobility", keywords: ["branded app", "white label", "customer app", "ios", "android"] },
+      { to: "/fleet-listing", icon: "ri-truck-line", label: "List your fleet", keywords: ["fleet", "lend", "vehicle", "truck", "van", "motorcycle", "capacity sharing", "earn"] },
     ],
   },
   {
@@ -42,6 +52,12 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: "ri-wallet-3-line",
         label: "Financials",
         keywords: ["invoice", "invoices", "receipt", "receipts", "wallet", "balance", "bank details", "virtual account", "payout"],
+      },
+      {
+        to: "/bills",
+        icon: "ri-bill-line",
+        label: "Bills",
+        keywords: ["bills", "billing", "pay as you go", "usage", "subscription", "azapal invoice", "platform charges"],
       },
       {
         to: "/stakeholders",
@@ -66,4 +82,9 @@ export const SETTINGS_NAV_ITEM: NavItem & { group: string } = {
 export const SEARCHABLE_NAV_ITEMS: (NavItem & { group: string })[] = [
   ...NAV_GROUPS.flatMap((group) => group.items.map((item) => ({ ...item, group: group.label }))),
   SETTINGS_NAV_ITEM,
+  { to: "/customers", icon: "", label: "Customers", group: "Operations", keywords: ["customers", "clients"] },
+  { to: "/dashboard/performance", icon: "", label: "Monthly Performance", group: "Overview", keywords: ["performance", "monthly", "reports"] },
+  { to: "/integration", icon: "", label: "Integrations", group: "Account", keywords: ["integration", "connectors", "api"] },
+  { to: "/PaymentMethod", icon: "", label: "Payment Method", group: "Finance", keywords: ["payment", "card", "billing"] },
+  { to: "/partners/onboarding", icon: "", label: "Partner Onboarding", group: "Account", keywords: ["onboarding", "setup", "partner"] },
 ];

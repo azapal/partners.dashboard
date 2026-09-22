@@ -54,7 +54,7 @@ function MonthlyPerformanceScreen() {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => navigate(-1)}
-                        className="w-9 h-9 rounded-xl bg-white border border-gray-100 shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors shrink-0"
+                        className="w-9 h-9 rounded-xl bg-white flex items-center justify-center hover:bg-gray-50 transition-colors shrink-0"
                     >
                         <i className="ri-arrow-left-line text-lg text-gray-600" />
                     </button>
@@ -66,7 +66,7 @@ function MonthlyPerformanceScreen() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <div className="bg-white rounded-2xl p-5 shadow-card">
                     {/* Controls */}
                     <div className="flex gap-2 mb-4">
                         <select

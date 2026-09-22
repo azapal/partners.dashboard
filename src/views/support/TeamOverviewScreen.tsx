@@ -93,7 +93,7 @@ const TeamOverviewScreen = () => {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {stats.map((s) => (
-            <div key={s.label} className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
+            <div key={s.label} className="bg-white rounded-2xl p-4 flex items-center gap-3 shadow-card">
               <div className={`w-9 h-9 rounded-xl ${s.bg} flex items-center justify-center shrink-0`}>
                 <i className={`${s.icon} text-lg ${s.color}`} />
               </div>
@@ -107,7 +107,7 @@ const TeamOverviewScreen = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-4 items-start">
           {/* Roster */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl overflow-hidden shadow-card">
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
               <h2 className="text-sm font-semibold text-gray-800">Team roster</h2>
               <span className="text-xs text-gray-400">{agents.length} agents</span>
@@ -164,7 +164,7 @@ const TeamOverviewScreen = () => {
                             <button
                               key={c.phone}
                               onClick={() => openConversation(c)}
-                              className="flex items-center justify-between gap-2 text-left px-3 py-2 rounded-xl hover:bg-white transition-colors"
+                              className="flex items-center justify-between gap-2 text-left px-3 py-2 rounded-xl hover:bg-white transition-colors shadow-card"
                             >
                               <span className="text-xs font-medium text-gray-800 truncate">
                                 {c.customer_name || c.phone}
@@ -184,7 +184,7 @@ const TeamOverviewScreen = () => {
           </div>
 
           {/* Escalations */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl overflow-hidden shadow-card">
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
               <h2 className="text-sm font-semibold text-gray-800">Escalations</h2>
               <span className="text-xs text-gray-400">{escalated.length} waiting</span>

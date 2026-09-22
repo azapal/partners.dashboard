@@ -1,101 +1,129 @@
-import { NavLink } from "react-router-dom";
-import { useState } from "react";
-import { NAV_GROUPS } from "../../lib/data/navItems";
+import { NavLink, useLocation } from "react-router-dom";
+import { categoryForPath } from "../../lib/data/navCategories";
 
+/**
+ * The category rail.
+ *
+ * Permanently narrow by design. It shows only what belongs to the category you
+ * are currently in (see navCategories.ts) — running last mile and running a
+ * warehouse are different jobs, and one flat list that holds every feature stops
+ * being scannable the moment the product grows.
+ *
+ * Because it is scoped, it is not how you *change* area: that is the launcher in
+ * the header (grid icon / ⌘K). The rail answers "what can I do here"; the
+ * launcher answers "take me somewhere else".
+ *
+ * Labels live in a flyout on hover rather than an expand toggle, so the page
+ * never reflows and the icons stay in one place for muscle memory. `title` on
+ * each link covers keyboard and touch, where hover does not exist.
+ */
+
+export function SidebarIcon({ ...attributes }) {
+  return <i {...attributes} />;
+}
+
+/** Kept exported — other shells import this button shape. */
 export function SidebarButton({ children, to = "", isCollapsed, ...iconProps }: any) {
   return (
     <NavLink
       to={to}
+      title={typeof children === "string" ? children : undefined}
       className={({ isActive }) =>
-        `relative flex flex-col md:flex-row items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group
-        ${isActive
-          ? "bg-orange-50 text-brand"
-          : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
-        }
-        ${isCollapsed ? "justify-center px-0" : ""}
-        `
+        `relative flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 group
+        ${isActive ? "bg-orange-50 text-brand" : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"}
+        ${isCollapsed ? "justify-center px-0" : ""}`
       }
-      title={isCollapsed ? (typeof children === "string" ? children : "") : ""}
     >
       {({ isActive }) => (
         <>
-          {isActive && !isCollapsed && (
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-brand rounded-r-full" />
-          )}
           <SidebarIcon
             {...iconProps}
             className={`${iconProps.className} text-lg ${isActive ? "text-brand" : "text-gray-400 group-hover:text-gray-700"}`}
           />
-          {!isCollapsed && (
-            <span className={isActive ? "text-brand" : ""}>{children}</span>
-          )}
+          {!isCollapsed && <span className={isActive ? "text-brand" : ""}>{children}</span>}
         </>
       )}
     </NavLink>
   );
 }
 
-export function SidebarIcon({ ...attributes }) {
-  return <i {...attributes} />;
-}
-
 function SideBar() {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const { pathname } = useLocation();
+  const category = categoryForPath(pathname);
 
   return (
     <aside
       data-tour="main-sidebar"
-      className={`flex-col gap-1 py-5 relative hidden md:flex transition-all duration-300 bg-white border-r border-gray-100 shadow-sm
-        ${isCollapsed ? "w-[68px] px-2" : "w-56 px-4"}`}
+      className="group/rail relative z-30 hidden w-[76px] shrink-0 flex-col items-center gap-1 border-r border-gray-100 bg-white py-5 shadow-sm md:flex"
     >
-      {/* Logo + toggle */}
-      <div className={`flex items-center mb-6 ${isCollapsed ? "justify-center" : "justify-between"}`}>
-        <a href="/" aria-label="Home" className="flex-shrink-0">
-          <img
-            src="/azapallogoV1.svg"
-            alt="Azapal Logo"
-            className={`transition-all duration-300 ${isCollapsed ? "w-8 h-9" : "w-[52px] h-[60px]"}`}
-          />
-        </a>
-        {!isCollapsed && (
-          <button
-            onClick={() => setIsCollapsed(true)}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"
-            aria-label="Collapse sidebar"
-          >
-            <i className="ri-arrow-left-s-line text-lg" />
-          </button>
-        )}
-      </div>
+      <a href="/" aria-label="Home" className="mb-5 shrink-0">
+        <img src="/azapallogoV1.svg" alt="Azapal" className="h-9 w-8" />
+      </a>
 
-      {isCollapsed && (
-        <button
-          onClick={() => setIsCollapsed(false)}
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors self-center mb-4"
-          aria-label="Expand sidebar"
-        >
-          <i className="ri-arrow-right-s-line text-lg" />
-        </button>
-      )}
+      {/* Category badge — tells you which area the rail below belongs to. */}
+      <span
+        className="mb-1 flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white"
+        title={category.label}
+      >
+        <i className={`${category.icon} text-base`} />
+      </span>
+      <span className="mb-3 w-full px-1 text-center text-[9px] font-semibold uppercase leading-tight tracking-wide text-gray-400">
+        {category.label}
+      </span>
 
-      <nav className="flex flex-col gap-4">
-        {NAV_GROUPS.map((group) => (
-          <div key={group.label} className="flex flex-col gap-0.5">
-            {!isCollapsed && (
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 mb-1">
-                {group.label}
-              </p>
-            )}
-            {group.items.map((item) => (
-              <div data-tour={`nav-${item.to.replace(/^\//, "")}`} key={item.to}>
-                <SidebarButton to={item.to} className={item.icon} isCollapsed={isCollapsed}>
-                {item.label}
-                </SidebarButton>
-              </div>
-            ))}
+      <nav className="flex w-full flex-col items-center gap-1 px-2" aria-label={`${category.label} navigation`}>
+        {category.items.map((item) => (
+          <div key={item.to} data-tour={`nav-${item.to.replace(/^\//, "")}`} className="w-full">
+            <NavLink
+              to={item.to}
+              title={item.label}
+              className={({ isActive }) =>
+                `relative flex h-11 w-full items-center justify-center rounded-xl transition-colors
+                ${isActive ? "bg-orange-50 text-brand" : "text-gray-400 hover:bg-gray-50 hover:text-gray-700"}`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-brand" />
+                  )}
+                  <i className={`${item.icon} text-lg`} />
+                </>
+              )}
+            </NavLink>
           </div>
         ))}
       </nav>
+
+      {/*
+        Flyout. Absolutely positioned so hovering never reflows the page, and
+        pointer-events-none until shown so it can't swallow clicks meant for the
+        content beside it.
+      */}
+      <div className="pointer-events-none absolute left-full top-5 z-40 w-56 translate-x-[-8px] opacity-0 transition-all duration-150 group-hover/rail:pointer-events-auto group-hover/rail:translate-x-0 group-hover/rail:opacity-100">
+        <div className="ml-2 rounded-2xl border border-gray-100 bg-white p-3 shadow-xl shadow-slate-900/10">
+          <p className="px-2 text-[11px] font-bold text-gray-800">{category.label}</p>
+          <p className="mb-2 px-2 text-[10px] leading-4 text-gray-400">{category.caption}</p>
+          <div className="flex flex-col gap-0.5">
+            {category.items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  `flex items-center gap-2.5 rounded-lg px-2 py-2 text-xs font-medium transition-colors
+                  ${isActive ? "bg-orange-50 text-brand" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"}`
+                }
+              >
+                <i className={`${item.icon} text-base`} />
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
+          <p className="mt-2 border-t border-gray-100 px-2 pt-2 text-[10px] leading-4 text-gray-400">
+            Another area? Use the grid or press ⌘K.
+          </p>
+        </div>
+      </div>
     </aside>
   );
 }

@@ -134,7 +134,7 @@ export const NotificationPreference = () => {
           if (!draft) return null;
 
           return (
-            <div key={row.event} className="rounded-2xl border border-gray-100 bg-white shadow-sm p-4">
+            <div key={row.event} className="rounded-2xl bg-white p-4 shadow-card">
               <div className="flex items-start justify-between gap-3">
                 <p className="text-sm font-medium text-gray-900">{row.label}</p>
                 <button

@@ -13,6 +13,7 @@
     "release:buggie": "git add . && git commit -m 'project files updated' && git push"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "@tailwindcss/vite": "^4.1.13",
     "@tanstack/react-query": "^5.90.11",
     "@tanstack/react-store": "^0.7.5",

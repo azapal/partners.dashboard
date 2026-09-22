@@ -9,6 +9,11 @@ import { BRAND_ORANGE } from '../../lib/brandColors';
 
 interface CreateBranchDrawerProps {
   onClose: () => void;
+  /**
+   * Initial field values, used when the assistant opens this drawer on the
+   * user's behalf. Only ever prefills — the human still presses Create.
+   */
+  prefill?: Partial<CreateBranchPayload>;
 }
 
 const emptyForm: CreateBranchPayload = {
@@ -39,10 +44,17 @@ const selectStyles = {
   singleValue: (base: any) => ({ ...base, fontSize: '0.875rem' }),
 };
 
-export const CreateBranchDrawer: React.FC<CreateBranchDrawerProps> = ({ onClose }) => {
-  const [form, setForm] = useState<CreateBranchPayload>(emptyForm);
-  const [selectedState, setSelectedState] = useState<{ value: string; label: string } | null>(null);
-  const [selectedLga, setSelectedLga] = useState<{ value: string; label: string } | null>(null);
+export const CreateBranchDrawer: React.FC<CreateBranchDrawerProps> = ({ onClose, prefill }) => {
+  const [form, setForm] = useState<CreateBranchPayload>({ ...emptyForm, ...prefill });
+  // The state/LGA selects carry their own option objects, so a prefilled value
+  // has to be mirrored into them or the dropdowns would render empty over a
+  // populated form.
+  const [selectedState, setSelectedState] = useState<{ value: string; label: string } | null>(
+    prefill?.state ? { value: prefill.state, label: prefill.state } : null,
+  );
+  const [selectedLga, setSelectedLga] = useState<{ value: string; label: string } | null>(
+    prefill?.lga ? { value: prefill.lga, label: prefill.lga } : null,
+  );
   const [selectedManagers, setSelectedManagers] = useState<{ value: string; label: string }[]>([]);
 
   const { mutate: createBranch, isPending } = useCreateBranch();

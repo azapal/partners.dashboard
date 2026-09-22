@@ -2,6 +2,7 @@ import { useLocation } from "react-router-dom";
 import { useRepProfile, useRepLogout } from "../hooks/useRepAuth";
 import { useNavigate } from "react-router-dom";
 import { restartProductTour } from "../components/tour/ProductTour";
+import { assistantActions } from "../store/client/assistant";
 
 const PAGE_TITLES: Record<string, string> = {
   "support-dashboard": "Dashboard",
@@ -43,6 +44,17 @@ export const RepHeaderLayout = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Mirrors DashboardHeaderLayout — the two shells are parallel
+              implementations, so header affordances have to land in both. */}
+          <button
+            onClick={() => assistantActions.open()}
+            aria-label="Ask Azapal"
+            title="Ask Azapal  (⌘K)"
+            className="w-9 h-9 rounded-xl flex items-center justify-center bg-white border border-gray-200 text-brand hover:bg-orange-50 hover:border-orange-200 transition-colors shadow-sm"
+          >
+            <i className="ri-sparkling-2-fill text-base" />
+          </button>
+
           <button
             onClick={handleLogout}
             className="w-9 h-9 rounded-xl flex items-center justify-center bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors shadow-sm"

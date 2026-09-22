@@ -44,7 +44,7 @@ const RepProfileScreen = () => {
   return (
     <RepDashboardLayout>
       <div className="w-full flex flex-col gap-5 max-w-xl">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="bg-white rounded-2xl p-6 shadow-card">
           <div className="flex items-center gap-4 mb-6">
             <div className={`w-16 h-16 rounded-2xl ${avatarColor(profile.id)} flex items-center justify-center shrink-0 shadow-sm`}>
               <span className="text-white text-xl font-bold">{initials}</span>
@@ -62,7 +62,7 @@ const RepProfileScreen = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="bg-white rounded-2xl p-6 shadow-card">
           <p className="text-sm font-semibold text-gray-800 mb-3">Shift status</p>
           <div className="flex gap-2">
             {(['active', 'away'] as const).map((status) => (

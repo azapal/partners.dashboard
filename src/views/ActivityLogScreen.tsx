@@ -183,7 +183,7 @@ function ActivityTab() {
         </FilterPopover>
       </FilterBar>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl overflow-hidden shadow-card">
         {isLoading ? (
           <p className="text-center py-14 text-gray-400 text-sm">
             <i className="ri-loader-4-line animate-spin text-xl" />
@@ -267,7 +267,7 @@ function SessionsTab() {
         </FilterPopover>
       </FilterBar>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl overflow-hidden shadow-card">
         {isLoading ? (
           <p className="text-center py-14 text-gray-400 text-sm">
             <i className="ri-loader-4-line animate-spin text-xl" />
