@@ -7,7 +7,7 @@
 
 import config from '../../config/config';
 import type { CargoType } from '../lib/data/logisticsNetwork';
-import type { MoveCustomField, MoveModifier } from '../lib/data/moveRates';
+import type { QuoteQuestion, QuoteServiceId } from '../lib/data/quoteServices';
 
 // ============================================================================
 // Types
@@ -97,6 +97,8 @@ export interface PartnerInvite {
   last_name: string;
   /** Often typed the local way ("0803…"); the server reads it against the partner's country. */
   phone?: string | null;
+  /** Their own social handle, stored bare. */
+  social_handle?: string | null;
   status: boolean;
   two_fa_code?: string | null;
   branch: InviteBranch | null;
@@ -110,6 +112,10 @@ export interface CreateInvitePayload {
   email: string;
   first_name: string;
   last_name: string;
+  /** Lets them be pointed at from a quote page's WhatsApp or text contacts. */
+  phone?: string;
+  /** Same, for its Instagram contacts. */
+  social_handle?: string;
   branch?: string;
   invite_role: string;
 }
@@ -118,6 +124,8 @@ export interface UpdateInvitePayload {
   email?: string;
   first_name?: string;
   last_name?: string;
+  phone?: string;
+  social_handle?: string;
   branch?: string;
   invite_role?: string;
   status?: boolean;
@@ -909,55 +917,18 @@ export const deliveryMethodRateCardService = {
   },
 };
 
-// ── Move Rates ────────────────────────────────────────────────────────────────
-// Relocation price lists, one per country, keyed by the country name rather
-// than an id. PUT replaces a whole list and creates it if absent — see
-// partner_move_rates_api.md in the backend repo.
-
-export interface MoveRateSetDTO {
-  country: string;
-  /** Fixed by the server when the list is first created. */
-  currency: string;
-  base: Record<string, number>;
-  modifiers: MoveModifier[];
-  custom_fields: MoveCustomField[];
-  updated_at: string;
-}
-
-export type SaveMoveRateSetPayload = Pick<MoveRateSetDTO, 'base' | 'modifiers' | 'custom_fields'>;
-
-const MOVE_RATE_ENDPOINT = `${PARTNER_ENDPOINT}/move-rates`;
-
-export const moveRateService = {
-  async getAll(): Promise<MoveRateSetDTO[]> {
-    const res = await fetchWithAuth(`${MOVE_RATE_ENDPOINT}`, {});
-    if (!res.ok) await handleError(res);
-    return extractList<MoveRateSetDTO>(await res.json());
-  },
-
-  async save(country: string, payload: SaveMoveRateSetPayload): Promise<MoveRateSetDTO> {
-    const res = await fetchWithAuth(`${MOVE_RATE_ENDPOINT}/${encodeURIComponent(country)}/`, {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) await handleError(res);
-    const raw = await res.json();
-    return raw.data ?? raw;
-  },
-
-  async delete(country: string): Promise<void> {
-    const res = await fetchWithAuth(`${MOVE_RATE_ENDPOINT}/${encodeURIComponent(country)}/`, { method: 'DELETE' });
-    if (!res.ok) await handleError(res);
-  },
-};
-
 // ── Quote Page ────────────────────────────────────────────────────────────────
-// A partner's public quote page (/quote/<slug>) priced off their move rates, and
+// A partner's public quote page (/quote/<slug>), the forms they build on it and
 // the leads it collects — see partner_quote_page_api.md in the backend repo.
 
+/**
+ * Every channel the code can express. What a page actually offers is the
+ * shorter list in CONTACT_CHANNELS (lib/quotePage.ts) — WhatsApp for now — which
+ * the backend enforces.
+ */
 export type QuoteContactChannel = 'whatsapp' | 'instagram' | 'email' | 'sms';
-/** Channels that reach a person's phone, and so hold a list of people. */
-export type QuoteListChannel = 'whatsapp' | 'sms';
+/** Those that reach a person rather than the company, so they hold a team. */
+export type QuoteListChannel = 'whatsapp' | 'sms' | 'instagram';
 
 /** Someone a quote-page contact can point at. */
 export interface QuoteTeammate {
@@ -965,14 +936,16 @@ export interface QuoteTeammate {
   name: string;
   /** Often the local form ("0803…"); the server reads it against the partner's country. */
   phone: string | null;
+  /** Their own handle, stored bare. */
+  social_handle: string | null;
   role: string | null;
 }
 
 export interface QuoteContact {
-  /** Set when the contact is a teammate; their number is then read from their profile. */
+  /** Set when the contact is a teammate; their number or handle is then read from their profile. */
   employee_id: number | null;
-  /** The typed number, or null for a teammate. */
-  phone: string | null;
+  /** The typed number or handle, or null for a teammate. */
+  address: string | null;
   label: string;
 }
 
@@ -982,55 +955,99 @@ export interface QuoteContactList {
   interchange: boolean;
 }
 
+export interface QuotePageService {
+  service: QuoteServiceId;
+  label: string;
+  blurb: string;
+  /** The open question the form closes with, after the partner's own. */
+  prompt: string;
+  /** The questions the partner wrote for this service. */
+  questions: QuoteQuestion[];
+}
+
+/** A service the page could switch on — one the partner ticked under Services. */
+export interface QuoteAvailableService {
+  service: QuoteServiceId;
+  name: string;
+  description: string;
+}
+
 export interface QuoteContactChannels {
-  email?: string;
-  instagram?: string;
   whatsapp?: QuoteContactList;
   sms?: QuoteContactList;
+  instagram?: QuoteContactList;
+  email?: string;
 }
-export type QuoteCopyChannel = 'email' | 'whatsapp' | 'sms';
+/** Email only for now — see COPY_CHANNELS in lib/quotePage.ts. */
+export type QuoteCopyChannel = 'email';
 export type QuoteRequestStatus = 'new' | 'contacted' | 'booked' | 'lost';
 export type QuoteCopyStatus = 'not_requested' | 'sent' | 'failed' | 'limited';
 
-export interface QuotePageSettings {
-  /** False until the partner first saves — the rest are then suggested defaults. */
-  exists: boolean;
-  slug: string;
-  is_published: boolean;
+/** What a page says once anything it inherits has been read from the company's. */
+export interface QuotePageEffective {
   headline: string;
   intro: string;
   follow_up_note: string;
-  countries: string[];
+  services: QuotePageService[];
   contact_channels: QuoteContactChannels;
+  copy_channels: QuoteCopyChannel[];
+}
+
+export interface QuotePageSettings {
+  /** False until first saved — the rest are then suggested defaults. */
+  exists: boolean;
+  /** Null on the company's own page. */
+  branch: { id: number; branch_code: string } | null;
+  slug: string;
+  is_published: boolean;
+  /** Null on a branch page means "whatever the company page says". */
+  headline: string | null;
+  intro: string | null;
+  follow_up_note: string | null;
+  services: QuotePageService[];
+  contact_channels: QuoteContactChannels | null;
   copy_channels: QuoteCopyChannel[];
   /** What Azapal can actually send right now, whatever the partner switched on. */
   available_copy_channels: QuoteCopyChannel[];
+  /** The catalog services this partner has ticked under Services. */
+  available_services: QuoteAvailableService[];
+  /** The fields a branch may differ on; everything else is the company's. */
+  inheritable: string[];
+  effective: QuotePageEffective;
   updated_at: string | null;
 }
 
-export type SaveQuotePagePayload = Omit<QuotePageSettings, 'exists' | 'available_copy_channels' | 'updated_at'>;
+export type SaveQuotePagePayload = Omit<
+  QuotePageSettings,
+  'exists' | 'branch' | 'available_copy_channels' | 'available_services' | 'inheritable' | 'effective' | 'updated_at'
+>;
 
-export interface QuoteRequestLine {
-  label: string;
-  detail: string | null;
-  amount: number;
+/** One row of "every page this partner has". */
+export interface QuotePageSummary {
+  /** Null for the company's own page. */
+  branch: number | null;
+  branch_code: string | null;
+  exists: boolean;
+  slug: string | null;
+  is_published: boolean;
 }
 
 export interface QuoteRequestRecord {
   reference: string;
-  country: string;
-  currency: string;
-  property_size: string;
-  distance_band: string;
-  lines: QuoteRequestLine[];
-  /** Answers to questions that carry no price. */
+  service: QuoteServiceId;
+  /** What the partner calls the service, read when the lead was listed. */
+  service_label: string;
+  /** What the customer typed about the job, beyond the questions. */
+  details: string;
+  /** What they answered, worded as they were asked it. */
   answers: { label: string; value: string }[];
-  total: number;
   customer_name: string;
   customer_phone: string;
   customer_email: string | null;
   copy_channel: QuoteCopyChannel | null;
   copy_status: QuoteCopyStatus;
+  /** Which page it came from — null for the company's own. */
+  branch: { id: number; branch_code: string } | null;
   contacted_via: QuoteContactChannel[];
   /** Whose phone this quote was pointed at, per channel — see interchange. */
   assigned_contacts: Partial<Record<QuoteListChannel, QuoteContact>>;
@@ -1042,15 +1059,6 @@ export interface QuoteRequestRecord {
   contacts?: Partial<Record<QuoteContactChannel, string>>;
 }
 
-export interface PublicRateSet {
-  country: string;
-  currency: string;
-  base: Record<string, number>;
-  /** Enabled ones only. */
-  modifiers: MoveModifier[];
-  custom_fields: MoveCustomField[];
-}
-
 export interface PublicQuotePage {
   slug: string;
   partner_name: string;
@@ -1059,18 +1067,21 @@ export interface PublicQuotePage {
   headline: string;
   intro: string;
   follow_up_note: string;
+  services: QuotePageService[];
   contact_channels: Partial<Record<QuoteContactChannel, string>>;
   copy_channels: QuoteCopyChannel[];
-  rate_sets: PublicRateSet[];
 }
 
-/** Choices only — the server prices the move itself and ignores anything else. */
+/** Answers only — the wording of the lead is the server's, never the client's. */
 export interface SubmitQuotePayload {
-  country: string;
-  property_size: string;
-  distance_band: string;
-  selections: Record<string, number>;
-  answers: Record<string, string | number | boolean>;
+  service: QuoteServiceId;
+  /** The customer's own description, beyond the questions. */
+  details?: string;
+  /**
+   * Keyed by question id — text, a number, a yyyy-mm-dd date, a chosen answer
+   * or a yes/no.
+   */
+  answers?: Record<string, string | number | boolean | string[]>;
   name: string;
   phone: string;
   email?: string;
@@ -1080,15 +1091,16 @@ export interface SubmitQuotePayload {
 const QUOTE_REQUEST_ENDPOINT = `${PARTNER_ENDPOINT}/quote-requests`;
 
 export const quotePageService = {
-  async getSettings(): Promise<QuotePageSettings> {
-    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/quote-page`, {});
+  /** The company's page, or one branch's. */
+  async getSettings(branchId?: number | null): Promise<QuotePageSettings> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/quote-page${branchId ? `/branch/${branchId}` : ''}`, {});
     if (!res.ok) await handleError(res);
     const raw = await res.json();
     return raw.data ?? raw;
   },
 
-  async saveSettings(payload: SaveQuotePagePayload): Promise<QuotePageSettings> {
-    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/quote-page`, {
+  async saveSettings(payload: SaveQuotePagePayload, branchId?: number | null): Promise<QuotePageSettings> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/quote-page${branchId ? `/branch/${branchId}` : ''}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
     });
@@ -1097,14 +1109,21 @@ export const quotePageService = {
     return raw.data ?? raw;
   },
 
+  async listPages(): Promise<QuotePageSummary[]> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/quote-pages`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<QuotePageSummary>(await res.json());
+  },
+
   async listTeammates(): Promise<QuoteTeammate[]> {
     const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/quote-page/teammates`, {});
     if (!res.ok) await handleError(res);
     return extractList<QuoteTeammate>(await res.json());
   },
 
-  async listRequests(): Promise<QuoteRequestRecord[]> {
-    const res = await fetchWithAuth(`${QUOTE_REQUEST_ENDPOINT}`, {});
+  /** Everything the caller may see, or one branch's when asked. */
+  async listRequests(branchId?: number | null): Promise<QuoteRequestRecord[]> {
+    const res = await fetchWithAuth(`${QUOTE_REQUEST_ENDPOINT}${branchId ? `?branch=${branchId}` : ''}`, {});
     if (!res.ok) await handleError(res);
     return extractList<QuoteRequestRecord>(await res.json());
   },
@@ -1270,10 +1289,14 @@ export interface ServiceContent {
 
 export interface ServiceOption {
   id: number;
+  key: string;
   label: string;
-  element_type: 'checkbox' | 'text_input' | 'select' | 'select_dropdown' | 'radio' | string;
+  element_type:
+    | 'text_input' | 'textarea' | 'number' | 'date' | 'email' | 'phone'
+    | 'select_dropdown' | 'checkbox' | 'link' | string;
   placeholder: string | null;
   required: boolean;
+  validation: { min_length?: number; max_length?: number; min?: number; max?: number; not_past?: boolean };
   order: number;
   contents: ServiceContent[];
   created_at: string;
@@ -1282,6 +1305,7 @@ export interface ServiceOption {
 
 export interface Service {
   id: number;
+  key: string | null;
   name: string;
   description: string;
   is_active: boolean;

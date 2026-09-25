@@ -167,6 +167,16 @@ export const isManagerRole = (name: string | undefined | null): boolean => {
   return n.includes('manager') || n.includes('admin');
 };
 
+// Mirrors the backend's can_work_quote_leads (modules/helpers/permissions.py).
+// Deliberately loose, like isManagerRole/isSupportRole: chasing a lead from the
+// quote page is the job of whoever answers customers, not only of whoever sets
+// the prices. Editing prices and the quote page itself stays elevated-admin-only.
+export const canWorkQuoteLeads = (name: string | undefined | null): boolean => {
+  if (!name) return false;
+  const n = name.trim().toLowerCase();
+  return n.includes('manager') || n.includes('support') || isElevatedAdminRole(n);
+};
+
 // Exact-match version for Pairing Routes: the backend only lets these two
 // specific role names (not any loose "manager"/"admin" match) create/edit/
 // delete a route.

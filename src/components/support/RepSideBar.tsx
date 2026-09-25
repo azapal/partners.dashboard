@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { SidebarButton } from "../dashboard/SideBar";
 import { useRepProfile } from "../../hooks/useRepAuth";
-import { isManagerRole } from "../../service/repService";
+import { canWorkQuoteLeads, isManagerRole } from "../../service/repService";
 
 function RepSideBar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const profile = useRepProfile();
   const isManager = isManagerRole(profile?.invite_role?.name);
+  const canSeeLeads = canWorkQuoteLeads(profile?.invite_role?.name);
 
   return (
     <aside
@@ -53,6 +54,18 @@ function RepSideBar() {
         <SidebarButton to="/support/dashboard" className="ri-home-6-line" isCollapsed={isCollapsed}>
           Dashboard
         </SidebarButton>
+
+        {isManager && (
+          <SidebarButton to="/support/quote-page" className="ri-pages-line" isCollapsed={isCollapsed}>
+            Quote page
+          </SidebarButton>
+        )}
+
+        {canSeeLeads && (
+          <SidebarButton to="/support/quote-requests" className="ri-price-tag-3-line" isCollapsed={isCollapsed}>
+            Quote requests
+          </SidebarButton>
+        )}
 
         <div data-tour="support-orders">
           <SidebarButton to="/support/orders" className="ri-truck-line" isCollapsed={isCollapsed}>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { DashboardLayout } from '../layouts/DashboardLayout';
 import {
   useGetServices,
@@ -12,6 +13,16 @@ import { SearchableSelect } from '../components/inputs/SearchableSelect';
 
 type Responses = Record<number, string | string[]>;
 
+// HTML input type for each single-input element type.
+const INPUT_TYPES: Record<string, string> = {
+  text_input: 'text',
+  number: 'number',
+  date: 'date',
+  email: 'email',
+  phone: 'tel',
+  link: 'url',
+};
+
 export const ServiceScreen = () => {
   const { data: services = [], isLoading } = useGetServices();
   const { data: partnerServices, isLoading: isLoadingSelection } = useGetPartnerServices();
@@ -19,7 +30,6 @@ export const ServiceScreen = () => {
 
   const [openId, setOpenId] = useState<number | null>(null);
   const [responses, setResponses] = useState<Responses>({});
-  const [showPicker, setShowPicker] = useState(false);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle');
   const [submitState, setSubmitState] = useState<'idle' | 'saved' | 'error'>('idle');
@@ -56,7 +66,12 @@ export const ServiceScreen = () => {
     });
   };
 
-  const activeServices = services.filter((s) => s.is_active);
+  // Setup questions are for what the partner offers: the services ticked (and
+  // saved) above that have any questions to ask.
+  const offeredIds = new Set((partnerServices ?? []).map((s) => s.id));
+  const activeServices = services.filter((s) => s.is_active && offeredIds.has(s.id) && s.options.length > 0);
+  const selectionDirty =
+    !!partnerServices && [...selectedIds].sort().join() !== [...offeredIds].sort().join();
 
   const toggle = (id: number) =>
     setOpenId((prev) => (prev === id ? null : id));
@@ -173,7 +188,31 @@ export const ServiceScreen = () => {
       );
     }
 
-    // Fallback for unknown element types
+    if (opt.element_type === 'textarea') {
+      return (
+        <div key={opt.id} className="space-y-1.5">
+          {opt.label && (
+            <label className="block text-sm font-medium text-gray-700">
+              {opt.label}
+              {opt.required && <span className="text-red-500 ml-0.5">*</span>}
+            </label>
+          )}
+          <textarea
+            value={(responses[opt.id] as string | undefined) ?? ''}
+            onChange={(e) => setTextValue(opt.id, e.target.value)}
+            placeholder={opt.placeholder ?? 'Enter your response…'}
+            rows={4}
+            minLength={opt.validation?.min_length}
+            maxLength={opt.validation?.max_length}
+            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-100 focus:border-brand resize-none"
+          />
+        </div>
+      );
+    }
+
+    // Every other type is a single input; the type and the field's rules become
+    // the input's own type and limits.
+    const v = opt.validation ?? {};
     return (
       <div key={opt.id} className="space-y-1.5">
         {opt.label && (
@@ -183,7 +222,11 @@ export const ServiceScreen = () => {
           </label>
         )}
         <input
-          type="text"
+          type={INPUT_TYPES[opt.element_type] ?? 'text'}
+          min={opt.element_type === 'date' ? (v.not_past ? new Date().toISOString().slice(0, 10) : undefined) : v.min}
+          max={v.max}
+          minLength={v.min_length}
+          maxLength={v.max_length}
           value={(responses[opt.id] as string | undefined) ?? ''}
           onChange={(e) => setTextValue(opt.id, e.target.value)}
           placeholder={opt.placeholder ?? ''}
@@ -201,23 +244,12 @@ export const ServiceScreen = () => {
   return (
     <DashboardLayout>
       <div className="w-full flex flex-col gap-5">
-        <div className="flex items-start justify-between gap-3">
-          
-          {/* <button
-            type="button"
-            onClick={() => setShowPicker((prev) => !prev)}
-            className="flex items-center gap-2 border border-gray-200 bg-white text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors shrink-0"
-          >
-            <i className="ri-list-check-2 text-base" />
-            <span className="hidden sm:inline">Manage Services</span>
-          </button> */}
-        </div>
-
-        {showPicker && (
-          <div className="bg-white rounded-2xl p-5 shadow-card">
-            <p className="text-sm font-semibold text-gray-800 mb-1">Select the services you offer</p>
+        <div className="bg-white rounded-2xl p-5 shadow-card">
+            <p className="text-sm font-semibold text-gray-800 mb-1">The services you offer</p>
             <p className="text-xs text-gray-400 mb-4">
-              Only selected services will be shown to customers.
+              Tick what you offer. Each ticked service can go on your{' '}
+              <Link to="/quote-page" className="font-semibold text-brand hover:text-brand-hover">quote page</Link>
+              , where you set up what customers are asked before you price the job.
             </p>
 
             {isLoadingSelection ? (
@@ -262,7 +294,7 @@ export const ServiceScreen = () => {
               <button
                 type="button"
                 onClick={saveSelection}
-                disabled={updatePartnerServices.isPending}
+                disabled={updatePartnerServices.isPending || !selectionDirty}
                 className="flex items-center gap-2 bg-brand hover:bg-brand-hover text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
               >
                 {updatePartnerServices.isPending ? (
@@ -272,15 +304,17 @@ export const ServiceScreen = () => {
                 )}
                 Save Selection
               </button>
-              {saveState === 'saved' && (
+              {saveState === 'saved' && !selectionDirty && (
                 <span className="text-xs font-medium text-green-600">Saved.</span>
+              )}
+              {selectionDirty && (
+                <span className="text-xs font-medium text-amber-600">Unsaved changes</span>
               )}
               {saveState === 'error' && (
                 <span className="text-xs font-medium text-red-500">Couldn't save. Try again.</span>
               )}
             </div>
-          </div>
-        )}
+        </div>
 
         {isLoading ? (
           <div className="space-y-3">
@@ -294,7 +328,11 @@ export const ServiceScreen = () => {
         ) : activeServices.length === 0 ? (
           <div className="bg-white rounded-2xl p-12 text-center shadow-card">
             <i className="ri-service-line text-3xl text-gray-300" />
-            <p className="text-sm text-gray-400 mt-2">No services available yet.</p>
+            <p className="text-sm text-gray-400 mt-2">
+              {services.length === 0
+                ? 'No services available yet.'
+                : 'Nothing to set up. Any setup questions for the services you tick will show here.'}
+            </p>
           </div>
         ) : (
           <>

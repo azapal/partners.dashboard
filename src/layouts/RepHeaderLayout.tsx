@@ -8,6 +8,8 @@ const PAGE_TITLES: Record<string, string> = {
   "support-dashboard": "Dashboard",
   "support-orders": "Orders",
   "support-team": "Team Overview",
+  "support-quote-requests": "Quote requests",
+  "support-quote-page": "Quote page",
   "support-shift-mates": "Shift Mates",
   "support-profile": "Profile",
 };

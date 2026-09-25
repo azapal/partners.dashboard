@@ -1,11 +1,14 @@
 import { useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { useDocumentBranding } from "../../hooks/useBranding";
 import { usePartnerProfile } from "../../hooks/useAuth";
 import { useQuotePageSettings, useQuoteTeammates, useSaveQuotePageSettings } from "../../hooks/useQuotePage";
-import type { MoveRateSet } from "../../lib/data/moveRates";
-import { CONTACT_CHANNELS, COPY_CHANNELS } from "../../lib/quotePage";
+import { DEFAULT_PROMPT, type QuoteServiceId } from "../../lib/data/quoteServices";
+import { CONTACT_CHANNELS, COPY_CHANNELS, shareLink } from "../../lib/quotePage";
 import type {
   PublicQuotePage,
+  QuoteContactChannels,
+  QuotePageService,
   QuoteContactChannel,
   QuoteContactList,
   QuoteListChannel,
@@ -16,14 +19,15 @@ import type {
 import { DocumentBrandingModal } from "../modal/DocumentBrandingModal";
 import { ContactListEditor } from "./ContactListEditor";
 import { QuotePageView } from "./QuotePageView";
+import { QuoteQuestionsEditor, questionsProblem } from "./QuoteQuestionsEditor";
 
 /**
  * Setting up the public quote page, beside a live preview of it.
  *
- * Edits collect in a draft and go up together on Save, the same as the price
- * lists on this screen. Branding is deliberately not edited here: the page uses
- * the logo and colour from invoice branding so the quote and the invoice that
- * follows it match, and this panel opens that editor rather than keeping a copy.
+ * Edits collect in a draft and go up together on Save. Branding is deliberately
+ * not edited here: the page uses the logo and colour from invoice branding so
+ * the quote and the invoice that follows it match, and this panel opens that
+ * editor rather than keeping a copy.
  */
 
 const toPayload = (s: Settings): SaveQuotePagePayload => ({
@@ -32,7 +36,7 @@ const toPayload = (s: Settings): SaveQuotePagePayload => ({
   headline: s.headline,
   intro: s.intro,
   follow_up_note: s.follow_up_note,
-  countries: s.countries,
+  services: s.services,
   contact_channels: s.contact_channels,
   copy_channels: s.copy_channels,
 });
@@ -56,11 +60,14 @@ const canonical = (p: SaveQuotePagePayload) =>
   JSON.stringify(
     stable({
       ...p,
-      countries: [...p.countries].sort(),
       copy_channels: [...p.copy_channels].sort(),
-      contact_channels: Object.fromEntries(
-        Object.entries(p.contact_channels).filter(([, v]) => (typeof v === "string" ? v.trim() : v)),
-      ),
+      services: p.services,
+      // Null is a value here: it's what "inherited from the company page" looks like.
+      contact_channels: p.contact_channels
+        ? Object.fromEntries(
+            Object.entries(p.contact_channels).filter(([, v]) => (typeof v === "string" ? v.trim() : v)),
+          )
+        : null,
     }),
   );
 
@@ -68,20 +75,34 @@ const inputClass =
   "w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-orange-50";
 
 export const QuotePageSettings = ({
-  savedSets,
-  onOpenPriceLists,
+  view,
+  branchId = null,
+  limited = false,
 }: {
-  /** Only lists already saved to the account — a draft can't be offered to customers. */
-  savedSets: MoveRateSet[];
-  onOpenPriceLists: () => void;
+  /** "page" for the page itself, or the service being set up. */
+  view: "page" | QuoteServiceId;
+  /** Null edits the company's page; a branch id edits that branch's. */
+  branchId?: number | null;
+  /**
+   * For editors without admin rights — a branch manager in the support shell.
+   * Drops the preview and the branding panel, whose data they can't read.
+   */
+  limited?: boolean;
 }) => {
-  const { data: settings, isPending, isError, error, refetch } = useQuotePageSettings();
-  const save = useSaveQuotePageSettings();
-  const { data: branding } = useDocumentBranding();
+  const { data: settings, isPending, isError, error, refetch } = useQuotePageSettings(branchId);
+  const save = useSaveQuotePageSettings(branchId);
+  const { data: branding } = useDocumentBranding(!limited);
   const { data: teammates = [] } = useQuoteTeammates();
   const profile = usePartnerProfile();
 
   const [draft, setDraft] = useState<SaveQuotePagePayload | null>(null);
+  /**
+   * Which sections the editor has unlocked on a branch page. Unlocking alone
+   * changes nothing: a field starts overriding the company's only once it's
+   * edited, so switching this off to change a headline doesn't quietly freeze
+   * the note underneath it.
+   */
+  const [unlocked, setUnlocked] = useState({ wording: false, contacts: false });
   const [showBranding, setShowBranding] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
 
@@ -107,15 +128,52 @@ export const QuotePageSettings = ({
   const dirty = !settings.exists || (!!draft && canonical(draft) !== canonical(baseline));
   const update = (patch: Partial<SaveQuotePagePayload>) => setDraft((prev) => ({ ...(prev ?? baseline), ...patch }));
 
-  const link = `${window.location.origin}/quote/${current.slug}`;
-  const liveLink = `${window.location.origin}/quote/${settings.slug}`;
-  const pricedSets = savedSets.filter((s) => Object.values(s.base).some((v) => v > 0));
+  const isBranch = !!settings.branch;
+  // What the page says once inheritance is applied — the preview and the
+  // "you're showing the company's" notes read this, not the raw draft.
+  const effective = settings.effective;
+  const ownWording = current.headline !== null || current.intro !== null || current.follow_up_note !== null;
+  const ownContacts = current.contact_channels !== null;
+  const wordingInherited = isBranch && !ownWording && !unlocked.wording;
+  const contactsInherited = isBranch && !ownContacts && !unlocked.contacts;
+  const wording = {
+    headline: current.headline ?? effective.headline,
+    intro: current.intro ?? effective.intro,
+    follow_up_note: current.follow_up_note ?? effective.follow_up_note,
+  };
+  const contacts: QuoteContactChannels = current.contact_channels ?? effective.contact_channels;
+
+  const available = settings.available_services;
+  const serviceName = (id: string) =>
+    available.find((a) => a.service === id)?.name ?? current.services.find((x) => x.service === id)?.label ?? "Service";
+  // An unfinished question would only have the whole save refused, so it's
+  // caught here, where the partner can see which service it's on.
+  const unfinished = current.services.find((x) => questionsProblem(x.questions ?? []));
+  const problem = unfinished
+    ? `${unfinished.label || serviceName(unfinished.service)}: ${questionsProblem(unfinished.questions ?? [])}`
+    : null;
+
+  const link = shareLink(current.slug);
+  const liveLink = shareLink(settings.slug);
 
   const submit = () => {
-    const sent = current;
-    save.mutate(sent, {
-      // Keep anything typed while the save was in flight.
-      onSuccess: () => setDraft((prev) => (prev === null || prev === sent ? null : prev)),
+    // The draft as it stands right now: what's cleared on success, so anything
+    // typed while the save was in flight survives as a new change.
+    const submitted = draft;
+    // A branch sends only what it may differ on; the rest belongs to the company
+    // page, and the server refuses a branch that tries to set it.
+    const body: SaveQuotePagePayload = isBranch
+      ? ({
+          slug: current.slug,
+          is_published: current.is_published,
+          headline: current.headline,
+          intro: current.intro,
+          follow_up_note: current.follow_up_note,
+          contact_channels: current.contact_channels,
+        } as SaveQuotePagePayload)
+      : current;
+    save.mutate(body, {
+      onSuccess: () => setDraft((prev) => (prev === null || prev === submitted ? null : prev)),
     });
   };
 
@@ -124,7 +182,7 @@ export const QuotePageSettings = ({
     : !settings.exists
       ? { dot: "bg-amber-500", title: "Not set up yet", note: "Check the details below, then save to create your page." }
       : dirty
-        ? { dot: "bg-amber-500", title: "Unsaved changes", note: "Customers see the saved version until you save." }
+        ? { dot: "bg-amber-500", title: "Unsaved changes", note: problem ?? "Customers see the saved version until you save." }
         : settings.is_published
           ? { dot: "bg-emerald-500", title: "Live", note: liveLink }
           : { dot: "bg-gray-300", title: "Not published", note: "Customers can't open your page until you publish it." };
@@ -134,20 +192,19 @@ export const QuotePageSettings = ({
     partner_name: profile?.partner_name || "Your company",
     logo_url: branding?.logo_url ?? null,
     accent_color: branding?.accent_color ?? null,
-    headline: current.headline,
-    intro: current.intro,
-    follow_up_note: current.follow_up_note,
-    contact_channels: previewAddresses(current, teammates),
-    copy_channels: current.copy_channels.filter((c) => settings.available_copy_channels.includes(c)),
-    rate_sets: pricedSets
-      .filter((s) => current.countries.includes(s.country))
-      .map((s) => ({
-        country: s.country,
-        currency: s.currency,
-        base: s.base,
-        modifiers: s.modifiers.filter((m) => m.enabled),
-        custom_fields: s.customFields,
-      })),
+    headline: wording.headline,
+    intro: wording.intro,
+    follow_up_note: wording.follow_up_note,
+    // On the company page the preview follows what's being edited; a branch
+    // can't change these, so it shows what it inherits. A service the partner no
+    // longer offers stays off the page here, as it does live.
+    services: (isBranch ? effective.services : current.services).filter((entry) =>
+      available.some((a) => a.service === entry.service),
+    ),
+    contact_channels: previewAddresses(contacts, teammates),
+    copy_channels: (isBranch ? effective.copy_channels : current.copy_channels).filter((c) =>
+      settings.available_copy_channels.includes(c),
+    ),
   };
 
   return (
@@ -178,7 +235,7 @@ export const QuotePageSettings = ({
           <button
             type="button"
             onClick={submit}
-            disabled={!dirty || save.isPending}
+            disabled={!dirty || !!problem || save.isPending}
             className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {save.isPending ? "Saving…" : "Save quote page"}
@@ -186,8 +243,17 @@ export const QuotePageSettings = ({
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-5">
-        <div className="flex flex-col gap-4 lg:col-span-3">
+      <div className={`grid gap-4 ${limited ? "" : "lg:grid-cols-5"}`}>
+        <div className={`flex flex-col gap-4 ${limited ? "" : "lg:col-span-3"}`}>
+          {isBranch && view !== "page" ? (
+            <Panel title={serviceName(view)}>
+              <p className="text-sm text-gray-500">
+                What this page quotes for, and the questions it asks, are set once on the company page — this branch
+                offers the same. It can differ on its link, its wording and who its leads go to.
+              </p>
+            </Panel>
+          ) : view === "page" ? (
+            <>
           <Panel title="Your page" hint="The link you share on your website, social profiles and WhatsApp status.">
             <label className="flex cursor-pointer items-start gap-3">
               <input
@@ -198,14 +264,14 @@ export const QuotePageSettings = ({
               />
               <span>
                 <span className="block text-sm font-semibold text-gray-800">Published</span>
-                <span className="block text-xs text-gray-400">Anyone with the link can price a move and send you their details.</span>
+                <span className="block text-xs text-gray-400">Anyone with the link can ask you for a quote and leave their details.</span>
               </span>
             </label>
             <div className="mt-4">
               <p className="mb-1.5 text-xs font-medium text-gray-600">Your link</p>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <div className="flex min-w-0 flex-1 items-center rounded-xl border border-gray-200 bg-white focus-within:border-brand focus-within:ring-4 focus-within:ring-orange-50">
-                  <span className="shrink-0 truncate pl-3 text-sm text-gray-400">{window.location.host}/quote/</span>
+                  <span className="shrink-0 truncate pl-3 text-sm text-gray-400">{link.replace(/[^/]+$/, "")}</span>
                   <input
                     value={current.slug}
                     onChange={(e) => update({ slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 48) })}
@@ -239,13 +305,23 @@ export const QuotePageSettings = ({
           </Panel>
 
           <Panel title="Wording">
-            <div className="flex flex-col gap-3">
-              <TextField label="Headline" value={current.headline} max={120} onChange={(headline) => update({ headline })} />
-              <TextField label="Introduction" value={current.intro} max={500} multiline placeholder="Who you are, where you move people, what makes you different." onChange={(intro) => update({ intro })} />
+            {isBranch && (
+              <InheritSwitch
+                label="Use the company page's wording"
+                inherited={wordingInherited}
+                onChange={(inherit) => {
+                  setUnlocked((u) => ({ ...u, wording: !inherit }));
+                  if (inherit) update({ headline: null, intro: null, follow_up_note: null });
+                }}
+              />
+            )}
+            <div className={`flex flex-col gap-3 ${wordingInherited ? "pointer-events-none opacity-50" : ""}`}>
+              <TextField label="Headline" value={wording.headline} max={120} onChange={(headline) => update({ headline })} />
+              <TextField label="Introduction" value={wording.intro} max={500} multiline placeholder="Who you are, where you move people, what makes you different." onChange={(intro) => update({ intro })} />
               <TextField
                 label="What happens next"
-                hint="Shown with the quote, and in the copy we send the customer."
-                value={current.follow_up_note}
+                hint="Shown with their request, and in the copy we send the customer."
+                value={wording.follow_up_note}
                 max={300}
                 multiline
                 onChange={(follow_up_note) => update({ follow_up_note })}
@@ -253,47 +329,24 @@ export const QuotePageSettings = ({
             </div>
           </Panel>
 
-          <Panel title="Price lists on the page" hint="Only saved lists can be offered.">
-            {savedSets.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                You haven't saved a price list yet.{" "}
-                <button type="button" onClick={onOpenPriceLists} className="font-semibold text-brand hover:text-brand-hover">
-                  Set up your prices
-                </button>
-              </p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {savedSets.map((s) => {
-                  const hasPrices = pricedSets.includes(s);
-                  return (
-                    <label key={s.country} className={`flex items-center gap-3 ${hasPrices ? "cursor-pointer" : "opacity-50"}`}>
-                      <input
-                        type="checkbox"
-                        disabled={!hasPrices}
-                        checked={current.countries.includes(s.country)}
-                        onChange={(e) =>
-                          update({
-                            countries: e.target.checked
-                              ? [...current.countries, s.country]
-                              : current.countries.filter((c) => c !== s.country),
-                          })
-                        }
-                        className="h-4 w-4 accent-[#F14724]"
-                      />
-                      <span className="text-sm text-gray-800">{s.country}</span>
-                      <span className="text-xs text-gray-400">{s.currency}{hasPrices ? "" : " · no prices yet"}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-          </Panel>
-
           <Panel
-            title="Where customers send you their quote"
-            hint="After pricing, a customer taps one of these and their app opens with the quote typed. Leave one empty to hide it."
+            title="Where customers send you their request"
+            hint="Once they've filled in your questions, a customer taps one of these and their app opens with their request typed. Leave one empty to hide it."
           >
-            <div className="flex flex-col gap-3">
+            {isBranch && (
+              <InheritSwitch
+                label="Use the company page's contacts"
+                hint="Switch this off to send this branch's leads to its own people."
+                inherited={contactsInherited}
+                onChange={(inherit) => {
+                  setUnlocked((u) => ({ ...u, contacts: !inherit }));
+                  // Contacts are one set, so the branch starts from a copy of
+                  // the company's and edits from there.
+                  update({ contact_channels: inherit ? null : effective.contact_channels });
+                }}
+              />
+            )}
+            <div className={`flex flex-col gap-3 ${contactsInherited ? "pointer-events-none opacity-50" : ""}`}>
               {CONTACT_CHANNELS.filter((c) => c.kind === "single").map((c) => (
                 <div key={c.id} className="flex flex-col gap-1 sm:flex-row sm:items-start sm:gap-3">
                   <span className="flex w-32 shrink-0 items-center gap-2 pt-2.5 text-sm font-medium text-gray-700">
@@ -302,8 +355,8 @@ export const QuotePageSettings = ({
                   </span>
                   <div className="min-w-0 flex-1">
                     <input
-                      value={(current.contact_channels[c.id as "email" | "instagram"] as string) ?? ""}
-                      onChange={(e) => update({ contact_channels: { ...current.contact_channels, [c.id]: e.target.value } })}
+                      value={(contacts[c.id as "email"] as string) ?? ""}
+                      onChange={(e) => update({ contact_channels: { ...contacts, [c.id]: e.target.value } })}
                       placeholder={c.placeholder}
                       aria-label={c.inputLabel}
                       className={inputClass}
@@ -320,19 +373,24 @@ export const QuotePageSettings = ({
                   icon={c.icon}
                   placeholder={c.placeholder}
                   hint={c.hint}
-                  value={current.contact_channels[c.id as QuoteListChannel]}
+                  value={contacts[c.id as QuoteListChannel]}
                   teammates={teammates}
-                  onChange={(value) =>
-                    update({ contact_channels: { ...current.contact_channels, [c.id]: value } })
-                  }
+                  onChange={(value) => update({ contact_channels: { ...contacts, [c.id]: value } })}
                 />
               ))}
             </div>
           </Panel>
 
+          {isBranch ? (
+            <Panel title="Send customers their own copy">
+              <p className="text-sm text-gray-500">
+                Set once on the company page, for every branch.
+              </p>
+            </Panel>
+          ) : (
           <Panel
             title="Send customers their own copy"
-            hint="The customer picks one of these, or none. It goes out from Azapal in your name, with your logo and colour."
+            hint="Their own copy of the quote, by email, sent from Azapal in your name with your logo and colour."
           >
             <div className="flex flex-col gap-2.5">
               {COPY_CHANNELS.map((c) => {
@@ -365,6 +423,9 @@ export const QuotePageSettings = ({
             </div>
           </Panel>
 
+          )}
+
+          {!limited && (
           <Panel title="Branding" hint="The page uses your invoice branding, so the quote and the invoice after it match.">
             <div className="flex items-center gap-3">
               {branding?.logo_url ? (
@@ -386,16 +447,109 @@ export const QuotePageSettings = ({
               </button>
             </div>
           </Panel>
+          )}
+            </>
+          ) : (
+            (() => {
+            const meta = available.find((a) => a.service === view);
+            const entry = current.services.find((x) => x.service === view);
+            if (!meta) {
+              return (
+                <Panel title={entry?.label ?? "Service"}>
+                  <p className="text-sm text-gray-500">
+                    You don't offer this service any more, so it's off your page. Tick it again under{" "}
+                    <Link to="/service" className="font-semibold text-brand hover:text-brand-hover">Services</Link>{" "}
+                    and your questions for it will still be here.
+                  </p>
+                </Panel>
+              );
+            }
+            const offer = (on: boolean) =>
+              update({
+                services: on
+                  ? [...current.services, { service: meta.service, label: meta.name, blurb: "", prompt: "", questions: [] }]
+                  : current.services.filter((x) => x.service !== meta.service),
+              });
+            const patch = (fields: Partial<QuotePageService>) =>
+              update({ services: current.services.map((x) => (x.service === view ? { ...x, ...fields } : x)) });
+
+            return (
+              <>
+                <Panel title={meta.name} hint="Customers answer your questions; you come back with a price.">
+                  <label className="flex cursor-pointer items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={!!entry}
+                      onChange={(e) => offer(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 accent-[#F14724]"
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold text-gray-800">Offer this on your quote page</span>
+                      <span className="block text-xs text-gray-400">
+                        {meta.description || "Customers ask you for a price for it."}
+                      </span>
+                    </span>
+                  </label>
+
+                  {entry && (
+                    <div className="mt-4 flex flex-col gap-3">
+                      <TextField
+                        label="What customers see it called"
+                        value={entry.label}
+                        max={80}
+                        placeholder={meta.name}
+                        onChange={(label) => patch({ label })}
+                      />
+                      <TextField
+                        label="A line about it"
+                        value={entry.blurb}
+                        max={300}
+                        placeholder="Shown under the name on the page"
+                        onChange={(blurb) => patch({ blurb })}
+                      />
+                    </div>
+                  )}
+                </Panel>
+
+                {entry && (
+                  <Panel
+                    title="Your quote questions"
+                    hint="What you need to know before you can price the job. The answers come to you with the customer's details."
+                  >
+                    <QuoteQuestionsEditor questions={entry.questions ?? []} onChange={(questions) => patch({ questions })} />
+                    <div className="mt-4">
+                      <TextField
+                        label="Closing question"
+                        hint={
+                          (entry.questions ?? []).length
+                            ? "An open box at the end, for anything your questions don't cover. Leave it empty to skip it."
+                            : "With no questions above, this is the one thing a customer is asked."
+                        }
+                        value={entry.prompt}
+                        max={200}
+                        placeholder={DEFAULT_PROMPT}
+                        onChange={(prompt) => patch({ prompt })}
+                      />
+                    </div>
+                  </Panel>
+                )}
+
+              </>
+            );
+            })()
+          )}
         </div>
 
+        {!limited && (
         <div className="lg:col-span-2">
           <div className="lg:sticky lg:top-4">
             <p className="mb-2 text-xs font-medium text-gray-400">Preview — nothing is saved or sent from here</p>
             <div className="max-h-[80vh] overflow-y-auto rounded-3xl border border-gray-200 shadow-card">
-              <QuotePageView page={preview} embedded />
+              <QuotePageView key={preview.services.map((s) => s.service).join()} page={preview} embedded />
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {showBranding && <DocumentBrandingModal onClose={() => setShowBranding(false)} />}
@@ -407,26 +561,53 @@ export const QuotePageSettings = ({
  * What the preview shows as the contact for each channel: the first number,
  * which is also what a real page shows before interchange takes its turn.
  */
-const previewAddresses = (settings: SaveQuotePagePayload, teammates: QuoteTeammate[]) => {
+const previewAddresses = (channels: QuoteContactChannels, teammates: QuoteTeammate[]) => {
   const addresses: Partial<Record<QuoteContactChannel, string>> = {};
-  for (const channel of ["email", "instagram"] as const) {
-    const value = settings.contact_channels[channel];
-    if (value && value.trim()) addresses[channel] = value.trim();
-  }
-  for (const channel of ["whatsapp", "sms"] as const) {
-    const list: QuoteContactList | undefined = settings.contact_channels[channel];
+  const email = channels.email;
+  if (email && email.trim()) addresses.email = email.trim();
+  for (const channel of ["whatsapp", "sms", "instagram"] as const) {
+    const list: QuoteContactList | undefined = channels[channel];
     for (const contact of list?.contacts ?? []) {
-      const phone = contact.employee_id
-        ? teammates.find((t) => t.id === contact.employee_id)?.phone
-        : contact.phone;
-      if (phone?.trim()) {
-        addresses[channel] = phone.trim();
+      const teammate = teammates.find((t) => t.id === contact.employee_id);
+      const address = contact.employee_id
+        ? channel === "instagram" ? teammate?.social_handle : teammate?.phone
+        : contact.address;
+      if (address?.trim()) {
+        addresses[channel] = address.trim();
         break;
       }
     }
   }
   return addresses;
 };
+
+/** Inherit from the company page, or set this branch's own. */
+const InheritSwitch = ({
+  label,
+  hint,
+  inherited,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  inherited: boolean;
+  onChange: (inherited: boolean) => void;
+}) => (
+  <label className="mb-3 flex cursor-pointer items-start gap-3 rounded-xl bg-gray-50 px-3.5 py-3">
+    <input
+      type="checkbox"
+      checked={inherited}
+      onChange={(e) => onChange(e.target.checked)}
+      className="mt-0.5 h-4 w-4 accent-[#F14724]"
+    />
+    <span>
+      <span className="block text-sm font-medium text-gray-800">{label}</span>
+      <span className="block text-[11px] text-gray-400">
+        {hint ?? "Changes on the company page reach this branch while this is on."}
+      </span>
+    </span>
+  </label>
+);
 
 const Panel = ({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) => (
   <section className="rounded-2xl bg-white p-5 shadow-card">

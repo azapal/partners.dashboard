@@ -18,6 +18,8 @@ export interface User {
   invite_role: string;
   status: 'active' | 'pending' | 'suspended' | 'terminated';
   phone?: string;
+  /** Their own social handle — lets them answer a quote page's Instagram contact. */
+  social_handle?: string;
   joined_at?: string;
   reports_to?: string;
 }
@@ -31,6 +33,8 @@ function mapInvite(inv: PartnerInvite): User {
     branch: inv.branch?.branch_code ?? '',
     invite_role: inv.invite_role?.name ?? '',
     status: inv.status ? 'active' : 'pending',
+    phone: inv.phone ?? undefined,
+    social_handle: inv.social_handle ?? undefined,
     joined_at: inv.created_at?.slice(0, 10),
   };
 }
@@ -112,7 +116,7 @@ const UserManagementScreen: React.FC = () => {
     });
   };
 
-  const handleInvite = (data: { email: string; first_name: string; last_name: string; branch?: string; invite_role: string }) => {
+  const handleInvite = (data: { email: string; first_name: string; last_name: string; phone?: string; social_handle?: string; branch?: string; invite_role: string }) => {
     setInviteError(null);
     createInvite(data, {
       onSuccess: () => setIsInviteOpen(false),

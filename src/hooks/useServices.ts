@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { partnerServicesService, serviceService } from '../service/partnerService';
 import type { ServiceConfigResponses } from '../service/partnerService';
+import { quotePageKeys } from './useQuotePage';
 
 export const useGetServices = () =>
   useQuery({
@@ -25,11 +26,8 @@ export const useSaveServiceConfig = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (responses: ServiceConfigResponses) => partnerServicesService.saveConfig(responses),
-    // Saving answers also marks those services as offered server-side, so the
-    // selection is stale too — not just the answers.
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['partner-service-config'] });
-      qc.invalidateQueries({ queryKey: ['partner-services'] });
     },
   });
 };
@@ -38,6 +36,10 @@ export const useUpdatePartnerServices = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (serviceIds: number[]) => partnerServicesService.updateSelected(serviceIds),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['partner-services'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['partner-services'] });
+      // What a quote page can offer follows what's ticked here.
+      qc.invalidateQueries({ queryKey: quotePageKeys.all });
+    },
   });
 };

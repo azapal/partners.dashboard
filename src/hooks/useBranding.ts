@@ -16,8 +16,11 @@ const useSessionReady = () => {
  * Read by every document preview, so it's held for the session — branding changes
  * rarely and refetching it per preview would be wasteful.
  */
-export const useDocumentBranding = () => {
-  const enabled = useSessionReady();
+export const useDocumentBranding = (wanted = true) => {
+  // Reading branding needs admin rights, so callers who don't have them (a
+  // branch manager setting up their own quote page) pass false rather than
+  // taking a 403, which the app treats as a dead session.
+  const enabled = useSessionReady() && wanted;
   return useQuery({
     queryKey: brandingKeys.all,
     queryFn: () => brandingService.get(),

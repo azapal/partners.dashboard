@@ -14,9 +14,10 @@ import { useRepProfile } from './useRepAuth';
 
 export const quotePageKeys = {
   all: ['quote-page'] as const,
-  settings: () => [...quotePageKeys.all, 'settings'] as const,
+  settings: (branchId?: number | null) => [...quotePageKeys.all, 'settings', branchId ?? 'company'] as const,
+  pages: () => [...quotePageKeys.all, 'pages'] as const,
   teammates: () => [...quotePageKeys.all, 'teammates'] as const,
-  requests: () => [...quotePageKeys.all, 'requests'] as const,
+  requests: (branchId?: number | null) => [...quotePageKeys.all, 'requests', branchId ?? 'all'] as const,
   public: (slug: string) => [...quotePageKeys.all, 'public', slug] as const,
 };
 
@@ -28,21 +29,38 @@ const useSessionReady = () => {
 
 // ── Partner ───────────────────────────────────────────────────────────────────
 
-export const useQuotePageSettings = () => {
+/** The company's page, or one branch's. */
+export const useQuotePageSettings = (branchId?: number | null) => {
   const enabled = useSessionReady();
   return useQuery({
-    queryKey: quotePageKeys.settings(),
-    queryFn: () => quotePageService.getSettings(),
+    queryKey: quotePageKeys.settings(branchId),
+    queryFn: () => quotePageService.getSettings(branchId),
     enabled,
   });
 };
 
-/** Writes the server's normalised copy straight back, as move rates do — see useMoveRates. */
-export const useSaveQuotePageSettings = () => {
+/** Every page this partner has — the company's and one per branch. */
+export const useQuotePages = () => {
+  const enabled = useSessionReady();
+  return useQuery({
+    queryKey: quotePageKeys.pages(),
+    queryFn: () => quotePageService.listPages(),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+/** Writes the server's normalised copy straight back, so the editor sees what was saved. */
+export const useSaveQuotePageSettings = (branchId?: number | null) => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: SaveQuotePagePayload) => quotePageService.saveSettings(payload),
-    onSuccess: (saved) => qc.setQueryData<QuotePageSettings>(quotePageKeys.settings(), saved),
+    mutationFn: (payload: SaveQuotePagePayload) => quotePageService.saveSettings(payload, branchId),
+    onSuccess: (saved) => {
+      qc.setQueryData<QuotePageSettings>(quotePageKeys.settings(branchId), saved);
+      // A page that has just come into existence, or changed its link, changes
+      // the list the switcher reads.
+      qc.invalidateQueries({ queryKey: quotePageKeys.pages() });
+    },
   });
 };
 
@@ -57,11 +75,11 @@ export const useQuoteTeammates = () => {
   });
 };
 
-export const useQuoteRequests = () => {
+export const useQuoteRequests = (branchId?: number | null) => {
   const enabled = useSessionReady();
   return useQuery({
-    queryKey: quotePageKeys.requests(),
-    queryFn: () => quotePageService.listRequests(),
+    queryKey: quotePageKeys.requests(branchId),
+    queryFn: () => quotePageService.listRequests(branchId),
     enabled,
     // Leads arrive from outside the dashboard, so the app-wide minute of
     // staleness would hide one that landed a second ago: fetch whenever the
@@ -78,7 +96,8 @@ export const useUpdateQuoteRequestStatus = () => {
     mutationFn: ({ reference, status }: { reference: string; status: QuoteRequestStatus }) =>
       quotePageService.updateRequestStatus(reference, status),
     onSuccess: (updated) =>
-      qc.setQueryData<QuoteRequestRecord[]>(quotePageKeys.requests(), (prev = []) =>
+      // The same lead can sit in more than one list (all, and its branch's).
+      qc.setQueriesData<QuoteRequestRecord[]>({ queryKey: [...quotePageKeys.all, 'requests'] }, (prev = []) =>
         prev.map((r) => (r.reference === updated.reference ? updated : r)),
       ),
   });

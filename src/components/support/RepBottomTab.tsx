@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useRepProfile } from "../../hooks/useRepAuth";
-import { isManagerRole } from "../../service/repService";
+import { canWorkQuoteLeads, isManagerRole } from "../../service/repService";
 
 interface TabItem {
   to: string;
@@ -11,6 +11,7 @@ interface TabItem {
 const tabs: TabItem[] = [
   { to: "/support/dashboard", icon: "ri-home-6-line", label: "Dashboard" },
   { to: "/support/orders", icon: "ri-truck-line", label: "Orders" },
+  { to: "/support/quote-requests", icon: "ri-price-tag-3-line", label: "Quotes" },
   { to: "/support/team", icon: "ri-team-line", label: "Team" },
   { to: "/support/shift-mates", icon: "ri-group-line", label: "Shift Mates" },
   { to: "/support/profile", icon: "ri-user-settings-line", label: "Profile" },
@@ -18,7 +19,11 @@ const tabs: TabItem[] = [
 
 export const RepBottomTab = () => {
   const profile = useRepProfile();
-  const visibleTabs = tabs.filter((t) => t.to !== "/support/team" || isManagerRole(profile?.invite_role?.name));
+  const visibleTabs = tabs.filter((t) =>
+    t.to === "/support/team"
+      ? isManagerRole(profile?.invite_role?.name)
+      : t.to !== "/support/quote-requests" || canWorkQuoteLeads(profile?.invite_role?.name),
+  );
 
   return (
     <div className="w-full flex md:hidden items-center justify-center fixed bottom-0 right-0 left-0 pb-safe z-30">

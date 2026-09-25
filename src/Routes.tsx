@@ -40,6 +40,8 @@ import OrdersScreen from "./views/support/OrdersScreen";
 import TeamOverviewScreen from "./views/support/TeamOverviewScreen";
 import RepProfileScreen from "./views/support/RepProfileScreen";
 import ShiftMateScreen from "./views/support/ShiftMateScreen";
+import { RepQuoteRequestsScreen } from "./views/support/RepQuoteRequestsScreen";
+import { RepQuotePageScreen } from "./views/support/RepQuotePageScreen";
 import { RepRequireAuth } from "./components/support/RepRequireAuth";
 import { RequireAuth } from "./components/RequireAuth";
 import { BillsScreen } from "./views/BillsScreen";
@@ -47,7 +49,7 @@ import { FleetListingScreen } from "./views/FleetListingScreen";
 import { CustodyScreen } from "./views/CustodyScreen";
 import { MobilityScreen } from "./views/MobilityScreen";
 import { ChargeableWeightScreen } from "./views/ChargeableWeightScreen";
-import { MoveRatesScreen } from "./views/MoveRatesScreen";
+import { QuotePageScreen } from "./views/QuotePageScreen";
 import { PublicQuoteScreen } from "./views/PublicQuoteScreen";
 
 export const AppRoutes = () => {
@@ -61,7 +63,7 @@ export const AppRoutes = () => {
       <Route path="/custody" element={<RequireAuth><CustodyScreen /></RequireAuth>} />
       <Route path="/mobility" element={<RequireAuth><MobilityScreen /></RequireAuth>} />
       <Route path="/chargeable-weight" element={<RequireAuth><ChargeableWeightScreen /></RequireAuth>} />
-      <Route path="/move-rates" element={<RequireAuth><MoveRatesScreen /></RequireAuth>} />
+      <Route path="/quote-page" element={<RequireAuth><QuotePageScreen /></RequireAuth>} />
       {/* Public: a partner's customers, no login. */}
       <Route path="/quote/:slug" element={<PublicQuoteScreen />} />
       <Route path="/login/otp" element={<OtpScreen />} />
@@ -119,6 +121,16 @@ export const AppRoutes = () => {
             <TeamOverviewScreen />
           </RepRequireAuth>
         }
+      />
+      {/* A branch's own quote page, for the manager who runs it. */}
+      <Route
+        path="/support/quote-page"
+        element={<RepRequireAuth><RepQuotePageScreen /></RepRequireAuth>}
+      />
+      {/* Leads, for the managers and support staff who chase them. */}
+      <Route
+        path="/support/quote-requests"
+        element={<RepRequireAuth><RepQuoteRequestsScreen /></RepRequireAuth>}
       />
       <Route
         path="/support/profile"

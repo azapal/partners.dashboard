@@ -18,7 +18,10 @@ export const signpostFor = (question: string): Signpost[] => {
     if (!hits.some((h) => h.to === to)) hits.push({ label, to });
   };
 
-  if (/rate|price|pricing|quote|cost|charge/.test(q)) add("Rates & rate cards", "/rates");
+  // A quote is a customer asking for a price, which lives on its own page; the
+  // partner's own pricing is the rate cards. A question about both gets both.
+  if (/quote|lead|enquir/.test(q)) add("Quote page", "/quote-page");
+  if (/rate|price|pricing|cost|charge/.test(q)) add("Rates & rate cards", "/rates");
   // "how much did Ikeja take yesterday" is the PRD's own daily-brief example;
   // until that brief exists it is a performance-and-wallet question.
   if (/how much|revenue|earn|took|take|turnover|income|made/.test(q)) {

@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { useQuoteRequests, useUpdateQuoteRequestStatus } from "../../hooks/useQuotePage";
-import { currencySymbol, money } from "../../lib/data/moveRates";
 import { channelIcon, channelLabel } from "../../lib/quotePage";
 import type { QuoteContactChannel, QuoteRequestRecord, QuoteRequestStatus } from "../../service/partnerService";
 
 /**
- * The quotes customers took from the public page — the partner's leads.
+ * The requests customers left on the public page — the partner's leads.
  *
- * Each one is a snapshot of what the customer was told, so it reads the same
- * however the price list has changed since. The partner moves it through
- * new → contacted → booked / lost; nothing else changes it.
+ * Each one is a snapshot of what the customer was asked and answered, so it
+ * reads the same however the partner has reworded their questions since. The
+ * partner moves it through new → contacted → booked / lost; nothing else
+ * changes it.
  */
 
 const STATUSES: { id: QuoteRequestStatus; label: string; tone: string }[] = [
@@ -29,10 +29,19 @@ const COPY_NOTE: Record<QuoteRequestRecord["copy_status"], string> = {
 const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
-export const QuoteRequestsPanel = ({ onOpenSettings }: { onOpenSettings: () => void }) => {
-  const { data: requests = [], isPending, isError, error, refetch } = useQuoteRequests();
+/** `onOpenSettings` is omitted where the viewer can't edit the page — support staff. */
+export const QuoteRequestsPanel = ({
+  onOpenSettings,
+  branchId = null,
+}: {
+  onOpenSettings?: () => void;
+  /** Narrows to one branch's leads; null is everything the viewer may see. */
+  branchId?: number | null;
+}) => {
+  const { data: requests = [], isPending, isError, error, refetch } = useQuoteRequests(branchId);
   const updateStatus = useUpdateQuoteRequestStatus();
   const [filter, setFilter] = useState<QuoteRequestStatus | "all">("all");
+  const [serviceFilter, setServiceFilter] = useState("all");
   const [open, setOpen] = useState<string | null>(null);
 
   if (isPending || isError) {
@@ -57,18 +66,24 @@ export const QuoteRequestsPanel = ({ onOpenSettings }: { onOpenSettings: () => v
       <div className="flex flex-col items-center gap-3 rounded-2xl bg-white px-6 py-14 text-center shadow-card">
         <i className="ri-inbox-2-line text-3xl text-gray-300" />
         <p className="text-sm text-gray-500">No quotes yet. They'll appear here as customers use your quote page.</p>
-        <button type="button" onClick={onOpenSettings} className="text-sm font-semibold text-brand hover:text-brand-hover">
-          Set up and share your quote page
-        </button>
+        {onOpenSettings && (
+          <button type="button" onClick={onOpenSettings} className="text-sm font-semibold text-brand hover:text-brand-hover">
+            Set up and share your quote page
+          </button>
+        )}
       </div>
     );
   }
 
-  const shown = filter === "all" ? requests : requests.filter((r) => r.status === filter);
+  const services = [...new Set(requests.map((r) => r.service))];
+  const labels = Object.fromEntries(requests.map((r) => [r.service, r.service_label]));
+  const shown = requests.filter(
+    (r) => (filter === "all" || r.status === filter) && (serviceFilter === "all" || r.service === serviceFilter),
+  );
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         {[{ id: "all" as const, label: "All" }, ...STATUSES].map((s) => {
           const count = s.id === "all" ? requests.length : requests.filter((r) => r.status === s.id).length;
           return (
@@ -84,6 +99,20 @@ export const QuoteRequestsPanel = ({ onOpenSettings }: { onOpenSettings: () => v
             </button>
           );
         })}
+        {/* Only worth showing once the page offers more than one thing. */}
+        {services.length > 1 && (
+          <select
+            value={serviceFilter}
+            onChange={(e) => setServiceFilter(e.target.value)}
+            aria-label="Filter by service"
+            className="ml-auto rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-500 shadow-card outline-none"
+          >
+            <option value="all">All services</option>
+            {services.map((id) => (
+              <option key={id} value={id}>{labels[id] ?? id}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {updateStatus.error && <p className="text-xs text-red-600">{updateStatus.error.message}</p>}
@@ -91,7 +120,6 @@ export const QuoteRequestsPanel = ({ onOpenSettings }: { onOpenSettings: () => v
       <div className="divide-y divide-gray-100 overflow-hidden rounded-2xl bg-white shadow-card">
         {shown.length === 0 && <p className="px-5 py-10 text-center text-sm text-gray-400">Nothing here.</p>}
         {shown.map((r) => {
-          const symbol = currencySymbol(r.currency);
           const expanded = open === r.reference;
           const phoneDigits = r.customer_phone.replace(/^\+/, "");
           return (
@@ -110,11 +138,13 @@ export const QuoteRequestsPanel = ({ onOpenSettings }: { onOpenSettings: () => v
                       <span className="ml-2 font-mono text-[11px] font-normal text-gray-400">{r.reference}</span>
                     </span>
                     <span className="block truncate text-xs text-gray-500">
-                      {r.lines[0]?.label}
-                      {r.lines[0]?.detail ? ` · ${r.lines[0].detail}` : ""} · {r.country}
+                      {[r.service_label, r.answers[0] ? `${r.answers[0].label}: ${r.answers[0].value}` : "", r.details]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </span>
                     <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-gray-400">
                       {when(r.created_at)}
+                      {!branchId && r.branch && <span>· {r.branch.branch_code}</span>}
                       {r.contacted_via.length > 0 && (
                         <span className="flex items-center gap-1" title="Sent to you on">
                           · sent on
@@ -127,7 +157,7 @@ export const QuoteRequestsPanel = ({ onOpenSettings }: { onOpenSettings: () => v
                     </span>
                   </span>
                 </button>
-                <span className="shrink-0 text-base font-bold text-gray-900 sm:w-32 sm:text-right">{money(symbol, r.total)}</span>
+                <span className="shrink-0 text-xs font-semibold text-gray-400 sm:w-32 sm:text-right">To quote</span>
                 <select
                   value={r.status}
                   onChange={(e) => updateStatus.mutate({ reference: r.reference, status: e.target.value as QuoteRequestStatus })}
@@ -145,15 +175,7 @@ export const QuoteRequestsPanel = ({ onOpenSettings }: { onOpenSettings: () => v
               {expanded && (
                 <div className="grid gap-4 bg-gray-50/60 px-5 pb-5 pt-1 sm:grid-cols-2 sm:pl-12">
                   <div>
-                    {r.lines.map((line, i) => (
-                      <div key={`${line.label}-${i}`} className="flex justify-between gap-3 py-0.5 text-xs">
-                        <span className="text-gray-600">
-                          {line.label}
-                          {line.detail && <span className="text-gray-400"> · {line.detail}</span>}
-                        </span>
-                        <span className="shrink-0 text-gray-800">{money(symbol, line.amount)}</span>
-                      </div>
-                    ))}
+                    {r.details && <p className="whitespace-pre-wrap text-xs text-gray-700">{r.details}</p>}
                     {r.answers.map((a) => (
                       <p key={a.label} className="mt-1 text-xs text-gray-500">
                         {a.label}: <span className="text-gray-800">{a.value}</span>
@@ -170,19 +192,19 @@ export const QuoteRequestsPanel = ({ onOpenSettings }: { onOpenSettings: () => v
                     {Object.entries(r.assigned_contacts ?? {}).map(([channel, contact]) => (
                       <p key={channel} className="text-[11px] text-gray-400">
                         {channelLabel(channel as QuoteContactChannel)} went to{" "}
-                        <span className="text-gray-600">{contact.label || contact.phone}</span>
+                        <span className="text-gray-600">{contact.label || contact.address}</span>
                       </p>
                     ))}
                     <div className="flex flex-wrap gap-2">
                       <ReachOut href={`tel:${r.customer_phone}`} icon="ri-phone-line" label="Call" />
                       <ReachOut
-                        href={`https://wa.me/${phoneDigits}?text=${encodeURIComponent(`Hi ${r.customer_name}, it's about your moving quote ${r.reference}.`)}`}
+                        href={`https://wa.me/${phoneDigits}?text=${encodeURIComponent(`Hi ${r.customer_name}, it's about your quote request ${r.reference}.`)}`}
                         icon="ri-whatsapp-line"
                         label="WhatsApp"
                         external
                       />
                       {r.customer_email && (
-                        <ReachOut href={`mailto:${r.customer_email}?subject=${encodeURIComponent(`Your moving quote ${r.reference}`)}`} icon="ri-mail-line" label="Email" />
+                        <ReachOut href={`mailto:${r.customer_email}?subject=${encodeURIComponent(`Your quote request ${r.reference}`)}`} icon="ri-mail-line" label="Email" />
                       )}
                     </div>
                   </div>

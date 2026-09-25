@@ -40,7 +40,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     label: "Last mile",
     icon: "ri-truck-line",
     caption: "Everything that moves a delivery",
-    owns: ["/dashboard", "/transactions", "/custody", "/customers", "/rates", "/move-rates", "/service", "/chargeable-weight"],
+    owns: ["/dashboard", "/transactions", "/custody", "/customers", "/rates", "/quote-page", "/service", "/chargeable-weight"],
     items: [
       { to: "/dashboard", icon: "ri-home-6-line", label: "Dashboard", keywords: ["home", "overview"] },
       { to: "/transactions", icon: "ri-exchange-line", label: "Orders", keywords: ["orders", "deliveries", "dispatch"] },
@@ -48,7 +48,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
       { to: "/customers", icon: "ri-user-3-line", label: "Customers", keywords: ["clients"] },
       { to: "/service", icon: "ri-task-line", label: "Services", keywords: ["services", "coverage"] },
       { to: "/rates", icon: "ri-price-tag-3-line", label: "Rates", keywords: ["rates", "pricing"] },
-      { to: "/move-rates", icon: "ri-home-gear-line", label: "Move rates", keywords: ["relocation", "moving", "removals", "cbm"] },
+      { to: "/quote-page", icon: "ri-price-tag-3-line", label: "Quote page", keywords: ["quote", "leads", "quote requests", "enquiries"] },
       { to: "/chargeable-weight", icon: "ri-scales-3-line", label: "Chargeable weight", keywords: ["weight", "volumetric", "dim weight", "reweigh"] },
     ],
   },

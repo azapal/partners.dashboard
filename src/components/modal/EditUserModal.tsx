@@ -18,6 +18,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, o
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
+  const [socialHandle, setSocialHandle] = useState('');
   const [branch, setBranch] = useState('');
   const [role, setRole] = useState('');
 
@@ -33,6 +34,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, o
       setFirstName(user.first_name);
       setLastName(user.last_name);
       setPhone(user.phone ?? '');
+      setSocialHandle(user.social_handle ?? '');
       setBranch(user.branch);
       setRole(user.invite_role);
     }
@@ -57,7 +59,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, o
 
   const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
-    onUpdate(user.id, { first_name: firstName, last_name: lastName, phone, branch, invite_role: role });
+    onUpdate(user.id, { first_name: firstName, last_name: lastName, phone, social_handle: socialHandle, branch, invite_role: role });
   };
 
   return (
@@ -76,6 +78,8 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, o
         </div>
 
         <Field label="Phone" value={phone} onChange={setPhone} placeholder="+234 800 000 0000" />
+
+        <Field label="Social handle" value={socialHandle} onChange={setSocialHandle} placeholder="@theirhandle" />
 
         {branchesLoading ? (
           <SelectSkeleton label="Branch" />

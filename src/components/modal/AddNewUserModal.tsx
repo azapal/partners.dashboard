@@ -14,7 +14,15 @@ interface AddNewUserModalProps {
    * initial state alone would be wiped by that reset.
    */
   prefill?: { email?: string; first_name?: string; last_name?: string };
-  onInvite: (user: { email: string; first_name: string; last_name: string; branch?: string; invite_role: string }) => void;
+  onInvite: (user: {
+    email: string;
+    first_name: string;
+    last_name: string;
+    phone?: string;
+    social_handle?: string;
+    branch?: string;
+    invite_role: string;
+  }) => void;
   error?: string | null;
   isSubmitting?: boolean;
 }
@@ -23,6 +31,8 @@ export const AddNewUserModal: React.FC<AddNewUserModalProps> = ({ isOpen, onClos
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [socialHandle, setSocialHandle] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('');
   const [selectedRole, setSelectedRole] = useState('');
 
@@ -49,6 +59,8 @@ export const AddNewUserModal: React.FC<AddNewUserModalProps> = ({ isOpen, onClos
       setEmail(prefill?.email ?? '');
       setFirstName(prefill?.first_name ?? '');
       setLastName(prefill?.last_name ?? '');
+      setPhone('');
+      setSocialHandle('');
       setSelectedBranch('');
       setSelectedRole('');
     }
@@ -61,6 +73,8 @@ export const AddNewUserModal: React.FC<AddNewUserModalProps> = ({ isOpen, onClos
       email,
       first_name: firstName,
       last_name: lastName,
+      ...(phone.trim() ? { phone: phone.trim() } : {}),
+      ...(socialHandle.trim() ? { social_handle: socialHandle.trim() } : {}),
       ...(selectedBranch ? { branch: selectedBranch } : {}),
       invite_role: selectedRole,
     });
@@ -94,6 +108,13 @@ export const AddNewUserModal: React.FC<AddNewUserModalProps> = ({ isOpen, onClos
         <div className="grid grid-cols-2 gap-3">
           <Field label="First Name" value={firstName} onChange={setFirstName} placeholder="First name" required />
           <Field label="Last Name" value={lastName} onChange={setLastName} placeholder="Last name" required />
+        </div>
+
+        {/* Optional, but they're what lets this person be put on a quote page as
+            someone customers reach — see the quote page's contacts. */}
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Phone" value={phone} onChange={setPhone} placeholder="+234 803 123 4567" icon="ri-phone-line" />
+          <Field label="Social handle" value={socialHandle} onChange={setSocialHandle} placeholder="@theirhandle" icon="ri-instagram-line" />
         </div>
 
         {branchesLoading ? (

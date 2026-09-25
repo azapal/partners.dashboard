@@ -22,7 +22,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/service", icon: "ri-task-line", label: "Services", keywords: ["services", "coverage", "offerings"] },
       { to: "/rates", icon: "ri-price-tag-3-line", label: "Rates", keywords: ["rates", "pricing", "rate cards", "price"] },
-      { to: "/move-rates", icon: "ri-home-gear-line", label: "Move Rates", keywords: ["relocation", "moving", "removals", "house move", "office move", "cbm", "quote page", "quote requests", "leads"] },
+      { to: "/quote-page", icon: "ri-price-tag-3-line", label: "Quote Page", keywords: ["quote", "quote requests", "leads", "enquiries", "self serve", "customers", "quote form", "questions"] },
       { to: "/chargeable-weight", icon: "ri-scales-3-line", label: "Chargeable Weight", keywords: ["weight", "volumetric", "dim weight", "reweigh", "cubing"] },
       { to: "/branches", icon: "ri-git-branch-line", label: "Branches", keywords: ["branches", "locations", "offices"] },
       { to: "/logistics-network", icon: "ri-route-line", label: "Logistics Network", keywords: ["routes", "pairing routes", "network"] },

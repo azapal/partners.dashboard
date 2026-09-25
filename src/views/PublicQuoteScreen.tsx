@@ -15,7 +15,7 @@ export const PublicQuoteScreen = () => {
   const submit = useSubmitPublicQuote(slug);
 
   useEffect(() => {
-    if (page) document.title = `${page.partner_name} — moving quote`;
+    if (page) document.title = `${page.partner_name} — get a quote`;
   }, [page]);
 
   if (isPending || isError || !page) {
