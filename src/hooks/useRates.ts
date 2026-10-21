@@ -19,6 +19,7 @@ export const useGetRates = () =>
 export const useCreateRate = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Rate created.' },
     mutationFn: (payload: CreateRatePayload) => rateService.create(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: rateKeys.lists() }),
   });
@@ -27,6 +28,7 @@ export const useCreateRate = () => {
 export const useUpdateRate = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Rate updated.' },
     mutationFn: ({ id, payload }: { id: number; payload: UpdateRatePayload }) =>
       rateService.update(id, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: rateKeys.lists() }),
@@ -36,6 +38,7 @@ export const useUpdateRate = () => {
 export const useDeleteRate = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Rate deleted.' },
     mutationFn: (id: number) => rateService.delete(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: rateKeys.lists() }),
   });

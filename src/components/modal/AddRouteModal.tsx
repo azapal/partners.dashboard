@@ -75,7 +75,6 @@ export const AddRouteModal: React.FC<AddRouteModalProps> = ({ route, onClose, pr
   const [preferredDate, setPreferredDate] = useState(route?.preferred_date ?? '');
   const [minBudget, setMinBudget] = useState(route ? String(route.min_budget) : '');
   const [maxBudget, setMaxBudget] = useState(route ? String(route.max_budget) : '');
-  const [formError, setFormError] = useState<string | null>(null);
 
   const createRoute = useCreatePairingRoute();
   const updateRoute = useUpdatePairingRoute();
@@ -89,7 +88,6 @@ export const AddRouteModal: React.FC<AddRouteModalProps> = ({ route, onClose, pr
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit || !origin || !destination) return;
-    setFormError(null);
 
     const payload = {
       origin_state: origin.value,
@@ -104,17 +102,17 @@ export const AddRouteModal: React.FC<AddRouteModalProps> = ({ route, onClose, pr
     if (isEdit) {
       updateRoute.mutate(
         { id: route!.id, payload },
-        { onSuccess: onClose, onError: (err) => setFormError(err.message) }
+        { onSuccess: onClose }
       );
     } else {
-      createRoute.mutate(payload, { onSuccess: onClose, onError: (err) => setFormError(err.message) });
+      createRoute.mutate(payload, { onSuccess: onClose });
     }
   };
 
   const handleDelete = () => {
     if (!route) return;
     if (window.confirm('Delete this route? This cannot be undone.')) {
-      deleteRoute.mutate(route.id, { onSuccess: onClose, onError: (err) => setFormError(err.message) });
+      deleteRoute.mutate(route.id, { onSuccess: onClose });
     }
   };
 
@@ -173,7 +171,6 @@ export const AddRouteModal: React.FC<AddRouteModalProps> = ({ route, onClose, pr
           </FormField>
         </div>
 
-        {formError && <p className="text-xs text-red-500">{formError}</p>}
 
         <div className="flex justify-between gap-3 pt-2 border-t border-gray-100">
           {isEdit ? (

@@ -7,6 +7,7 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { partnerActions } from "../store/server/auth";
 import { useSendOtp } from "../hooks/useAuth";
+import { feedbackActions } from "../store/client/feedback";
 
 // Validation schema
 const onboardingValidationSchema = Yup.object().shape({
@@ -20,7 +21,6 @@ export const PartnerOnboardingScreen = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [isLoading, setIsLoading] = useState(false);
-    const [errorMessage, setErrorMessage] = useState("");
     const { mutateAsync: sendOtp } = useSendOtp();
 
     // Get token from URL parameters
@@ -53,7 +53,6 @@ export const PartnerOnboardingScreen = () => {
         onSubmit: async (values: { fullName: string }) => {
             try {
                 setIsLoading(true);
-                setErrorMessage("");
 
                 // Call the backend API with token and fullName
                 const result = await partnerActions.completePartnerOnboarding({
@@ -64,17 +63,17 @@ export const PartnerOnboardingScreen = () => {
                 if (result.success) {
                     const partnerCode = (result.data as any)?.partner_code ?? token;
 
-                    await sendOtp(partnerCode);
-
-                    localStorage.setItem("partner_email", result.data?.email || "");
-                    navigate("/login/otp", { state: { partnerCode } });
+                    const sent = await sendOtp(partnerCode);
+                    navigate("/login/otp", { state: { partnerCode, sentTo: sent?.data?.sent_to ?? "" } });
                 } else {
-                    setErrorMessage(
+                    feedbackActions.error(
                         result.error || "Failed to complete onboarding. Please try again."
                     );
                 }
             } catch (error) {
-                setErrorMessage(
+                // A failed sendOtp has already been shown by the mutation cache;
+                // the same message twice in a row is collapsed into one modal.
+                feedbackActions.error(
                     error instanceof Error
                         ? error.message
                         : "An unexpected error occurred"
@@ -92,13 +91,6 @@ export const PartnerOnboardingScreen = () => {
                     <p className="text-2xl font-semibold text-slate-900">Partner onboarding</p>
                     <p className="text-sm text-slate-500">Tell us your legal name to activate your account.</p>
                 </div>
-
-                {/* Error message display */}
-                {errorMessage && (
-                    <div className="rounded-xl border border-red-200 bg-red-50 p-3">
-                        <p className="text-red-800 text-sm">{errorMessage}</p>
-                    </div>
-                )}
 
                 <div className="w-full">
                     <DefaultTextInput

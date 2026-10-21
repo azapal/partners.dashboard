@@ -14,6 +14,7 @@ export const useGetVirtualAccounts = (branchId?: number | null) =>
 export const useCreateVirtualAccount = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Account opened. Customers can pay into it now.' },
     mutationFn: (payload: CreateVirtualAccountPayload) => virtualAccountService.create(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: virtualAccountKeys.lists() });
@@ -25,6 +26,7 @@ export const useCreateVirtualAccount = () => {
 export const useDeactivateVirtualAccount = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Account deactivated.' },
     mutationFn: (accountNumber: string) => virtualAccountService.deactivate(accountNumber),
     onSuccess: () => qc.invalidateQueries({ queryKey: virtualAccountKeys.lists() }),
   });

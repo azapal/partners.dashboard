@@ -33,7 +33,6 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ onClose }) => {
   const [linkMode, setLinkMode] = useState<LinkMode>('none');
   const [relatedInvoiceId, setRelatedInvoiceId] = useState('');
   const [relatedTransactionId, setRelatedTransactionId] = useState('');
-  const [formError, setFormError] = useState<string | null>(null);
 
   const { data: invoices = [] } = useGetInvoices();
   const { data: txPage } = useGetTransactions({ page_size: 50 });
@@ -65,7 +64,6 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ onClose }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (branchId === '' || !canSubmit) return;
-    setFormError(null);
     createReceipt.mutate(
       {
         branch_id: Number(branchId),
@@ -76,7 +74,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ onClose }) => {
         related_invoice_id: linkMode === 'invoice' && relatedInvoiceId ? Number(relatedInvoiceId) : null,
         related_transaction_id: linkMode === 'transaction' && relatedTransactionId ? Number(relatedTransactionId) : null,
       },
-      { onSuccess: onClose, onError: (err) => setFormError(err.message) }
+      { onSuccess: onClose }
     );
   };
 
@@ -156,8 +154,6 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ onClose }) => {
             <input type="text" value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} placeholder="e.g., PSK-88213" className={inputClass} />
           </FormField>
         </div>
-
-        {formError && <p className="text-xs text-red-500">{formError}</p>}
 
         <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
           <button type="button" onClick={onClose} className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">

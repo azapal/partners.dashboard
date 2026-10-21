@@ -32,6 +32,7 @@ export const useDocumentBranding = (wanted = true) => {
 export const useUpdateBranding = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Document design saved.' },
     mutationFn: (payload: UpdateBrandingPayload) => brandingService.update(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: brandingKeys.all }),
   });
@@ -40,6 +41,7 @@ export const useUpdateBranding = () => {
 export const useResetBranding = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Document design reset to the Azapal default.' },
     mutationFn: () => brandingService.reset(),
     onSuccess: () => qc.invalidateQueries({ queryKey: brandingKeys.all }),
   });
@@ -48,6 +50,7 @@ export const useResetBranding = () => {
 /** Uploads to S3 and hands back the URL; saving it is a separate, explicit step. */
 export const useUploadBrandingAsset = () =>
   useMutation({
+    meta: { silentSuccess: true },
     mutationFn: ({ kind, file }: { kind: 'logo' | 'watermark'; file: File }) =>
       brandingService.uploadAsset(kind, file),
   });

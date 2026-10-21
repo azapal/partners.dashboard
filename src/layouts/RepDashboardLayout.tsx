@@ -5,13 +5,14 @@ import { ProductTour } from "../components/tour/ProductTour";
 
 export const RepDashboardLayout = ({ children }: any) => {
   return (
-    <section className="flex h-screen overflow-hidden">
+    <section className="flex h-screen overflow-hidden bg-white">
       <RepSideBar />
 
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-5 pb-20 md:pb-6">
+        {/* pb-28 on mobile clears the floating RepBottomTab. */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-28 sm:px-6 md:pb-10 lg:px-8">
           <RepHeaderLayout />
-          {children}
+          <main className="mx-auto w-full max-w-7xl">{children}</main>
         </div>
       </div>
 

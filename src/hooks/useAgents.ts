@@ -26,6 +26,7 @@ export const useUpdateShiftStatus = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: 'Shift status updated.' },
     mutationFn: (status: 'active' | 'away') => presenceService.updateShiftStatus(status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: agentKeys.all });

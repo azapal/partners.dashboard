@@ -7,6 +7,7 @@ import {
   ALL_SERVICES,
   SERVICE_GROUPS,
   STATUS_BADGE,
+  isPlannedGroup,
   searchServices,
   type WorkspaceService,
 } from "../../lib/data/workspaceServices";
@@ -24,10 +25,16 @@ import { assistantActions } from "../../store/client/assistant";
  *
  * Lives in the dashboard shell as well as the workspace screen, which is what
  * makes the scoped sidebar viable: the rail shows only your current category,
- * so something has to reach the other eighty-odd services from anywhere.
+ * so something has to reach the other services from anywhere.
  */
 
 type View = { kind: "recent" } | { kind: "all" } | { kind: "group"; label: string };
+
+// What can be opened today first; scope-only areas shelved under their own heading.
+const railSections = [
+  { heading: null, groups: SERVICE_GROUPS.filter((g) => !isPlannedGroup(g)) },
+  { heading: "Coming soon", groups: SERVICE_GROUPS.filter(isPlannedGroup) },
+];
 
 const ServiceRow = ({
   service,
@@ -197,15 +204,24 @@ export const ServiceLauncher = ({ align = "left" }: { align?: "left" | "right" }
 
             <span className="my-2 hidden h-px bg-white/15 sm:block" />
 
-            {SERVICE_GROUPS.map((g) => (
-              <button
-                key={g.label}
-                type="button"
-                onClick={() => { setView({ kind: "group", label: g.label }); setQuery(""); }}
-                className={`mt-1 ${railItem(effective.kind === "group" && effective.label === g.label)}`}
-              >
-                <span className="truncate">{g.label}</span>
-              </button>
+            {railSections.map(({ heading, groups }) => (
+              <div key={heading ?? "live"} className="contents sm:block">
+                {heading && (
+                  <span className="mx-2.5 mb-1 mt-4 hidden text-[10px] font-semibold uppercase tracking-wider text-white/35 sm:block">
+                    {heading}
+                  </span>
+                )}
+                {groups.map((g) => (
+                  <button
+                    key={g.label}
+                    type="button"
+                    onClick={() => { setView({ kind: "group", label: g.label }); setQuery(""); }}
+                    className={`mt-1 ${railItem(effective.kind === "group" && effective.label === g.label)}`}
+                  >
+                    <span className="truncate">{g.label}</span>
+                  </button>
+                ))}
+              </div>
             ))}
           </nav>
 

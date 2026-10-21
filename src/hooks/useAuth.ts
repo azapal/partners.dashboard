@@ -79,6 +79,7 @@ export const useCurrentUser = () => {
 
 export const useLogin = () => {
   return useMutation({
+    meta: { silentSuccess: true },
     mutationFn: authApi.login,
     onSuccess: (data) => {
       // Store token in localStorage or cookies
@@ -91,6 +92,7 @@ export const useLogin = () => {
 
 export const useLogout = () => {
   return useMutation({
+    meta: { silentSuccess: true },
     mutationFn: authApi.logout,
     onSuccess: () => {
       // Clear token
@@ -103,6 +105,7 @@ export const useLogout = () => {
 
 export const useRegister = () => {
   return useMutation({
+    meta: { silentSuccess: true },
     mutationFn: authApi.register,
     onSuccess: (data) => {
       localStorage.setItem('auth_token', data.token);
@@ -113,12 +116,14 @@ export const useRegister = () => {
 
 export const useSendOtp = () => {
   return useMutation({
+    meta: { silentSuccess: true },
     mutationFn: (partnerCode: string) => partnerService.sendOtp(partnerCode),
   });
 };
 
 export const useVerifyOtp = () => {
   return useMutation({
+    meta: { silentSuccess: true },
     mutationFn: ({ partnerCode, otp }: { partnerCode: string; otp: string }) =>
       partnerService.verifyOtp(partnerCode, otp),
     onSuccess: (data) => {
@@ -158,9 +163,33 @@ export const useCurrentUserDisplay = (): { name: string; email: string } | null 
   return null;
 };
 
-export const useUpdatePartnerProfile = () => {
+export const partnerRecordKey = ['partner-record'] as const;
+
+/**
+ * The partner's own record, read from the server.
+ *
+ * `usePartnerProfile()` reads the client store, which is whatever the login
+ * response put in localStorage — it has the name and the code and not much else.
+ * Any screen that edits the record needs this one instead, or it will show empty
+ * fields for details that are set and save those blanks over them.
+ */
+export const usePartnerRecord = () => {
+  const partnerProfile = usePartnerProfile();
+  return useQuery({
+    queryKey: partnerRecordKey,
+    queryFn: () => partnerProfileService.get(),
+    enabled: !!partnerProfile,
+  });
+};
+
+/** `successMessage` lets a screen that edits one field say which (e.g. the phone number). */
+export const useUpdatePartnerProfile = (successMessage = 'Business details saved.') => {
   return useMutation({
+    meta: { successMessage },
     mutationFn: (payload: UpdatePartnerProfilePayload) => partnerProfileService.update(payload),
-    onSuccess: (data) => partnerStoreActions.setProfile(data),
+    onSuccess: (data) => {
+      partnerStoreActions.setProfile(data);
+      queryClient.setQueryData(partnerRecordKey, data);
+    },
   });
 };

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { QuotePageView } from "../components/quote/QuotePageView";
 import { recordQuoteContact, usePublicQuotePage, useSubmitPublicQuote } from "../hooks/useQuotePage";
 
@@ -8,9 +8,16 @@ import { recordQuoteContact, usePublicQuotePage, useSubmitPublicQuote } from "..
  * chrome: this is the partner's customer, not the partner. Everything shown
  * comes from the public quote-pages endpoint, and App.tsx keeps the Azapal
  * assistant off this route.
+ *
+ * `?r=` is the partner's reference link — which of their posts, profiles or
+ * flyers the customer followed. It is carried into the request so the lead says
+ * where it came from; the server keeps it only if the page lists that code, so
+ * a stranger appending their own `?r=` writes nothing.
  */
 export const PublicQuoteScreen = () => {
   const { slug = "" } = useParams();
+  const [params] = useSearchParams();
+  const source = params.get("r") ?? undefined;
   const { data: page, isPending, isError } = usePublicQuotePage(slug);
   const submit = useSubmitPublicQuote(slug);
 
@@ -36,7 +43,7 @@ export const PublicQuoteScreen = () => {
   return (
     <QuotePageView
       page={page}
-      onSubmit={(payload) => submit.mutateAsync(payload)}
+      onSubmit={(payload) => submit.mutateAsync({ ...payload, source })}
       onContact={(reference, channel) => void recordQuoteContact(slug, reference, channel)}
     />
   );

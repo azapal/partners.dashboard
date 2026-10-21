@@ -39,7 +39,6 @@ export const PayoutSplitModal = ({ split, onClose }: { split?: PayoutSplit; onCl
           }))
       : [emptyMember()],
   );
-  const [error, setError] = useState<string | null>(null);
 
   const stakeholderTotal = members.reduce((sum, m) => sum + (Number(m.share_percent) || 0), 0);
   const yourShare = 100 - stakeholderTotal;
@@ -53,7 +52,6 @@ export const PayoutSplitModal = ({ split, onClose }: { split?: PayoutSplit; onCl
     setMembers((prev) => prev.map((m, i) => (i === index ? { ...m, ...patch } : m)));
 
   const handleSave = () => {
-    setError(null);
     const payload = {
       name: name.trim(),
       description: description.trim() || null,
@@ -63,10 +61,8 @@ export const PayoutSplitModal = ({ split, onClose }: { split?: PayoutSplit; onCl
         share_percent: Number(m.share_percent),
       })),
     };
-    const onError = (e: any) => setError(e.message || 'Could not save this split');
-
-    if (split) update.mutate({ id: split.id, payload }, { onSuccess: onClose, onError });
-    else create.mutate(payload, { onSuccess: onClose, onError });
+    if (split) update.mutate({ id: split.id, payload }, { onSuccess: onClose });
+    else create.mutate(payload, { onSuccess: onClose });
   };
 
   const isPending = create.isPending || update.isPending;
@@ -196,8 +192,6 @@ export const PayoutSplitModal = ({ split, onClose }: { split?: PayoutSplit; onCl
             Stakeholders are over 100% by {Math.abs(yourShare).toFixed(2)}%.
           </p>
         )}
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
 
         <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
           <button onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-500 hover:bg-gray-100">

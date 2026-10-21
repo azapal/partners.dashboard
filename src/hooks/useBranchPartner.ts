@@ -17,9 +17,14 @@ export const useGetBranches = () =>
     queryFn: () => branchPartnerService.getAll(),
   });
 
-export const useCreateBranch = () => {
+/**
+ * `silent` turns off the per-call FeedbackModal (both outcomes) for the bulk
+ * importer, which shows each row's result in its table and one summary at the end.
+ */
+export const useCreateBranch = ({ silent = false }: { silent?: boolean } = {}) => {
   const qc = useQueryClient();
   return useMutation({
+    meta: silent ? { silentSuccess: true, silentError: true } : { successMessage: 'Branch created.' },
     mutationFn: (payload: CreateBranchPayload) => branchPartnerService.create(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: branchKeys.lists() }),
   });
@@ -28,6 +33,7 @@ export const useCreateBranch = () => {
 export const useUpdateBranch = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Branch updated.' },
     mutationFn: ({ id, payload }: { id: string; payload: UpdateBranchPayload }) =>
       branchPartnerService.update(id, payload),
     onSuccess: (_, { id }) => {
@@ -40,6 +46,7 @@ export const useUpdateBranch = () => {
 export const useDeleteBranch = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Branch deleted.' },
     mutationFn: (id: string) => branchPartnerService.delete(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: branchKeys.lists() }),
   });

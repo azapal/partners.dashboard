@@ -29,8 +29,6 @@ export const NotificationPreference = () => {
   const [branchId, setBranchId] = useState<number | null>(null);
   const [drafts, setDrafts] = useState<Draft[] | null>(null);
   const [loadedFor, setLoadedFor] = useState<number | null | undefined>(undefined);
-  const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
 
   const { data: branches = [] } = useGetBranches();
   const { data, isLoading } = useNotificationPreferences(branchId);
@@ -44,12 +42,9 @@ export const NotificationPreference = () => {
     setDrafts(
       data.preferences.map(({ label, ...rest }) => ({ ...rest, channels: [...rest.channels] })),
     );
-    setError(null);
-    setSaved(false);
   }, [data, branchId, loadedFor]);
 
   const update = (event: string, patch: Partial<Draft>) => {
-    setSaved(false);
     setDrafts((prev) => (prev ?? []).map((d) => (d.event === event ? { ...d, ...patch } : d)));
   };
 
@@ -75,11 +70,7 @@ export const NotificationPreference = () => {
 
   const handleSave = () => {
     if (!drafts) return;
-    setError(null);
-    save.mutate(drafts, {
-      onSuccess: () => setSaved(true),
-      onError: (e: any) => setError(e.message || 'Could not save your preferences'),
-    });
+    save.mutate(drafts);
   };
 
   if (isLoading || !data || !drafts) {
@@ -237,9 +228,6 @@ export const NotificationPreference = () => {
           );
         })}
       </div>
-
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {saved && !error && <p className="text-sm text-green-700">Preferences saved.</p>}
 
       <div className="flex justify-end">
         <button

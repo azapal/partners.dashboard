@@ -3,12 +3,7 @@ import { RepDashboardLayout } from '../../layouts/RepDashboardLayout';
 import { EscalateModal } from '../../components/modal/EscalateModal';
 import { useGetShiftMates } from '../../hooks/useShiftMates';
 import type { ShiftMate, ShiftStatus } from '../../service/repService';
-
-const STATUS_DOT: Record<ShiftStatus, string> = {
-  active: 'bg-green-500',
-  away: 'bg-yellow-500',
-  offline: 'bg-gray-300',
-};
+import { Avatar, Card, EmptyState, PageIntro } from '../../components/support/SupportUI';
 
 const STATUS_LABEL: Record<ShiftStatus, string> = {
   active: 'Active',
@@ -16,67 +11,88 @@ const STATUS_LABEL: Record<ShiftStatus, string> = {
   offline: 'Offline',
 };
 
-function avatarColor(id: number) {
-  const colors = ['bg-orange-400', 'bg-blue-400', 'bg-teal-400', 'bg-purple-400', 'bg-pink-400'];
-  return colors[id % colors.length];
-}
+const STATUS_TEXT: Record<ShiftStatus, string> = {
+  active: 'text-emerald-700',
+  away: 'text-amber-700',
+  offline: 'text-gray-400',
+};
 
 const ShiftMateScreen = () => {
   const { data: mates = [], isLoading } = useGetShiftMates();
   const [escalateTarget, setEscalateTarget] = useState<ShiftMate | null>(null);
 
+  const counts = (['active', 'away', 'offline'] as const).map((s) => ({
+    status: s,
+    n: mates.filter((m) => m.status === s).length,
+  }));
+
   return (
     <RepDashboardLayout>
       <div className="w-full flex flex-col gap-5">
-        <p className="text-sm text-gray-500">
+        <PageIntro
+          actions={
+            !isLoading && mates.length > 0 ? (
+              <div className="flex items-center gap-1.5">
+                {counts.map(({ status, n }) => (
+                  <span
+                    key={status}
+                    className={`inline-flex items-center gap-1.5 rounded-full bg-gray-50 px-2.5 py-1 text-[11px] font-semibold ring-1 ring-gray-100 ${STATUS_TEXT[status]}`}
+                  >
+                    <span className={`h-1.5 w-1.5 rounded-full ${status === 'active' ? 'bg-emerald-500' : status === 'away' ? 'bg-amber-400' : 'bg-gray-300'}`} />
+                    {n} {STATUS_LABEL[status].toLowerCase()}
+                  </span>
+                ))}
+              </div>
+            ) : undefined
+          }
+        >
           See who's currently on shift in your branch and escalate to them when you need backup.
-        </p>
+        </PageIntro>
 
         {isLoading ? (
-          <p className="text-center py-14 text-gray-400 text-sm">
-            <i className="ri-loader-4-line animate-spin text-xl" />
-          </p>
-        ) : mates.length === 0 ? (
-          <p className="text-center py-14 text-gray-400 text-sm">No teammates found for your branch.</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {mates.map((mate) => {
-              const initials = mate.name
-                .split(' ')
-                .slice(0, 2)
-                .map((w) => w[0]?.toUpperCase() ?? '')
-                .join('');
-
-              return (
-                <div
-                  key={mate.id}
-                  className="flex items-center justify-between gap-3 bg-white rounded-2xl p-4 shadow-card"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="relative shrink-0">
-                      <div className={`w-11 h-11 rounded-xl ${avatarColor(mate.id)} flex items-center justify-center`}>
-                        <span className="text-white text-sm font-bold">{initials}</span>
-                      </div>
-                      <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${STATUS_DOT[mate.status]}`} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-gray-900 text-sm truncate">{mate.name}</p>
-                      <p className="text-xs text-gray-400 truncate">{mate.role}</p>
-                      <p className="text-[11px] text-gray-500 mt-0.5">{STATUS_LABEL[mate.status]}</p>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => setEscalateTarget(mate)}
-                    disabled={mate.status === 'offline'}
-                    className="shrink-0 flex items-center gap-1.5 border border-gray-200 bg-white text-gray-700 px-3 py-2 rounded-xl text-xs font-semibold hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <i className="ri-alarm-warning-line text-sm" />
-                    Escalate
-                  </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3" role="status" aria-label="Loading teammates">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-card">
+                <span className="h-11 w-11 animate-pulse rounded-xl bg-gray-100" />
+                <div className="flex flex-1 flex-col gap-2">
+                  <span className="h-3 w-1/2 animate-pulse rounded bg-gray-100" />
+                  <span className="h-2.5 w-1/3 animate-pulse rounded bg-gray-50" />
                 </div>
-              );
-            })}
+              </div>
+            ))}
+          </div>
+        ) : mates.length === 0 ? (
+          <Card>
+            <EmptyState icon="ri-group-line" title="No teammates yet">
+              No teammates found for your branch.
+            </EmptyState>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {mates.map((mate) => (
+              <div
+                key={mate.id}
+                className={`flex items-center justify-between gap-3 bg-white rounded-2xl p-4 shadow-card ${mate.status === 'offline' ? 'opacity-75' : ''}`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <Avatar id={mate.id} name={mate.name} status={mate.status} />
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm truncate">{mate.name}</p>
+                    <p className="text-xs text-gray-400 truncate">{mate.role}</p>
+                    <p className={`text-[11px] font-semibold mt-0.5 ${STATUS_TEXT[mate.status]}`}>{STATUS_LABEL[mate.status]}</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setEscalateTarget(mate)}
+                  disabled={mate.status === 'offline'}
+                  className="shrink-0 flex items-center gap-1.5 border border-gray-200 bg-white text-gray-700 px-3 py-2 rounded-xl text-xs font-semibold hover:border-orange-200 hover:bg-orange-50 hover:text-brand transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-gray-700 disabled:hover:border-gray-200"
+                >
+                  <i className="ri-alarm-warning-line text-sm" />
+                  Escalate
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>

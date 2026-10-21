@@ -70,7 +70,6 @@ const BrandingForm = ({ branding, onClose }: { branding: DocumentBranding; onClo
   const [opacity, setOpacity] = useState(branding.watermark_opacity);
   const [accent, setAccent] = useState(branding.accent_color ?? '');
   const [footer, setFooter] = useState(branding.footer_note ?? '');
-  const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState<'logo' | 'watermark' | null>(null);
 
   const preset = DOCUMENT_TEMPLATES[template];
@@ -78,20 +77,17 @@ const BrandingForm = ({ branding, onClose }: { branding: DocumentBranding; onClo
 
   const handleFile = (kind: 'logo' | 'watermark', file?: File) => {
     if (!file) return;
-    setError(null);
     setUploading(kind);
     upload.mutate(
       { kind, file },
       {
         onSuccess: (url) => (kind === 'logo' ? setLogoUrl(url) : setWatermarkUrl(url)),
-        onError: (e: any) => setError(e.message || 'The upload failed'),
         onSettled: () => setUploading(null),
       },
     );
   };
 
   const handleSave = () => {
-    setError(null);
     update.mutate(
       {
         template,
@@ -101,7 +97,7 @@ const BrandingForm = ({ branding, onClose }: { branding: DocumentBranding; onClo
         accent_color: accent || null,
         footer_note: footer.trim() || null,
       },
-      { onSuccess: onClose, onError: (e: any) => setError(e.message || 'Could not save') },
+      { onSuccess: onClose },
     );
   };
 
@@ -277,8 +273,6 @@ const BrandingForm = ({ branding, onClose }: { branding: DocumentBranding; onClo
           />
         </div>
       </div>
-
-      {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="flex items-center justify-between border-t border-gray-100 pt-4">
         <button

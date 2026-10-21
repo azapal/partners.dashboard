@@ -2,6 +2,7 @@ import { useState } from "react";
 import { RepDashboardLayout } from "../../layouts/RepDashboardLayout";
 import { QuotePageSettings } from "../../components/quote/QuotePageSettings";
 import { useQuotePages } from "../../hooks/useQuotePage";
+import { Card, EmptyState, PageIntro } from "../../components/support/SupportUI";
 
 /**
  * A branch's own quote page, for the manager who runs that branch.
@@ -21,33 +22,42 @@ export const RepQuotePageScreen = () => {
 
   return (
     <RepDashboardLayout>
-      <div className="flex w-full flex-col gap-4 overflow-y-auto">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <p className="text-sm text-gray-500">
-            The page your branch shares with customers. Anything you don't set here follows your company's page.
-          </p>
-          {mine.length > 1 && (
-            <select
-              value={editing?.branch ?? ""}
-              onChange={(e) => setBranchId(Number(e.target.value))}
-              aria-label="Which branch"
-              className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand"
-            >
-              {mine.map((p) => (
-                <option key={p.branch} value={p.branch ?? ""}>{p.branch_code}</option>
-              ))}
-            </select>
-          )}
-        </div>
+      <div className="flex w-full flex-col gap-5">
+        <PageIntro
+          actions={
+            mine.length > 1 ? (
+              <label className="flex items-center gap-2 text-xs font-medium text-gray-500">
+                <i className="ri-git-branch-line text-amber-600" />
+                <select
+                  value={editing?.branch ?? ""}
+                  onChange={(e) => setBranchId(Number(e.target.value))}
+                  aria-label="Which branch"
+                  className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-brand focus:ring-4 focus:ring-orange-100"
+                >
+                  {mine.map((p) => (
+                    <option key={p.branch} value={p.branch ?? ""}>{p.branch_code}</option>
+                  ))}
+                </select>
+              </label>
+            ) : undefined
+          }
+        >
+          The page your branch shares with customers. Anything you don't set here follows your company's page.
+        </PageIntro>
 
         {isPending ? (
-          <p className="rounded-2xl bg-white py-14 text-center text-sm text-gray-400 shadow-card">Loading…</p>
+          <Card>
+            <div className="flex items-center justify-center gap-2 py-16 text-sm text-gray-400" role="status">
+              <i className="ri-loader-4-line animate-spin text-lg" />
+              Loading your quote page…
+            </div>
+          </Card>
         ) : isError || !editing ? (
-          <div className="rounded-2xl bg-white px-6 py-14 text-center shadow-card">
-            <p className="text-sm text-gray-500">
+          <Card>
+            <EmptyState icon="ri-pages-line" title="No branch quote page">
               You don't manage a branch quote page. Ask an admin to make you a manager of your branch.
-            </p>
-          </div>
+            </EmptyState>
+          </Card>
         ) : (
           <QuotePageSettings view="page" branchId={editing.branch} limited />
         )}

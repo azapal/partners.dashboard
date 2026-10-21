@@ -24,7 +24,7 @@ export const restartProductTour = (variant: TourVariant) => tourActions.restart(
 const ELEVATED_ADMIN_STEPS: TourStep[] = [
   { id: "sidebar", route: "/dashboard", target: '[data-tour="main-sidebar"], [data-tour="main-bottom-nav"]', title: "Your workspace at a glance", description: "Use the navigation to move between operations, management, and finance." },
   { id: "services", route: "/service", target: '[data-tour="nav-service"]', title: "Services", description: "Define the services your logistics operation offers." },
-  // nav-rates and nav-logistics-network aren't in the mobile bottom tab, so
+  // nav-rates and nav-marketplace aren't in the mobile bottom tab, so
   // those two steps fall back to highlighting the whole bar.
   { id: "rates", route: "/rates", target: '[data-tour="nav-rates"], [data-tour="main-bottom-nav"]', title: "Rates", description: "Review and manage the pricing that powers your services." },
   { id: "branches", route: "/branches", target: '[data-tour="nav-branches"]', title: "Branches", description: "Keep your operating locations and branch coverage organized." },
@@ -39,7 +39,7 @@ const MAIN_TOURS: Record<string, TourStep[]> = {
   // for the role is ready if that guard ever widens.
   "logistics manager": [
     { id: "sidebar", route: "/dashboard", target: '[data-tour="main-sidebar"], [data-tour="main-bottom-nav"]', title: "Your workspace at a glance", description: "Use the navigation to move between the tools available to your role." },
-    { id: "logistics-network", route: "/logistics-network", target: '[data-tour="nav-logistics-network"], [data-tour="main-bottom-nav"]', title: "Start with your logistics network", description: "Review and manage the routes that connect your operation." },
+    { id: "logistics-network", route: "/marketplace", target: '[data-tour="nav-marketplace"], [data-tour="main-bottom-nav"]', title: "Start with your logistics network", description: "Find partners in the marketplace, post job briefs, message partners, and share the routes you run." },
     { id: "branches", route: "/branches", target: '[data-tour="nav-branches"]', title: "Branches", description: "See the locations connected to your network." },
     { id: "services", route: "/service", target: '[data-tour="nav-service"]', title: "Services", description: "Check which services are available across the network." },
   ],

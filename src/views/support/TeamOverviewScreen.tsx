@@ -10,29 +10,15 @@ import {
   useReassignConversation,
 } from '../../hooks/useRepOrders';
 import { isManagerRole } from '../../service/repService';
-import type { Agent, WaConversation } from '../../service/repService';
+import type { WaConversation } from '../../service/repService';
 import { sheetActions } from '../../store/client/sheets';
-
-function avatarColor(id: number) {
-  const colors = ['bg-orange-400', 'bg-blue-400', 'bg-teal-400', 'bg-purple-400', 'bg-pink-400'];
-  return colors[id % colors.length];
-}
-
-function initials(name: string) {
-  return name.split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('');
-}
-
-const STATUS_DOT: Record<Agent['status'], string> = {
-  active: 'bg-green-500',
-  away: 'bg-yellow-500',
-  offline: 'bg-gray-300',
-};
+import { Avatar, Card, CardHeader, EmptyState, LoadingRows, PageIntro, StatTile } from '../../components/support/SupportUI';
 
 function waitBadge(raisedAt: string): { label: string; cls: string } {
   const mins = Math.max(0, Math.floor((Date.now() - new Date(raisedAt).getTime()) / 60000));
   const label = mins < 60 ? `${mins}m ago` : `${Math.floor(mins / 60)}h ago`;
-  if (mins < 15) return { label, cls: 'bg-blue-50 text-blue-600' };
-  if (mins < 60) return { label, cls: 'bg-yellow-50 text-yellow-700' };
+  if (mins < 15) return { label, cls: 'bg-sky-50 text-sky-700' };
+  if (mins < 60) return { label, cls: 'bg-amber-50 text-amber-700' };
   return { label, cls: 'bg-red-50 text-red-600' };
 }
 
@@ -49,10 +35,6 @@ const TeamOverviewScreen = () => {
   const { mutate: takeOver, isPending: isTakingOver } = useTakeOverConversation();
   const { mutate: reassign, isPending: isReassigning } = useReassignConversation();
 
-  if (profile && !isManager) {
-    return <Navigate to="/support/dashboard" replace />;
-  }
-
   const byAgent = useMemo(() => {
     const map = new Map<number, WaConversation[]>();
     for (const c of conversations) {
@@ -63,6 +45,12 @@ const TeamOverviewScreen = () => {
     }
     return map;
   }, [conversations]);
+
+  // After every hook (the useMemo above used to sit below this return, which
+  // breaks the rules of hooks if the profile's role ever changes mid-session).
+  if (profile && !isManager) {
+    return <Navigate to="/support/dashboard" replace />;
+  }
 
   const escalated = conversations.filter((c) => c.escalation);
   const openCount = conversations.filter((c) => c.status === 'active').length;
@@ -77,47 +65,36 @@ const TeamOverviewScreen = () => {
   };
 
   const stats = [
-    { icon: 'ri-team-line', label: 'Team size', value: agents.length, color: 'text-brand', bg: 'bg-orange-50' },
-    { icon: 'ri-checkbox-circle-line', label: 'Active now', value: activeAgents, color: 'text-green-600', bg: 'bg-green-50' },
-    { icon: 'ri-chat-3-line', label: 'Open conversations', value: openCount, color: 'text-blue-500', bg: 'bg-blue-50' },
-    { icon: 'ri-error-warning-line', label: 'Escalations pending', value: escalated.length, color: 'text-red-500', bg: 'bg-red-50' },
+    { icon: 'ri-team-line', label: 'Team size', value: agents.length, tone: 'navy' as const, loading: agentsLoading },
+    { icon: 'ri-checkbox-circle-line', label: 'Active now', value: activeAgents, tone: 'green' as const, loading: agentsLoading },
+    { icon: 'ri-chat-3-line', label: 'Open conversations', value: openCount, tone: 'amber' as const, loading: conversationsLoading },
+    { icon: 'ri-error-warning-line', label: 'Escalations pending', value: escalated.length, tone: 'red' as const, loading: conversationsLoading },
   ];
 
   return (
     <RepDashboardLayout>
       <div className="w-full flex flex-col gap-5">
-        <p className="text-sm text-gray-500">
+        <PageIntro>
           Every agent's load across the branch, plus anything they've flagged for you — support reps only see their own queue.
-        </p>
+        </PageIntro>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {stats.map((s) => (
-            <div key={s.label} className="bg-white rounded-2xl p-4 flex items-center gap-3 shadow-card">
-              <div className={`w-9 h-9 rounded-xl ${s.bg} flex items-center justify-center shrink-0`}>
-                <i className={`${s.icon} text-lg ${s.color}`} />
-              </div>
-              <div>
-                <p className="text-[11px] text-gray-400 font-medium">{s.label}</p>
-                <p className="text-xl font-bold text-gray-900">{s.value}</p>
-              </div>
-            </div>
+            <StatTile key={s.label} icon={s.icon} label={s.label} value={s.value} tone={s.tone} loading={s.loading} />
           ))}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-4 items-start">
           {/* Roster */}
-          <div className="bg-white rounded-2xl overflow-hidden shadow-card">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
-              <h2 className="text-sm font-semibold text-gray-800">Team roster</h2>
-              <span className="text-xs text-gray-400">{agents.length} agents</span>
-            </div>
+          <Card>
+            <CardHeader icon="ri-team-line" title="Team roster" meta={agentsLoading ? undefined : `${agents.length} agents`} />
             {agentsLoading ? (
-              <p className="text-center py-10 text-gray-400 text-sm">
-                <i className="ri-loader-4-line animate-spin text-xl" />
-              </p>
+              <LoadingRows rows={4} label="Loading team" />
             ) : agents.length === 0 ? (
-              <p className="text-center py-10 text-gray-400 text-sm">No agents found for your branch.</p>
+              <EmptyState icon="ri-user-search-line" title="No agents yet" compact>
+                No agents found for your branch.
+              </EmptyState>
             ) : (
               <div className="divide-y divide-gray-50">
                 {agents.map((agent) => {
@@ -128,45 +105,45 @@ const TeamOverviewScreen = () => {
 
                   return (
                     <div key={agent.id}>
-                      <div className="flex items-center gap-3 px-5 py-3.5">
-                        <div className="relative shrink-0">
-                          <div className={`w-9 h-9 rounded-xl ${avatarColor(agent.id)} flex items-center justify-center`}>
-                            <span className="text-white text-xs font-bold">{initials(agent.name)}</span>
-                          </div>
-                          <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${STATUS_DOT[agent.status]}`} />
-                        </div>
+                      <div className="flex items-center gap-3 px-4 sm:px-5 py-3.5">
+                        <Avatar id={agent.id} name={agent.name} status={agent.status} />
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-gray-900 text-sm truncate">{agent.name}</p>
                           <p className="text-xs text-gray-400 truncate">{agent.role}</p>
+                          <p className="text-[11px] text-gray-500 sm:hidden">
+                            <span className="font-semibold text-amber-700">{open} open</span> · {resolved} resolved
+                          </p>
                         </div>
-                        <div className="hidden sm:flex items-center gap-4 shrink-0">
-                          <div className="text-right">
-                            <p className="text-sm font-bold text-gray-900">{open}</p>
-                            <p className="text-[9px] text-gray-400 uppercase tracking-wide">Open</p>
+                        <div className="hidden sm:flex items-center gap-1 shrink-0">
+                          <div className="rounded-lg bg-amber-50 px-2.5 py-1 text-center">
+                            <p className="text-sm font-bold text-amber-700 tabular-nums leading-tight">{open}</p>
+                            <p className="text-[9px] font-semibold text-amber-700/70 uppercase tracking-wide">Open</p>
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm font-bold text-gray-900">{resolved}</p>
-                            <p className="text-[9px] text-gray-400 uppercase tracking-wide">Resolved</p>
+                          <div className="rounded-lg bg-emerald-50 px-2.5 py-1 text-center">
+                            <p className="text-sm font-bold text-emerald-700 tabular-nums leading-tight">{resolved}</p>
+                            <p className="text-[9px] font-semibold text-emerald-700/70 uppercase tracking-wide">Resolved</p>
                           </div>
                         </div>
                         <button
                           onClick={() => setExpandedAgentId(isExpanded ? null : agent.id)}
                           disabled={open === 0}
-                          className="shrink-0 text-xs font-semibold border border-gray-200 bg-white text-gray-700 px-3 py-1.5 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                          aria-expanded={isExpanded}
+                          className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold border border-gray-200 bg-white text-gray-700 px-3 py-1.5 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                          {isExpanded ? 'Hide' : 'View queue'}
+                          {isExpanded ? 'Hide' : <>View<span className="hidden sm:inline">&nbsp;queue</span></>}
+                          <i className={isExpanded ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'} />
                         </button>
                       </div>
 
                       {isExpanded && (
-                        <div className="bg-gray-50/60 px-5 py-3 flex flex-col gap-1.5">
+                        <div className="bg-gray-50/70 px-4 sm:px-5 py-3 flex flex-col gap-1.5">
                           {assigned.filter((c) => c.status === 'active').map((c) => (
                             <button
                               key={c.phone}
                               onClick={() => openConversation(c)}
-                              className="flex items-center justify-between gap-2 text-left px-3 py-2 rounded-xl hover:bg-white transition-colors shadow-card"
+                              className="flex items-center justify-between gap-2 text-left px-3 py-2.5 rounded-xl bg-white hover:bg-orange-50/60 transition-colors shadow-card"
                             >
-                              <span className="text-xs font-medium text-gray-800 truncate">
+                              <span className="text-xs font-semibold text-gray-800 truncate">
                                 {c.customer_name || c.phone}
                               </span>
                               <span className="text-[11px] text-gray-400 truncate max-w-[140px]">
@@ -181,20 +158,17 @@ const TeamOverviewScreen = () => {
                 })}
               </div>
             )}
-          </div>
+          </Card>
 
           {/* Escalations */}
-          <div className="bg-white rounded-2xl overflow-hidden shadow-card">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
-              <h2 className="text-sm font-semibold text-gray-800">Escalations</h2>
-              <span className="text-xs text-gray-400">{escalated.length} waiting</span>
-            </div>
+          <Card>
+            <CardHeader icon="ri-alarm-warning-line" title="Escalations" meta={conversationsLoading ? undefined : `${escalated.length} waiting`} />
             {conversationsLoading ? (
-              <p className="text-center py-10 text-gray-400 text-sm">
-                <i className="ri-loader-4-line animate-spin text-xl" />
-              </p>
+              <LoadingRows rows={3} label="Loading escalations" />
             ) : escalated.length === 0 ? (
-              <p className="text-center py-10 text-gray-400 text-sm">Nothing waiting on you right now.</p>
+              <EmptyState icon="ri-checkbox-circle-line" title="All clear" compact>
+                Nothing waiting on you right now.
+              </EmptyState>
             ) : (
               <div className="divide-y divide-gray-50">
                 {escalated.map((c) => {
@@ -202,7 +176,7 @@ const TeamOverviewScreen = () => {
                   const isUnclaimed = !c.assigned_to;
 
                   return (
-                    <div key={c.phone} className="px-5 py-3.5 flex flex-col gap-2">
+                    <div key={c.phone} className="px-4 sm:px-5 py-4 flex flex-col gap-2.5">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm font-semibold text-gray-900 truncate">
                           {c.customer_name || c.phone}
@@ -211,9 +185,9 @@ const TeamOverviewScreen = () => {
                           {wait.label}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500 leading-snug">
+                      <p className="rounded-xl bg-gray-50 px-3 py-2 text-xs text-gray-600 leading-snug">
                         {c.escalation!.raised_by ? (
-                          <><span className="font-semibold text-gray-700">{c.escalation!.raised_by.name}</span>: </>
+                          <><span className="font-semibold text-gray-800">{c.escalation!.raised_by.name}</span>: </>
                         ) : null}
                         {c.escalation!.note || 'Auto-escalated — no agent has claimed this yet.'}
                       </p>
@@ -245,7 +219,7 @@ const TeamOverviewScreen = () => {
                                   }
                                 }}
                                 disabled={isReassigning}
-                                className="text-xs border border-gray-200 rounded-xl px-2 py-1.5 bg-white"
+                                className="text-xs border border-gray-200 rounded-xl px-2 py-1.5 bg-white min-w-0 max-w-full"
                                 defaultValue=""
                               >
                                 <option value="" disabled>Reassign to…</option>
@@ -275,7 +249,7 @@ const TeamOverviewScreen = () => {
                 })}
               </div>
             )}
-          </div>
+          </Card>
         </div>
       </div>
     </RepDashboardLayout>

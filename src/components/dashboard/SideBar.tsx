@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { categoryForPath } from "../../lib/data/navCategories";
+import { useMarketplaceUnread } from "../../hooks/useMarketplace";
 
 /**
  * The category rail.
@@ -47,6 +48,23 @@ export function SidebarButton({ children, to = "", isCollapsed, ...iconProps }: 
   );
 }
 
+/**
+ * Unread partner messages, on the Inbox item. Its own component so the
+ * poll only runs while the network category's rail is on screen.
+ */
+function MarketplaceUnreadDot({ inline }: { inline?: boolean }) {
+  const { data: unread = 0 } = useMarketplaceUnread();
+  if (!unread) return null;
+  const label = unread > 99 ? "99+" : String(unread);
+  return inline ? (
+    <span className="ml-auto rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{label}</span>
+  ) : (
+    <span aria-label={`${unread} unread message${unread === 1 ? "" : "s"}`} className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold leading-none text-white ring-2 ring-white">
+      {label}
+    </span>
+  );
+}
+
 function SideBar() {
   const { pathname } = useLocation();
   const category = categoryForPath(pathname);
@@ -88,6 +106,7 @@ function SideBar() {
                     <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-brand" />
                   )}
                   <i className={`${item.icon} text-lg`} />
+                  {item.to === "/inbox" && <MarketplaceUnreadDot />}
                 </>
               )}
             </NavLink>
@@ -116,6 +135,7 @@ function SideBar() {
               >
                 <i className={`${item.icon} text-base`} />
                 {item.label}
+                {item.to === "/inbox" && <MarketplaceUnreadDot inline />}
               </NavLink>
             ))}
           </div>

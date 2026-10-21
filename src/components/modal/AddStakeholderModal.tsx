@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { DefaultModal } from './DefaultModal';
+import { feedbackActions } from '../../store/client/feedback';
 import {
   useCreateStakeholder,
   useGetBanks,
@@ -170,7 +171,6 @@ export const AddStakeholderModal = ({ onClose, branchId }: { onClose: () => void
   const [bankCode, setBankCode] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [resolvedName, setResolvedName] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const { data: banks = [] } = useGetBanks();
   const { data: networkPartner } = useNetworkPartner(networkCode);
@@ -188,19 +188,11 @@ export const AddStakeholderModal = ({ onClose, branchId }: { onClose: () => void
   }
 
   const handleResolve = () => {
-    setError(null);
     setResolvedName(null);
-    resolve.mutate(
-      { accountNumber, bankCode },
-      {
-        onSuccess: (data) => setResolvedName(data.accountName),
-        onError: (e: any) => setError(e.message || 'Could not verify that account'),
-      },
-    );
+    resolve.mutate({ accountNumber, bankCode }, { onSuccess: (data) => setResolvedName(data.accountName) });
   };
 
   const handleSubmit = () => {
-    setError(null);
     create.mutate(
       {
         organisation_name: effectiveName,
@@ -220,15 +212,20 @@ export const AddStakeholderModal = ({ onClose, branchId }: { onClose: () => void
       },
       {
         onSuccess: (stakeholder) => {
-          // The record saves even when the bank account is rejected, so surface that
-          // rather than closing on what looks like a clean success.
+          // The record saves even when the bank account is rejected, so say that
+          // rather than what looks like a clean success (useCreateStakeholder is
+          // silent on success for this reason). Closing either way: the
+          // stakeholder exists, and submitting again would create a second one.
           if (stakeholder.bank_warning) {
-            setError(`Stakeholder saved, but the bank account was rejected: ${stakeholder.bank_warning}`);
-            return;
+            feedbackActions.error(
+              `The stakeholder was saved, but the bank account was rejected: ${stakeholder.bank_warning}`,
+              'Bank account not saved',
+            );
+          } else {
+            feedbackActions.success('Stakeholder added.');
           }
           onClose();
         },
-        onError: (e: any) => setError(e.message || 'Could not add stakeholder'),
       },
     );
   };
@@ -424,8 +421,6 @@ export const AddStakeholderModal = ({ onClose, branchId }: { onClose: () => void
             )}
           </div>
         )}
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
 
         <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
           <button onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-500 hover:bg-gray-100">

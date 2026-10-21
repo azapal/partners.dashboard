@@ -3,6 +3,7 @@ import { RepDashboardLayout } from "../../layouts/RepDashboardLayout";
 import { QuoteRequestsPanel } from "../../components/quote/QuoteRequestsPanel";
 import { useRepProfile } from "../../hooks/useRepAuth";
 import { canWorkQuoteLeads } from "../../service/repService";
+import { PageIntro } from "../../components/support/SupportUI";
 
 /**
  * Quote-page leads for the people who actually chase them — managers and
@@ -22,10 +23,10 @@ export const RepQuoteRequestsScreen = () => {
 
   return (
     <RepDashboardLayout>
-      <div className="flex w-full flex-col gap-4 overflow-y-auto">
-        <p className="text-sm text-gray-500">
+      <div className="flex w-full flex-col gap-5">
+        <PageIntro>
           Customers who filled in your company's quote page and left their details.
-        </p>
+        </PageIntro>
         <QuoteRequestsPanel />
       </div>
     </RepDashboardLayout>

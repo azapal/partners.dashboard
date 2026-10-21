@@ -3,15 +3,18 @@ import { useSyncExternalStore } from 'react';
 import { repAuthService, isSupportRole } from '../service/repService';
 import { repStore, repStoreActions } from '../store/client/rep';
 import type { RepProfile } from '../service/repService';
+import { queryClient } from '../lib/queryClient';
 
 export const useSendRepOtp = () => {
   return useMutation({
+    meta: { silentSuccess: true },
     mutationFn: ({ email }: { email: string }) => repAuthService.sendOtp(email),
   });
 };
 
 export const useVerifyRepOtp = () => {
   return useMutation({
+    meta: { silentSuccess: true },
     mutationFn: async ({ email, otp }: { email: string; otp: string }) => {
       const result = await repAuthService.verifyOtp(email, otp);
       const profile = result?.data;
@@ -41,5 +44,7 @@ export const useRepProfile = (): RepProfile | null => {
 export const useRepLogout = () => {
   return () => {
     repStoreActions.clearProfile();
+    // The next person to sign in on this tab mustn't see this rep's cached data.
+    queryClient.clear();
   };
 };

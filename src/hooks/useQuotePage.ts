@@ -54,6 +54,7 @@ export const useQuotePages = () => {
 export const useSaveQuotePageSettings = (branchId?: number | null) => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Quote page saved.' },
     mutationFn: (payload: SaveQuotePagePayload) => quotePageService.saveSettings(payload, branchId),
     onSuccess: (saved) => {
       qc.setQueryData<QuotePageSettings>(quotePageKeys.settings(branchId), saved);
@@ -93,6 +94,7 @@ export const useQuoteRequests = (branchId?: number | null) => {
 export const useUpdateQuoteRequestStatus = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Request status updated.' },
     mutationFn: ({ reference, status }: { reference: string; status: QuoteRequestStatus }) =>
       quotePageService.updateRequestStatus(reference, status),
     onSuccess: (updated) =>
@@ -116,6 +118,7 @@ export const usePublicQuotePage = (slug: string) =>
 
 export const useSubmitPublicQuote = (slug: string) =>
   useMutation({
+    meta: { silentSuccess: true },
     mutationFn: (payload: SubmitQuotePayload) => publicQuoteService.submit(slug, payload),
   });
 

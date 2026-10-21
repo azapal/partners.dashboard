@@ -19,6 +19,7 @@ export const useGetInvoices = (branchId?: number) =>
 export const useCreateInvoice = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Invoice created.' },
     mutationFn: (payload: CreateInvoicePayload) => invoiceService.create(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: invoiceKeys.lists() }),
   });
@@ -27,6 +28,7 @@ export const useCreateInvoice = () => {
 export const useUpdateInvoice = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Invoice updated.' },
     mutationFn: ({ id, payload }: { id: number; payload: UpdateInvoicePayload }) =>
       invoiceService.update(id, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: invoiceKeys.lists() }),
@@ -36,6 +38,7 @@ export const useUpdateInvoice = () => {
 export const useDeleteInvoice = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Invoice deleted.' },
     mutationFn: (id: number) => invoiceService.delete(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: invoiceKeys.lists() }),
   });
@@ -48,6 +51,7 @@ export const useDeleteInvoice = () => {
 export const useCreateInvoicePaymentLink = (invoiceId: number) => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Payment link created — copy it and send it to your customer.' },
     mutationFn: (payload: CreatePaymentLinkPayload) => createInvoicePaymentLink(invoiceId, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: invoiceKeys.lists() }),
   });

@@ -4,12 +4,13 @@ import { DashboardLayout } from "../layouts/DashboardLayout";
 import { SettingsCards } from "../components/dashboard/SettingsCards";
 import { NotificationPreference } from "../components/modal/NotificationPreference";
 import { FormField } from "../components/inputs/FormField";
-import { usePartnerProfile, useUpdatePartnerProfile } from "../hooks/useAuth";
+import { usePartnerProfile, usePartnerRecord, useUpdatePartnerProfile } from "../hooks/useAuth";
 import { useRepProfile } from "../hooks/useRepAuth";
 import config from "../../config/config";
 import pkg from "../../package.json";
+import { VerificationPanel } from "../components/settings/VerificationPanel";
 
-type Tab = "account" | "notifications" | "security" | "support" | "developer";
+type Tab = "account" | "verification" | "notifications" | "security" | "support" | "developer";
 
 const WHY_2FA = [
   {
@@ -34,13 +35,14 @@ const WHY_2FA = [
 
 const NAV_ITEMS: { key: Tab; label: string; icon: string }[] = [
   { key: "account", label: "Account", icon: "ri-user-line" },
+  { key: "verification", label: "Verification", icon: "ri-shield-check-line" },
   { key: "notifications", label: "Notifications", icon: "ri-notification-3-line" },
   { key: "security", label: "Security", icon: "ri-shield-check-line" },
   { key: "support", label: "Support", icon: "ri-question-line" },
   { key: "developer", label: "Developer", icon: "ri-terminal-box-line" },
 ];
 
-const TAB_ITEMS: Record<Exclude<Tab, "developer" | "account" | "security" | "notifications">, { title: string; description?: string; icon: string; path?: string }[]> = {
+const TAB_ITEMS: Record<Exclude<Tab, "developer" | "account" | "verification" | "security" | "notifications">, { title: string; description?: string; icon: string; path?: string }[]> = {
   support: [
     {
       title: "Help center",
@@ -63,6 +65,33 @@ function AccountPanel() {
   const profile = usePartnerProfile();
   const repProfile = useRepProfile();
   const updateProfile = useUpdatePartnerProfile();
+  // The server's copy, not the one login left in localStorage. That one has the
+  // name and the code and nothing else, and a form seeded from it saves blank
+  // country, state, city and email straight over what is really there.
+  const { data: record } = usePartnerRecord();
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [address, setAddress] = useState("");
+  const [state, setState] = useState("");
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
+  const [phone, setPhone] = useState("");
+  // useState only takes its argument the first time, and the record arrives
+  // after that, so the fields are filled when it lands rather than seeded.
+  const [filledFrom, setFilledFrom] = useState<number | null>(null);
+
+  const source = record ?? profile;
+  if (source && filledFrom !== (record ? source.id : -1)) {
+    setName(source.partner_name ?? "");
+    setEmail(source.partner_email ?? "");
+    setAddress(source.partner_hq_address ?? "");
+    setState(source.partner_hq_state ?? "");
+    setCity(source.partner_hq_city ?? "");
+    setCountry(source.partner_country ?? "");
+    setPhone(source.partner_phone ?? "");
+    setFilledFrom(record ? source.id : -1);
+  }
 
   // Editing the business's own registration details (name, HQ address, etc.)
   // stays an owner-only action — an employee, even Tenant Admin/Super Admin,
@@ -94,20 +123,8 @@ function AccountPanel() {
     );
   }
 
-  const [name, setName] = useState(profile?.partner_name ?? "");
-  const [email, setEmail] = useState(profile?.partner_email ?? "");
-  const [address, setAddress] = useState(profile?.partner_hq_address ?? "");
-  const [state, setState] = useState(profile?.partner_hq_state ?? "");
-  const [city, setCity] = useState(profile?.partner_hq_city ?? "");
-  const [country, setCountry] = useState(profile?.partner_country ?? "");
-  const [formError, setFormError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    setFormError(null);
-    setSaved(false);
-
     updateProfile.mutate(
       {
         partner_name: name,
@@ -116,11 +133,8 @@ function AccountPanel() {
         partner_hq_state: state,
         partner_hq_city: city,
         partner_country: country,
+        partner_phone: phone,
       },
-      {
-        onSuccess: () => setSaved(true),
-        onError: (err) => setFormError(err.message),
-      }
     );
   };
 
@@ -148,6 +162,9 @@ function AccountPanel() {
         <FormField label="Email">
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
         </FormField>
+        <FormField label="Phone">
+          <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} />
+        </FormField>
       </div>
 
       <FormField label="Address">
@@ -166,8 +183,6 @@ function AccountPanel() {
         </FormField>
       </div>
 
-      {formError && <p className="text-xs text-red-500">{formError}</p>}
-
       <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
         <button
           type="submit"
@@ -177,7 +192,6 @@ function AccountPanel() {
           {updateProfile.isPending && <i className="ri-loader-4-line animate-spin text-base" />}
           {updateProfile.isPending ? "Saving…" : "Save changes"}
         </button>
-        {saved && !formError && <span className="text-xs font-medium text-green-600">Saved.</span>}
       </div>
     </form>
   );
@@ -334,6 +348,14 @@ export const Settings = () => {
               <DeveloperPanel />
             ) : tab === "account" ? (
               <AccountPanel />
+            ) : tab === "verification" ? (
+              <section className="bg-white rounded-2xl p-5 shadow-card">
+                <h2 className="text-sm font-semibold text-gray-800">Verify your business</h2>
+                <p className="mt-0.5 mb-4 text-xs text-gray-400">
+                  Azapal checks every partner before opening the parts of the platform that move money.
+                </p>
+                <VerificationPanel />
+              </section>
             ) : tab === "security" ? (
               <SecurityPanel />
             ) : tab === "notifications" ? (

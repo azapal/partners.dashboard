@@ -608,7 +608,6 @@ function SplitPanel({ branchId, openCreateSignal = 0 }: { branchId: number | nul
   const [name, setName] = useState("");
   const [members, setMembers] = useState<SplitMember[]>([emptyMember(), emptyMember()]);
   const [loadedFor, setLoadedFor] = useState<number | null | undefined>(undefined);
-  const [error, setError] = useState<string | null>(null);
   const [previewInvoiceId, setPreviewInvoiceId] = useState<number | null>(null);
   const [distributing, setDistributing] = useState<Invoice | null>(null);
 
@@ -691,11 +690,7 @@ function SplitPanel({ branchId, openCreateSignal = 0 }: { branchId: number | nul
   }
 
   function handleSave() {
-    setError(null);
-    save.mutate(
-      { name: name || undefined, members },
-      { onError: (e: any) => setError(e.message || "Failed to save") },
-    );
+    save.mutate({ name: name || undefined, members });
   }
 
   if (isLoading) {
@@ -915,9 +910,6 @@ function SplitPanel({ branchId, openCreateSignal = 0 }: { branchId: number | nul
             {save.isPending ? "Saving…" : "Save split"}
           </button>
         </div>
-
-        {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
-        {save.isSuccess && !error && <p className="text-sm text-green-700 mt-3">Split saved.</p>}
       </div>
       </details>
 

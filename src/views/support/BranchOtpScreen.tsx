@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { AuthLayout } from "../../layouts/AuthLayout";
-import { DefaultButton } from "../../components/buttons/DefaultButton";
-import { useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useVerifyBranchOtp, useSendBranchOtp } from "../../hooks/useBranchAuth";
 import { isElevatedAdminRole } from "../../service/repService";
+import { SupportAuthShell, authPrimaryButtonClass } from "../../components/support/SupportAuthShell";
+import { OtpCodeField } from "../../components/support/OtpCodeField";
 
 export default function BranchOtpScreen() {
   const inputRefs = useRef<HTMLInputElement[]>([]);
   const [otpDigits, setOtpDigits] = useState(["", "", "", "", ""]);
+  // Client-side validation only — a rejected code or failed resend is shown by
+  // the global FeedbackModal (see lib/queryClient).
   const [errorMessage, setErrorMessage] = useState("");
   const [timeLeft, setTimeLeft] = useState(120);
 
@@ -97,79 +99,106 @@ export default function BranchOtpScreen() {
         // other role keeps landing on the smaller /support dashboard.
         onSuccess: (data: any) =>
           navigate(isElevatedAdminRole(data?.data?.invite_role?.name) ? "/dashboard" : "/support/dashboard"),
-        onError: (err: any) => setErrorMessage(err?.message ?? "Invalid OTP. Please try again."),
+      }
+    );
+  };
+
+  const handleResend = () => {
+    sendOtp(
+      { email, branchCode },
+      {
+        onSuccess: () => {
+          setTimeLeft(120);
+          setOtpDigits(["", "", "", "", ""]);
+          setErrorMessage("");
+          focusInput(0);
+        },
       }
     );
   };
 
   return (
-    <AuthLayout>
-      <div className="grid gap-8">
-        <div className="space-y-2">
-          <p className="text-2xl font-semibold text-slate-900">Verify OTP</p>
-          <p className="text-sm text-slate-500">
-            Enter the 5-digit code sent to{" "}
-            <span className="font-medium text-[#1d4ed8]">{email}</span> for branch{" "}
-            <span className="font-medium text-[#1d4ed8]">{branchCode}</span>.
+    <SupportAuthShell
+      mode="branch"
+      step={2}
+      footer={
+        <>
+          Wrong email or branch?{" "}
+          <Link to="/support/branch-login" className="font-semibold text-brand hover:text-brand-hover">
+            Start again
+          </Link>
+        </>
+      }
+    >
+      <form
+        className="grid gap-6"
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmit();
+        }}
+      >
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Check your email</h1>
+          <p className="mt-1.5 text-sm leading-6 text-slate-500">
+            Enter the 5-digit code sent to
+            <span className="block break-all font-semibold text-slate-800">{email || "your email"}</span>
           </p>
-          <p className="text-sm text-slate-500">Expires in {formatTime(timeLeft)}</p>
+          {branchCode && (
+            <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-200/60">
+              <i className="ri-git-branch-line" />
+              Branch {branchCode}
+            </p>
+          )}
         </div>
 
-        <div className="flex justify-center gap-2 sm:gap-3">
-          {[...Array(5)].map((_, index) => (
-            <input
-              key={index}
-              ref={(el) => { if (el) inputRefs.current[index] = el; }}
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={1}
-              value={otpDigits[index]}
-              onChange={(e) => handleInput(e, index)}
-              onKeyDown={(e) => handleKeyDown(e, index)}
-              onPaste={handlePaste}
-              onFocus={(e) => e.target.select()}
-              className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl border border-slate-200 text-center text-xl font-semibold text-slate-900 outline-none transition focus:border-[#1d4ed8] focus:ring-4 focus:ring-blue-100"
-            />
-          ))}
-        </div>
-
-        {errorMessage && <p className="text-sm text-red-500">{errorMessage}</p>}
-
-        <DefaultButton
-          type="submit"
-          text={isPending ? "Verifying…" : "Verify code"}
-          className="w-full sm:w-auto"
-          onClick={handleSubmit}
-          disabled={isPending}
+        <OtpCodeField
+          digits={otpDigits}
+          inputRefs={inputRefs}
+          onInput={handleInput}
+          onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
+          hasError={!!errorMessage}
         />
 
-        <p className="text-sm text-slate-600 text-center">
-          Didn't receive code?{" "}
-          <button
-            type="button"
-            disabled={isResending || timeLeft > 0}
-            onClick={() => {
-              sendOtp(
-                { email, branchCode },
-                {
-                  onSuccess: () => {
-                    setTimeLeft(120);
-                    setOtpDigits(["", "", "", "", ""]);
-                    setErrorMessage("");
-                    focusInput(0);
-                  },
-                  onError: (err: any) =>
-                    setErrorMessage(err?.message ?? "Failed to resend OTP. Please try again."),
-                }
-              );
-            }}
-            className="font-medium text-[#1d4ed8] disabled:opacity-40 disabled:cursor-not-allowed hover:underline"
-          >
-            {isResending ? "Sending…" : timeLeft > 0 ? `Resend in ${formatTime(timeLeft)}` : "Resend"}
-          </button>
-        </p>
-      </div>
-    </AuthLayout>
+        {errorMessage && (
+          <p className="-mt-2 flex items-center gap-1.5 text-sm text-red-600">
+            <i className="ri-error-warning-line" />
+            {errorMessage}
+          </p>
+        )}
+
+        <button type="submit" disabled={isPending} className={authPrimaryButtonClass}>
+          {isPending ? (
+            <>
+              <i className="ri-loader-4-line animate-spin text-base" />
+              Verifying…
+            </>
+          ) : (
+            <>
+              Verify code
+              <i className="ri-shield-check-line text-base" />
+            </>
+          )}
+        </button>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-sm">
+          <span className="flex items-center gap-1.5 text-slate-500">
+            <i className="ri-time-line text-amber-600" />
+            {timeLeft > 0 ? <>Expires in <span className="font-semibold tabular-nums text-slate-700">{formatTime(timeLeft)}</span></> : "Code expired"}
+          </span>
+          <span className="text-slate-500">
+            Didn't receive code?{" "}
+            <button
+              type="button"
+              disabled={isResending || timeLeft > 0}
+              onClick={handleResend}
+              className="font-semibold text-brand hover:text-brand-hover disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              {isResending ? "Sending…" : timeLeft > 0 ? `Resend in ${formatTime(timeLeft)}` : "Resend"}
+            </button>
+          </span>
+        </div>
+      </form>
+    </SupportAuthShell>
   );
 }

@@ -7,9 +7,10 @@ import { useClickOutside } from "../hooks/useClickOutside";
 import { searchServices } from "../lib/data/workspaceServices";
 import { RoadSignIcon } from "../components/icons/RoadSignIcon";
 import { assistantActions } from "../store/client/assistant";
-import { ServiceUsageChart } from "../components/workspace/ServiceUsageChart";
+import { FeatureUsagePanel } from "../components/workspace/FeatureUsagePanel";
 import { ServiceLauncher } from "../components/workspace/ServiceLauncher";
-import { useGetPartnerServices } from "../hooks/useServices";
+import { useWorkspaceFeatureUsage } from "../hooks/useDashboard";
+import { SetupChecklist } from "../components/workspace/SetupChecklist";
 
 const MAX_RESULTS = 6;
 
@@ -35,11 +36,12 @@ const OVERVIEW_IMAGES = {
  */
 const QUICK_SERVICES = [
   {
-    to: "/logistics-network",
+    to: "/marketplace",
     title: "Logistics network",
-    tagline: "Offer your routes, or join a paired delivery already heading that way.",
+    tagline: "Find partners for work you need done, get found for what you do, and share routes.",
     cta: "See the network",
     image: cardImage("photo-1494412574643-ff11b0a5c1c3"),
+    feature: "network",
   },
   {
     to: "/stakeholders",
@@ -47,6 +49,7 @@ const QUICK_SERVICES = [
     tagline: "Do business with other stakeholders and automate the payments and profits.",
     cta: "Set up a split",
     image: cardImage("photo-1600880292203-757bb62b4baf"),
+    feature: "stakeholders",
   },
   {
     to: "/fleet-listing",
@@ -54,19 +57,26 @@ const QUICK_SERVICES = [
     tagline: "Lend your trucks, vans, bikes or trailers to the network and earn on idle days.",
     cta: "List a vehicle",
     image: cardImage("photo-1601584115197-04ecc0da31d7"),
+    // No backend count for fleet listings yet, so this card always shows.
+    feature: null,
   },
 ];
 
 const EXPLORE_LINKS = [
   { to: "/rates", label: "Rate cards", description: "Build and publish your pricing" },
   { to: "/service", label: "Services", description: "Define what you offer customers" },
-  { to: "/logistics-network", label: "Network", description: "Branches, routes and coverage" },
+  { to: "/marketplace", label: "Network", description: "Marketplace, job briefs and routes" },
 ];
 
 export const SelectWorkspaceScreen = () => {
   const navigate = useNavigate();
   const profile = usePartnerProfile();
-  const { data: partnerServices = [] } = useGetPartnerServices();
+  const { data: usage } = useWorkspaceFeatureUsage();
+  const features = usage?.features ?? [];
+  // A pitch for something the partner already uses is noise; the panel beside
+  // these cards already shows it with real numbers.
+  const inUse = new Set(features.filter((f) => f.in_use).map((f) => f.key));
+  const pitches = QUICK_SERVICES.filter((s) => !s.feature || !inUse.has(s.feature));
   const [requested, setRequested] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -264,21 +274,28 @@ export const SelectWorkspaceScreen = () => {
           })}
         </div> */}
 
+        {/* What's left to set up, above everything else — and gone entirely
+            once there is nothing left to do. */}
+        <div className="mt-8 w-full max-w-6xl">
+          <SetupChecklist />
+        </div>
+
         <section className="mt-10 w-full max-w-6xl" aria-labelledby="workspace-activity-heading">
           <div className="mb-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand">Your activity</p>
             <h2 id="workspace-activity-heading" className="mt-1 text-lg font-semibold tracking-tight text-slate-900">
-              How your services are moving
+              What you're using on Azapal
             </h2>
           </div>
 
           <div className="grid gap-3 lg:grid-cols-5">
-            <div className="lg:col-span-3">
-              <ServiceUsageChart serviceNames={partnerServices.map((service) => service.name)} />
+            <div className={pitches.length ? "lg:col-span-3" : "lg:col-span-5"}>
+              <FeatureUsagePanel />
             </div>
 
-            <div className="grid gap-3 lg:col-span-2">
-              {QUICK_SERVICES.map((service) => (
+            {pitches.length > 0 && (
+            <div className="grid content-start gap-3 lg:col-span-2">
+              {pitches.map((service) => (
                 <article
                   key={service.to}
                   className="flex overflow-hidden rounded-2xl bg-white transition hover:border-slate-300 hover:shadow-md"
@@ -303,6 +320,7 @@ export const SelectWorkspaceScreen = () => {
                 </article>
               ))}
             </div>
+            )}
           </div>
         </section>
 

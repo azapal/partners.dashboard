@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useSendOtp } from '../hooks/useAuth';
 import { useSendBranchOtp } from '../hooks/useBranchAuth';
 
@@ -11,7 +11,6 @@ export const LoginScreen = () => {
   const [code, setCode] = useState('');
   const [email, setEmail] = useState('');
   const [branchCode, setBranchCode] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
 
   const { mutate: sendOtp, isPending: isSendingPartnerOtp } = useSendOtp();
   const { mutate: sendBranchOtp, isPending: isSendingBranchOtp } = useSendBranchOtp();
@@ -29,27 +28,23 @@ export const LoginScreen = () => {
     setCode('');
     setEmail('');
     setBranchCode('');
-    setErrorMessage('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage('');
 
     if (isBranch) {
       sendBranchOtp(
         { email, branchCode },
-        {
-          onSuccess: () => navigate('/support/branch-login/otp', { state: { email, branchCode } }),
-          onError: (err: any) => setErrorMessage(err?.message ?? 'Failed to send OTP. Please try again.'),
-        }
+        { onSuccess: () => navigate('/support/branch-login/otp', { state: { email, branchCode } }) }
       );
       return;
     }
 
+    // Failures are shown by the FeedbackModal; success is the OTP screen.
     sendOtp(code, {
-      onSuccess: () => navigate('/login/otp', { state: { partnerCode: code, accountType } }),
-      onError: (err: any) => setErrorMessage(err?.message ?? 'Failed to send OTP. Please try again.'),
+      onSuccess: (res) =>
+        navigate('/login/otp', { state: { partnerCode: code, accountType, sentTo: res?.data?.sent_to ?? '' } }),
     });
   };
 
@@ -202,7 +197,7 @@ export const LoginScreen = () => {
                           type="email"
                           placeholder="you@company.com"
                           value={email}
-                          onChange={(e) => { setEmail(e.target.value); setErrorMessage(''); }}
+                          onChange={(e) => setEmail(e.target.value)}
                           disabled={isPending}
                           className="w-full h-12 px-4 text-lg border border-slate-200 rounded-xl outline-none transition focus:border-[#1d4ed8] focus:ring-4 focus:ring-blue-100 text-slate-900 placeholder:text-slate-300 disabled:opacity-50"
                         />
@@ -217,7 +212,7 @@ export const LoginScreen = () => {
                           type="text"
                           placeholder="e.g. BLC/BRNCH/A"
                           value={branchCode}
-                          onChange={(e) => { setBranchCode(e.target.value); setErrorMessage(''); }}
+                          onChange={(e) => setBranchCode(e.target.value)}
                           disabled={isPending}
                           className="w-full h-12 px-4 text-lg border border-slate-200 rounded-xl outline-none transition focus:border-[#1d4ed8] focus:ring-4 focus:ring-blue-100 text-slate-900 placeholder:text-slate-300 disabled:opacity-50 uppercase placeholder:normal-case"
                         />
@@ -233,15 +228,11 @@ export const LoginScreen = () => {
                         type="text"
                         placeholder="PT-AZA/ABC/0001"
                         value={code}
-                        onChange={(e) => { setCode(e.target.value); setErrorMessage(''); }}
+                        onChange={(e) => setCode(e.target.value)}
                         disabled={isPending}
                         className="w-full h-12 px-4 text-lg border border-slate-200 rounded-xl outline-none transition focus:border-[#1d4ed8] focus:ring-4 focus:ring-blue-100 text-slate-900 placeholder:text-slate-300 disabled:opacity-50"
                       />
                     </div>
-                  )}
-
-                  {errorMessage && (
-                    <p className="text-sm text-red-500">{errorMessage}</p>
                   )}
 
                   <button
@@ -255,6 +246,23 @@ export const LoginScreen = () => {
                 </form>
               </div>
             )}
+          </div>
+
+          {/* The network's public pages need no account, so the way in is here
+              for anyone who lands on the login page looking for them. */}
+          <div className="mt-8 border-t border-slate-100 pt-5 text-center">
+            <p className="text-xs text-slate-500">Looking for logistics partners? No sign-in needed.</p>
+            <div className="mt-2.5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-sm font-medium">
+              <Link to="/marketplace" className="inline-flex items-center gap-1 text-brand hover:text-brand-hover">
+                <i className="ri-store-2-line" />Marketplace
+              </Link>
+              <Link to="/job-briefs" className="inline-flex items-center gap-1 text-brand hover:text-brand-hover">
+                <i className="ri-file-list-3-line" />Job briefs
+              </Link>
+              <Link to="/pairing-routes" className="inline-flex items-center gap-1 text-brand hover:text-brand-hover">
+                <i className="ri-route-line" />Pairing routes
+              </Link>
+            </div>
           </div>
         </div>
       </div>

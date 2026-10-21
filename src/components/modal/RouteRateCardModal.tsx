@@ -45,7 +45,6 @@ export const RouteRateCardModal: React.FC<RouteRateCardModalProps> = ({ rate, on
   const [cargoType, setCargoType] = useState<CargoType>(rate?.cargo_type ?? 'General Goods');
   const [price, setPrice] = useState(rate ? String(rate.price) : '');
   const [status, setStatus] = useState<RateCardStatus>(rate?.status ?? 'Active');
-  const [formError, setFormError] = useState<string | null>(null);
 
   const createRate = useCreateRouteRate();
   const updateRate = useUpdateRouteRate();
@@ -57,7 +56,6 @@ export const RouteRateCardModal: React.FC<RouteRateCardModalProps> = ({ rate, on
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit || !origin || !destination) return;
-    setFormError(null);
 
     const payload = {
       origin_state: origin.value,
@@ -70,17 +68,17 @@ export const RouteRateCardModal: React.FC<RouteRateCardModalProps> = ({ rate, on
     if (isEdit) {
       updateRate.mutate(
         { id: rate!.id, payload },
-        { onSuccess: onClose, onError: (err) => setFormError(err.message) }
+        { onSuccess: onClose }
       );
     } else {
-      createRate.mutate(payload, { onSuccess: onClose, onError: (err) => setFormError(err.message) });
+      createRate.mutate(payload, { onSuccess: onClose });
     }
   };
 
   const handleDelete = () => {
     if (!rate) return;
     if (window.confirm('Delete this route rate? This cannot be undone.')) {
-      deleteRate.mutate(rate.id, { onSuccess: onClose, onError: (err) => setFormError(err.message) });
+      deleteRate.mutate(rate.id, { onSuccess: onClose });
     }
   };
 
@@ -122,7 +120,6 @@ export const RouteRateCardModal: React.FC<RouteRateCardModalProps> = ({ rate, on
           </FormField>
         </div>
 
-        {formError && <p className="text-xs text-red-500">{formError}</p>}
 
         <div className="flex justify-between gap-3 pt-2 border-t border-gray-100">
           {isEdit ? (

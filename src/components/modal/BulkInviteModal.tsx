@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { DefaultModal } from './DefaultModal';
 import { useGetRoles } from '../../hooks/useRoles';
 import { useCreateInvite } from '../../hooks/useInvites';
+import { feedbackActions } from '../../store/client/feedback';
 import { parseSpreadsheet, downloadTemplate } from '../../lib/parseSpreadsheet';
 
 interface BulkInviteModalProps {
@@ -32,7 +33,9 @@ export const BulkInviteModal: React.FC<BulkInviteModalProps> = ({ isOpen, onClos
   const [done, setDone] = useState(false);
 
   const { data: rolesData = [] } = useGetRoles();
-  const { mutateAsync: createInvite } = useCreateInvite();
+  const { mutateAsync: createInvite } = useCreateInvite({ silent: true });
+  // Silent per row — the table shows each row's outcome, and one summary
+  // modal at the end replaces what would otherwise be a modal per row.
 
   const roleMap = Object.fromEntries(
     rolesData.map((r) => [r.name.toLowerCase(), r.id])
@@ -93,6 +96,17 @@ export const BulkInviteModal: React.FC<BulkInviteModalProps> = ({ isOpen, onClos
 
     setImporting(false);
     setDone(true);
+
+    const ok = updated.filter((r) => r.status === 'success').length;
+    const failed = updated.length - ok;
+    if (failed === 0) {
+      feedbackActions.success(`${ok} ${ok === 1 ? 'invite' : 'invites'} sent.`);
+    } else {
+      feedbackActions.error(
+        `${ok} of ${updated.length} invites sent. ${failed} failed — hover the red mark on a row to see why.`,
+        'Some rows failed',
+      );
+    }
   };
 
   const successCount = rows.filter((r) => r.status === 'success').length;

@@ -4,6 +4,7 @@ import { DefaultModal } from './DefaultModal';
 import { SearchableSelect } from '../inputs/SearchableSelect';
 import { useGetRoles } from '../../hooks/useRoles';
 import { useGetBranches } from '../../hooks/useBranchPartner';
+import { PriceNotice } from "../billing/PriceNotice";
 
 interface AddNewUserModalProps {
   isOpen: boolean;
@@ -23,11 +24,10 @@ interface AddNewUserModalProps {
     branch?: string;
     invite_role: string;
   }) => void;
-  error?: string | null;
   isSubmitting?: boolean;
 }
 
-export const AddNewUserModal: React.FC<AddNewUserModalProps> = ({ isOpen, onClose, onInvite, error, isSubmitting, prefill }) => {
+export const AddNewUserModal: React.FC<AddNewUserModalProps> = ({ isOpen, onClose, onInvite, isSubmitting, prefill }) => {
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -88,13 +88,6 @@ export const AddNewUserModal: React.FC<AddNewUserModalProps> = ({ isOpen, onClos
       subtitle="Send a team member an invite to join your portal."
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && (
-          <div className="flex items-center gap-2 bg-red-50 text-red-600 rounded-xl px-4 py-3 text-sm">
-            <i className="ri-error-warning-line text-base shrink-0" />
-            {error}
-          </div>
-        )}
-
         <Field
           label="Email"
           type="email"
@@ -154,6 +147,10 @@ export const AddNewUserModal: React.FC<AddNewUserModalProps> = ({ isOpen, onClos
             placeholder="Search role…"
           />
         )}
+
+        {/* What this will cost, before they send it — free while the partner's
+            first hundred people last, priced after that. */}
+        <PriceNotice kind="user_created" className="mt-1" />
 
         <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 mt-1">
           <button

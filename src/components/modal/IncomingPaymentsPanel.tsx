@@ -4,6 +4,7 @@ import {
   useIgnoreIncomingPayment,
   useMatchIncomingPayment,
 } from '../../hooks/useIncomingPayments';
+import { feedbackActions } from '../../store/client/feedback';
 import type { IncomingPayment } from '../../service/partnerService';
 
 const naira = (value: string | number) =>
@@ -24,8 +25,6 @@ function PaymentRow({ payment }: { payment: IncomingPayment }) {
   const [selected, setSelected] = useState<number | null>(
     payment.suggestions?.find((s) => s.exact_amount)?.id ?? null,
   );
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<string | null>(null);
 
   const match = useMatchIncomingPayment();
   const ignore = useIgnoreIncomingPayment();
@@ -35,32 +34,29 @@ function PaymentRow({ payment }: { payment: IncomingPayment }) {
 
   const handleMatch = () => {
     if (!selected) return;
-    setError(null);
+    // useMatchIncomingPayment is silent on success: what to say depends on
+    // whether the split distributed, which only the response knows. The row
+    // itself drops out when the list refetches.
     match.mutate(
       { id: payment.id, invoiceId: selected },
       {
         onSuccess: (data) => {
-          setResult(
-            data.distribution_warning
-              ? `Matched to ${data.invoice.invoice_number}, but distribution failed: ${data.distribution_warning}`
-              : data.distributed
+          if (data.distribution_warning) {
+            feedbackActions.error(
+              `Matched to ${data.invoice.invoice_number}, but distribution failed: ${data.distribution_warning}`,
+              'Matched, not distributed',
+            );
+          } else {
+            feedbackActions.success(
+              data.distributed
                 ? `Matched to ${data.invoice.invoice_number} and distributed.`
                 : `Matched to ${data.invoice.invoice_number}.`,
-          );
+            );
+          }
         },
-        onError: (e: any) => setError(e.message || 'Could not match this payment'),
       },
     );
   };
-
-  if (result) {
-    return (
-      <div className="p-4 flex items-start gap-2 text-sm text-green-700">
-        <i className="ri-checkbox-circle-line mt-0.5" />
-        {result}
-      </div>
-    );
-  }
 
   return (
     <div className="p-4 flex flex-col gap-3">
@@ -122,8 +118,6 @@ function PaymentRow({ payment }: { payment: IncomingPayment }) {
           </div>
         </>
       )}
-
-      {error && <p className="text-sm text-red-600">{error}</p>}
 
       {suggestions.length > 0 && (
         <div className="flex justify-end">

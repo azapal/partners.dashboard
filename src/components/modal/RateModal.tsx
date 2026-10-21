@@ -20,7 +20,6 @@ export const RateModal: React.FC<RateModalProps> = ({ rate, onClose }) => {
   const [window_, setWindow] = useState(rate?.window ?? '');
   const [pickupService, setPickupService] = useState(rate?.pickup_service ?? '');
   const [categoryId, setCategoryId] = useState(rate?.category ? String(rate.category.id) : '');
-  const [formError, setFormError] = useState<string | null>(null);
 
   const { data: categories = [] } = useGetItemCategories();
   const createRate = useCreateRate();
@@ -33,7 +32,6 @@ export const RateModal: React.FC<RateModalProps> = ({ rate, onClose }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
-    setFormError(null);
 
     const payload = {
       region: region.trim(),
@@ -47,12 +45,11 @@ export const RateModal: React.FC<RateModalProps> = ({ rate, onClose }) => {
     if (isEdit) {
       updateRate.mutate(
         { id: rate!.id, payload },
-        { onSuccess: onClose, onError: (err) => setFormError(err.message) }
+        { onSuccess: onClose }
       );
     } else {
       createRate.mutate(payload, {
         onSuccess: onClose,
-        onError: (err) => setFormError(err.message),
       });
     }
   };
@@ -62,7 +59,6 @@ export const RateModal: React.FC<RateModalProps> = ({ rate, onClose }) => {
     if (window.confirm('Delete this rate? This cannot be undone.')) {
       deleteRate.mutate(rate.id, {
         onSuccess: onClose,
-        onError: (err) => setFormError(err.message),
       });
     }
   };
@@ -84,7 +80,6 @@ export const RateModal: React.FC<RateModalProps> = ({ rate, onClose }) => {
               placeholder="e.g., Lagos"
               className={inputClass}
             />
-            {formError && <p className="text-xs text-red-500 mt-1">{formError}</p>}
           </FormField>
           <FormField label="Scope">
             <select value={scope} onChange={(e) => setScope(e.target.value as RateScope)} className={inputClass}>

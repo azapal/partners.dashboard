@@ -51,6 +51,9 @@ export const useGetStakeholder = (id: number | null) => {
 export const useCreateStakeholder = () => {
   const qc = useQueryClient();
   return useMutation({
+    // Silent on success: the record saves even when its bank account is
+    // rejected, so AddStakeholderModal decides whether that was a success.
+    meta: { silentSuccess: true },
     mutationFn: (payload: CreateStakeholderPayload) => stakeholderService.create(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: stakeholderKeys.all }),
   });
@@ -59,6 +62,7 @@ export const useCreateStakeholder = () => {
 export const useUpdateStakeholder = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Stakeholder updated.' },
     mutationFn: ({ id, payload }: { id: number; payload: UpdateStakeholderPayload }) =>
       stakeholderService.update(id, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: stakeholderKeys.all }),
@@ -68,6 +72,7 @@ export const useUpdateStakeholder = () => {
 export const useDeleteStakeholder = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Stakeholder removed.' },
     mutationFn: (id: number) => stakeholderService.remove(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: stakeholderKeys.all }),
   });
@@ -85,6 +90,10 @@ export const useGetStakeholderPayouts = (id: number | null) => {
 export const usePayStakeholder = (id: number) => {
   const qc = useQueryClient();
   return useMutation({
+    meta: {
+      successTitle: 'Payout sent',
+      successMessage: 'The transfer is on its way. If the bank rejects it, the amount returns to their balance automatically.',
+    },
     mutationFn: (payload: CreatePayoutPayload) => stakeholderService.payout(id, payload),
     // A payout changes the balance shown on every stakeholder view, not just the
     // payout list, so the whole namespace is invalidated.
@@ -111,6 +120,7 @@ export const useGetBanks = () => {
  */
 export const useResolveAccount = () =>
   useMutation({
+    meta: { silentSuccess: true },
     mutationFn: ({ accountNumber, bankCode }: { accountNumber: string; bankCode: string }) =>
       stakeholderService.resolveAccount(accountNumber, bankCode),
   });
@@ -122,6 +132,7 @@ export const useResolveAccount = () =>
 export const useAddCollaborator = (stakeholderId: number) => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Contact added.' },
     mutationFn: (payload: CollaboratorPayload) => stakeholderService.addCollaborator(stakeholderId, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: stakeholderKeys.all }),
   });
@@ -130,6 +141,7 @@ export const useAddCollaborator = (stakeholderId: number) => {
 export const useUpdateCollaborator = (stakeholderId: number) => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Contact updated.' },
     mutationFn: ({ id, payload }: { id: number; payload: Partial<CollaboratorPayload> }) =>
       stakeholderService.updateCollaborator(stakeholderId, id, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: stakeholderKeys.all }),
@@ -139,6 +151,7 @@ export const useUpdateCollaborator = (stakeholderId: number) => {
 export const useRemoveCollaborator = (stakeholderId: number) => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Contact removed.' },
     mutationFn: (id: number) => stakeholderService.removeCollaborator(stakeholderId, id),
     onSuccess: () => qc.invalidateQueries({ queryKey: stakeholderKeys.all }),
   });
@@ -179,6 +192,10 @@ export const useNetworkPartner = (partnerCode: string | null) => {
 export const useSettleInvoiceSplit = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: {
+      successTitle: 'Distributed',
+      successMessage: "Each stakeholder's share has been credited to their balance. Pay them out from the Stakeholders page whenever you're ready.",
+    },
     mutationFn: (invoiceId: number) => settleInvoiceSplit(invoiceId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: stakeholderKeys.all });
@@ -201,6 +218,7 @@ export const useSettlementAccount = () => {
 export const useSaveSettlementAccount = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Settlement account saved.' },
     mutationFn: (payload: SaveSettlementAccountPayload) => stakeholderService.saveSettlementAccount(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: stakeholderKeys.settlement }),
   });
@@ -209,6 +227,7 @@ export const useSaveSettlementAccount = () => {
 export const useRemoveSettlementAccount = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Settlement account removed.' },
     mutationFn: () => stakeholderService.removeSettlementAccount(),
     onSuccess: () => qc.invalidateQueries({ queryKey: stakeholderKeys.settlement }),
   });

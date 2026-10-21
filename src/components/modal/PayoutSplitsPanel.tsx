@@ -7,6 +7,7 @@ import {
 } from '../../hooks/usePayoutSplits';
 import { useGetBranches } from '../../hooks/useBranchPartner';
 import { PayoutSplitModal } from './PayoutSplitModal';
+import { feedbackActions } from '../../store/client/feedback';
 import type { PayoutSplit, PayoutSplitStatus } from '../../service/partnerService';
 
 const naira = (value: string | number) =>
@@ -69,7 +70,6 @@ function SettlementHistory({ split }: { split: PayoutSplit }) {
 function SplitCard({ split, branches }: { split: PayoutSplit; branches: any[] }) {
   const [showHistory, setShowHistory] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const setStatus = useSetPayoutSplitStatus();
   const setDefault = useSetDefaultPayoutSplit();
@@ -78,10 +78,10 @@ function SplitCard({ split, branches }: { split: PayoutSplit; branches: any[] })
   const ownShare = split.members.find((m) => m.is_own_share);
   const stakeholderMembers = split.members.filter((m) => !m.is_own_share);
 
-  const act = (fn: () => void) => {
-    setError(null);
-    fn();
-  };
+  // Status changes are silent in useSetPayoutSplitStatus so each button can say
+  // what it actually did; failures reach the FeedbackModal either way.
+  const changeStatus = (status: PayoutSplitStatus, message: string) =>
+    setStatus.mutate({ id: split.id, status }, { onSuccess: () => feedbackActions.success(message) });
 
   return (
     <div className="rounded-2xl bg-white">
@@ -125,8 +125,6 @@ function SplitCard({ split, branches }: { split: PayoutSplit; branches: any[] })
         )}
       </div>
 
-      {error && <p className="px-4 pb-2 text-xs text-red-600">{error}</p>}
-
       <div className="flex items-center gap-3 border-t border-gray-50 px-4 py-2.5 flex-wrap">
         <button
           onClick={() => setShowHistory((v) => !v)}
@@ -143,25 +141,14 @@ function SplitCard({ split, branches }: { split: PayoutSplit; branches: any[] })
 
             {split.status === 'active' ? (
               <button
-                onClick={() =>
-                  act(() =>
-                    setStatus.mutate(
-                      { id: split.id, status: 'suspended' },
-                      { onError: (e: any) => setError(e.message) },
-                    ),
-                  )
-                }
+                onClick={() => changeStatus('suspended', `"${split.name}" suspended.`)}
                 className="text-xs font-semibold text-gray-500 hover:text-orange-700"
               >
                 Suspend
               </button>
             ) : (
               <button
-                onClick={() =>
-                  act(() =>
-                    setStatus.mutate({ id: split.id, status: 'active' }, { onError: (e: any) => setError(e.message) }),
-                  )
-                }
+                onClick={() => changeStatus('active', `"${split.name}" reactivated.`)}
                 className="text-xs font-semibold text-green-700 hover:text-green-800"
               >
                 Reactivate
@@ -170,9 +157,7 @@ function SplitCard({ split, branches }: { split: PayoutSplit; branches: any[] })
 
             {split.status === 'active' && !split.is_partner_default && (
               <button
-                onClick={() =>
-                  act(() => setDefault.mutate({ id: split.id }, { onError: (e: any) => setError(e.message) }))
-                }
+                onClick={() => setDefault.mutate({ id: split.id })}
                 className="text-xs font-semibold text-gray-500 hover:text-gray-800"
               >
                 Make my default
@@ -183,13 +168,7 @@ function SplitCard({ split, branches }: { split: PayoutSplit; branches: any[] })
               <select
                 value=""
                 onChange={(e) =>
-                  e.target.value &&
-                  act(() =>
-                    setDefault.mutate(
-                      { id: split.id, branchId: Number(e.target.value) },
-                      { onError: (err: any) => setError(err.message) },
-                    ),
-                  )
+                  e.target.value && setDefault.mutate({ id: split.id, branchId: Number(e.target.value) })
                 }
                 className="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-600 bg-white"
                 aria-label={`Pin ${split.name} as a branch default`}
@@ -208,9 +187,7 @@ function SplitCard({ split, branches }: { split: PayoutSplit; branches: any[] })
             <button
               onClick={() => {
                 if (!window.confirm(`Terminate "${split.name}"? This can't be undone — it stays visible in history.`)) return;
-                act(() =>
-                  setStatus.mutate({ id: split.id, status: 'terminated' }, { onError: (e: any) => setError(e.message) }),
-                );
+                changeStatus('terminated', `"${split.name}" terminated. It stays visible in history.`);
               }}
               className="text-xs font-semibold text-gray-400 hover:text-red-600 ml-auto"
             >

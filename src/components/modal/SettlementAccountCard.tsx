@@ -29,36 +29,23 @@ export const SettlementAccountCard = () => {
   const [bankCode, setBankCode] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [resolvedName, setResolvedName] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const startEditing = () => {
     setBankCode(account?.bank_code ?? '');
     setAccountNumber(account?.account_number ?? '');
     setResolvedName(null);
-    setError(null);
     setEditing(true);
   };
 
   const handleResolve = () => {
-    setError(null);
     setResolvedName(null);
-    resolve.mutate(
-      { accountNumber, bankCode },
-      {
-        onSuccess: (data) => setResolvedName(data.accountName),
-        onError: (e: any) => setError(e.message || 'Could not verify that account'),
-      },
-    );
+    resolve.mutate({ accountNumber, bankCode }, { onSuccess: (data) => setResolvedName(data.accountName) });
   };
 
   const handleSave = () => {
-    setError(null);
     save.mutate(
       { bank_code: bankCode, account_number: accountNumber, bank_name: banks.find((b) => b.code === bankCode)?.name },
-      {
-        onSuccess: () => setEditing(false),
-        onError: (e: any) => setError(e.message || 'Could not save the account'),
-      },
+      { onSuccess: () => setEditing(false) },
     );
   };
 
@@ -158,8 +145,6 @@ export const SettlementAccountCard = () => {
               {resolvedName}
             </p>
           )}
-
-          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div className="flex items-center justify-end gap-2">
             <button

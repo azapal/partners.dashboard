@@ -12,7 +12,7 @@ import type { NavItem } from "./navItems";
  *
  * Route ownership is declared here rather than inferred from the launcher
  * catalogue, because that catalogue deliberately lists the same route under
- * several groups (a branch wallet is both "Branches" and "Money"). Browsing
+ * several groups (a branch wallet is both "Branches" and "Financials"). Browsing
  * tolerates that overlap; navigation must not — exactly one category owns a
  * path, or the rail would flicker between two answers.
  *
@@ -40,12 +40,11 @@ export const NAV_CATEGORIES: NavCategory[] = [
     label: "Last mile",
     icon: "ri-truck-line",
     caption: "Everything that moves a delivery",
-    owns: ["/dashboard", "/transactions", "/custody", "/customers", "/rates", "/quote-page", "/service", "/chargeable-weight"],
+    owns: ["/dashboard", "/transactions", "/custody", "/rates", "/quote-page", "/service", "/chargeable-weight"],
     items: [
       { to: "/dashboard", icon: "ri-home-6-line", label: "Dashboard", keywords: ["home", "overview"] },
       { to: "/transactions", icon: "ri-exchange-line", label: "Orders", keywords: ["orders", "deliveries", "dispatch"] },
       { to: "/custody", icon: "ri-shake-hands-line", label: "Custody", keywords: ["handover", "handoff", "chain of custody", "proof", "evidence"] },
-      { to: "/customers", icon: "ri-user-3-line", label: "Customers", keywords: ["clients"] },
       { to: "/service", icon: "ri-task-line", label: "Services", keywords: ["services", "coverage"] },
       { to: "/rates", icon: "ri-price-tag-3-line", label: "Rates", keywords: ["rates", "pricing"] },
       { to: "/quote-page", icon: "ri-price-tag-3-line", label: "Quote page", keywords: ["quote", "leads", "quote requests", "enquiries"] },
@@ -53,8 +52,21 @@ export const NAV_CATEGORIES: NavCategory[] = [
     ],
   },
   {
+    // Its own category, not part of Last mile: customers come from every
+    // service — quote requests, orders, invoices, checkout — not only deliveries.
+    id: "customers",
+    label: "Customers",
+    icon: "ri-user-heart-line",
+    caption: "Everyone you serve, and emailing them",
+    owns: ["/customers"],
+    items: [
+      { to: "/customers", icon: "ri-user-3-line", label: "Customers", keywords: ["customers", "clients", "email", "emails", "campaigns", "email campaigns", "newsletter", "promo", "promotion", "discount", "seasonal", "bulk email", "marketing", "templates"] },
+    ],
+  },
+  {
+    // The id stays "money"; only what the partner reads changed.
     id: "money",
-    label: "Money",
+    label: "Financials",
     icon: "ri-wallet-3-line",
     caption: "Collect, divide and settle",
     owns: ["/financials", "/stakeholders", "/bills", "/PaymentMethod"],
@@ -62,7 +74,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
       { to: "/financials", icon: "ri-wallet-3-line", label: "Financials", keywords: ["wallet", "invoices", "receipts"] },
       { to: "/stakeholders", icon: "ri-team-line", label: "Stakeholders", keywords: ["splits", "payouts"] },
       { to: "/bills", icon: "ri-bill-line", label: "Bills", keywords: ["billing", "pay as you go", "usage"] },
-      { to: "/PaymentMethod", icon: "ri-bank-card-line", label: "Payment method", keywords: ["card", "billing"] },
+      { to: "/PaymentMethod", icon: "ri-bank-card-line", label: "Billing method", keywords: ["card", "billing", "bank transfer", "payment method"] },
     ],
   },
   {
@@ -93,10 +105,13 @@ export const NAV_CATEGORIES: NavCategory[] = [
     id: "network",
     label: "Logistics network",
     icon: "ri-share-circle-line",
-    caption: "Trade routes, capacity and work with other partners",
-    owns: ["/logistics-network", "/fleet-listing"],
+    caption: "Find partners, trade work, routes and capacity",
+    owns: ["/marketplace", "/job-briefs", "/inbox", "/pairing-routes", "/logistics-network", "/fleet-listing"],
     items: [
-      { to: "/logistics-network", icon: "ri-route-line", label: "Pairing routes", keywords: ["paired delivery", "routes", "lanes", "logn"] },
+      { to: "/marketplace", icon: "ri-store-3-line", label: "Marketplace", keywords: ["marketplace", "partners", "storefront", "directory", "logn"] },
+      { to: "/job-briefs", icon: "ri-file-list-3-line", label: "Job briefs", keywords: ["briefs", "jobs", "tender", "rfq", "outsource"] },
+      { to: "/inbox", icon: "ri-chat-3-line", label: "Inbox", keywords: ["messages", "chat", "direct message"] },
+      { to: "/pairing-routes", icon: "ri-route-line", label: "Pairing routes", keywords: ["paired delivery", "routes", "lanes"] },
       { to: "/fleet-listing", icon: "ri-truck-line", label: "Fleet pairing", keywords: ["lend", "vehicle", "capacity sharing", "earn"] },
     ],
   },
@@ -119,3 +134,4 @@ export const categoryForPath = (pathname: string): NavCategory => {
 
   return best?.category ?? DEFAULT_CATEGORY;
 };
+
