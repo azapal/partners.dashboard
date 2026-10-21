@@ -26,6 +26,10 @@ export interface PartnerProfile {
   partner_hq_city: string;
   partner_country: string;
   partner_email: string;
+  partner_phone?: string | null;
+  /** Read-only here; edited with the rest of the document branding. */
+  logo_url?: string | null;
+  kyc_status?: 'not_started' | 'in_review' | 'verified' | 'declined';
   partner_token_expires_at: string | null;
   created_at: string;
   updated_at: string;
@@ -199,6 +203,17 @@ export interface PartnerResponse {
   message?: string;
 }
 
+/**
+ * What sending a login OTP reports back. `sent_to` is the address this code went
+ * to, masked by the server ("ad••••@example.com") — the OTP screen shows it for
+ * this attempt only, and nothing is persisted.
+ */
+export interface SendOtpResponse {
+  code?: string;
+  message?: string;
+  data?: { totp_enabled?: boolean; sent_to?: string };
+}
+
 export interface PartnersListResponse {
   success: boolean;
   data?: Partner[];
@@ -315,7 +330,7 @@ const clearAllCookies = () => {
   });
 };
 
-const clearAuthState = () => {
+const clearAuthState = (redirectTo = '/') => {
   localStorage.removeItem('auth_token');
   localStorage.removeItem('refresh_token');
   localStorage.removeItem('partner_profile');
@@ -324,9 +339,24 @@ const clearAuthState = () => {
   localStorage.removeItem('rep_auth_token');
   localStorage.removeItem('rep_refresh_token');
   localStorage.removeItem('rep_profile');
+  // Legacy: onboarding used to leave the email here for the OTP screen.
+  localStorage.removeItem('partner_email');
   clearAllCookies();
-  // Redirect to login
-  window.location.href = '/';
+  // A full page load rather than navigate(): it is also what empties the
+  // in-memory stores and the query cache, so nothing from this session survives
+  // into the next one.
+  window.location.href = redirectTo;
+};
+
+/**
+ * Signing out on purpose — both sessions, every token, back to the right login.
+ *
+ * An elevated-admin rep signs out from the main dashboard's header too, so the
+ * destination follows whichever session is actually being ended.
+ */
+export const signOut = () => {
+  const repOnly = !localStorage.getItem('partner_profile') && !!localStorage.getItem('rep_profile');
+  clearAuthState(repOnly ? '/support/login' : '/');
 };
 
 /**
@@ -521,7 +551,7 @@ export const partnerService = {
    * POST /partner/otp/send
    * Trigger OTP dispatch for a given partner code
    */
-  async sendOtp(partnerCode: string): Promise<PartnerResponse> {
+  async sendOtp(partnerCode: string): Promise<SendOtpResponse> {
     const response = await fetch(`${PARTNER_ENDPOINT}/otp/send/${encodeURIComponent(partnerCode)}`, {
       method: 'GET',
       headers: getHeaders(),
@@ -631,11 +661,14 @@ export const inviteService = {
 };
 
 // ── Partner Profile (self-service) ─────────────────────────────────────────────
-// Proposed endpoint — see docs/partner-profile-api-contract.md
+// PUT partner/profile — self-scoped, identified by the token, never an id in the
+// path. partner_code is not editable: it is half of the partner's own login and
+// every wallet identity they own.
 
 export interface UpdatePartnerProfilePayload {
   partner_name?: string;
   partner_email?: string;
+  partner_phone?: string;
   partner_hq_address?: string;
   partner_hq_state?: string;
   partner_hq_city?: string;
@@ -643,6 +676,20 @@ export interface UpdatePartnerProfilePayload {
 }
 
 export const partnerProfileService = {
+  /**
+   * The partner's record as the server holds it.
+   *
+   * Not the same thing as the cached `partner_profile` in localStorage, which
+   * only carries what the login response happened to return — no country, state
+   * or city. A form seeded from that one and saved writes those back as blanks.
+   */
+  async get(): Promise<PartnerProfile> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/profile`, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
   async update(payload: UpdatePartnerProfilePayload): Promise<PartnerProfile> {
     const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/profile`, {
       method: 'PUT',
@@ -939,6 +986,23 @@ export interface QuoteTeammate {
   /** Their own handle, stored bare. */
   social_handle: string | null;
   role: string | null;
+  /** Where they sit — null for head office. A page may point at any of them. */
+  branch: { id: number; branch_code: string } | null;
+}
+
+/**
+ * One of a page's reference links: the same page reached as `?r=<code>`, so both
+ * the visit and any lead it turns into record where they came from.
+ *
+ * `clicks` counts real browsers opening the link — the chat apps that fetch it
+ * to build a preview card are filtered out server-side. `leads` counts the ones
+ * who went on to fill the form in.
+ */
+export interface QuoteReferral {
+  code: string;
+  label: string;
+  clicks: number;
+  leads: number;
 }
 
 export interface QuoteContact {
@@ -1007,6 +1071,10 @@ export interface QuotePageSettings {
   services: QuotePageService[];
   contact_channels: QuoteContactChannels | null;
   copy_channels: QuoteCopyChannel[];
+  /** This page's own reference links — never inherited from the company page. */
+  referrals: QuoteReferral[];
+  /** Clicks on the bare link, by people who followed no reference link. */
+  link_clicks: number;
   /** What Azapal can actually send right now, whatever the partner switched on. */
   available_copy_channels: QuoteCopyChannel[];
   /** The catalog services this partner has ticked under Services. */
@@ -1019,7 +1087,15 @@ export interface QuotePageSettings {
 
 export type SaveQuotePagePayload = Omit<
   QuotePageSettings,
-  'exists' | 'branch' | 'available_copy_channels' | 'available_services' | 'inheritable' | 'effective' | 'updated_at'
+  | 'exists'
+  | 'branch'
+  | 'available_copy_channels'
+  | 'available_services'
+  | 'inheritable'
+  | 'effective'
+  | 'updated_at'
+  // Counted by the server, never sent up.
+  | 'link_clicks'
 >;
 
 /** One row of "every page this partner has". */
@@ -1037,6 +1113,10 @@ export interface QuoteRequestRecord {
   service: QuoteServiceId;
   /** What the partner calls the service, read when the lead was listed. */
   service_label: string;
+  /** The reference link they arrived through, or "" — see QuoteReferral. */
+  source: string;
+  /** What the partner called that link; the code itself if it has since gone. */
+  source_label: string;
   /** What the customer typed about the job, beyond the questions. */
   details: string;
   /** What they answered, worded as they were asked it. */
@@ -1070,11 +1150,15 @@ export interface PublicQuotePage {
   services: QuotePageService[];
   contact_channels: Partial<Record<QuoteContactChannel, string>>;
   copy_channels: QuoteCopyChannel[];
+  /** Their partner code when they have a listed marketplace storefront — the page links to it. */
+  storefront_code?: string | null;
 }
 
 /** Answers only — the wording of the lead is the server's, never the client's. */
 export interface SubmitQuotePayload {
   service: QuoteServiceId;
+  /** The `?r=` the customer arrived with; ignored unless the page lists it. */
+  source?: string;
   /** The customer's own description, beyond the questions. */
   details?: string;
   /**
@@ -1417,12 +1501,43 @@ export interface DashboardStats {
   monthly_delivery_analytics: unknown[];
 }
 
+/** One part of Azapal and how much this partner actually uses it. */
+export interface WorkspaceFeatureUsage {
+  key: string;
+  label: string;
+  route: string;
+  /** What `count` counts: "orders", "live pages"… */
+  unit: string;
+  /** What `this_month` counts — differs from `unit` for the quote page (requests, not pages). */
+  activity_unit: string;
+  count: number;
+  this_month: number;
+  last_used_at: string | null;
+  in_use: boolean;
+  /** Activity per month, aligned with `WorkspaceFeatureUsageReport.months`. */
+  monthly: number[];
+}
+
+export interface WorkspaceFeatureUsageReport {
+  /** "2026-05" … "2026-10", oldest first, this month last. */
+  months: string[];
+  features: WorkspaceFeatureUsage[];
+}
+
 export const dashboardService = {
   async getStats(): Promise<DashboardStats> {
     const res = await fetchWithAuth(`${API_BASE_URL}/dashboard/stats`, {});
     if (!res.ok) await handleError(res);
     const raw: ApiResponse<DashboardStats> = await res.json();
     return raw.data;
+  },
+
+  /** Sorted by the backend: most active this month first, untried last. */
+  async getFeatureUsage(): Promise<WorkspaceFeatureUsageReport> {
+    const res = await fetchWithAuth(`${API_BASE_URL}/dashboard/feature-usage`, {});
+    if (!res.ok) await handleError(res);
+    const raw: ApiResponse<WorkspaceFeatureUsageReport> = await res.json();
+    return { months: raw.data?.months ?? [], features: raw.data?.features ?? [] };
   },
 };
 
@@ -2721,7 +2836,7 @@ export const brandingService = {
    * issues a ticket, and the bytes go straight to S3, which enforces the size cap
    * itself rather than trusting the browser to.
    */
-  async uploadAsset(kind: 'logo' | 'watermark', file: File): Promise<string> {
+  async uploadAsset(kind: 'logo' | 'watermark' | 'app_logo' | 'app_media' | 'email_media', file: File): Promise<string> {
     const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/branding/upload`, {
       method: 'POST',
       body: JSON.stringify({ kind, filename: file.name, content_type: file.type }),
@@ -2760,6 +2875,382 @@ export const brandingService = {
       throw new Error(failed);
     }
     return ticket.public_url;
+  },
+};
+
+// ── Mobility apps ───────────────────────────────────────────────────────────────
+// The partner's mobile app: the white-labelled Azapal app (their logo and colours,
+// billed monthly while active) or one of their own (billed once). Neither has a
+// list price — sales quotes each partner from the KYC portal, and nothing is
+// billed until the partner accepts. See modules/business/mobility_apps.py.
+
+export type MobilityProduct = 'white_label' | 'custom';
+export type MobilityAppStatus = 'draft' | 'requested' | 'quoted' | 'active' | 'suspended' | 'cancelled';
+
+export interface MobilityApp<C = Record<string, unknown>> {
+  id: number;
+  product: MobilityProduct;
+  status: MobilityAppStatus;
+  /** Naira. Per month for white_label, one-time for custom. Null until quoted. */
+  amount: number | null;
+  amount_basis: 'monthly' | 'one_time';
+  /** From sales, shown with the quote. */
+  sales_note: string;
+  config: C;
+  requested_at: string | null;
+  quoted_at: string | null;
+  accepted_at: string | null;
+  live_at: string | null;
+  suspended_at: string | null;
+  cancelled_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface MobilityApps {
+  white_label: MobilityApp | null;
+  custom: MobilityApp | null;
+}
+
+/** Empty string means that channel isn't offered — hide it rather than print a blank. */
+export interface SalesContact {
+  sales_email: string;
+  sales_phone: string;
+  sales_whatsapp: string;
+}
+
+export type MobilityAppAction = 'request' | 'accept' | 'cancel';
+
+const MOBILITY_ENDPOINT = `${PARTNER_ENDPOINT}/mobility-apps`;
+
+export const mobilityService = {
+  async list(): Promise<MobilityApps> {
+    const res = await fetchWithAuth(MOBILITY_ENDPOINT, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async save(product: MobilityProduct, config: object): Promise<MobilityApp> {
+    const res = await fetchWithAuth(`${MOBILITY_ENDPOINT}/${product}`, {
+      method: 'PUT',
+      body: JSON.stringify({ config }),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async act(product: MobilityProduct, action: MobilityAppAction): Promise<MobilityApp> {
+    const res = await fetchWithAuth(`${MOBILITY_ENDPOINT}/${product}/${action}`, { method: 'POST', body: '{}' });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async salesContact(): Promise<SalesContact> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/sales-contact`, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  /** App artwork goes through the branding bucket, under its own kinds. */
+  uploadImage(kind: 'app_logo' | 'app_media', file: File): Promise<string> {
+    return brandingService.uploadAsset(kind, file);
+  },
+};
+
+// ── Customers & email ───────────────────────────────────────────────────────────
+// Everyone who has dealt with this partner — quote requests from every service on
+// the quote page, app orders, invoices, checkout sessions — de-duplicated by email,
+// and the email campaigns sent to them. Mail goes out through Azapal (SES) as
+// "<Partner> via Azapal" <campaigns@azapal.com>, Reply-To the partner, with a
+// footer and unsubscribe link the server adds. See
+// modules/business/email_campaigns.py.
+//
+// For the partner owner and Tenant/Super Admin reps only — any other rep gets a
+// 403, which fetchWithAuth treats as a dead session, so the hooks gate on that.
+
+export type CustomerSourceKey = 'quote_request' | 'order' | 'invoice' | 'checkout';
+
+export interface CustomerSource {
+  source: CustomerSourceKey;
+  label: string;
+  count: number;
+  last_at: string | null;
+}
+
+export interface Customer {
+  /** Stable 16-hex id, derived from the email (or phone) — use it for selection. */
+  id: string;
+  name: string;
+  /** "" when we only have a phone number. */
+  email: string;
+  phone: string;
+  sources: CustomerSource[];
+  /** Service names, e.g. "Moving", "Delivery orders". */
+  services: string[];
+  last_activity: string | null;
+  interactions: number;
+  emailable: boolean;
+  unsubscribed: boolean;
+}
+
+export interface CustomerListParams {
+  q?: string;
+  source?: CustomerSourceKey | '';
+  service?: string;
+  emailable?: boolean;
+  page?: number;
+  page_size?: number;
+}
+
+export interface CustomerList {
+  results: Customer[];
+  /** Matching the filter. */
+  total: number;
+  /** Matching the filter and emailable. */
+  emailable: number;
+  page: number;
+  page_size: number;
+  /** Everyone, ignoring the filter. */
+  all_total: number;
+  /** Facets over everyone, not just the matching set. */
+  sources: { key: CustomerSourceKey; label: string; count: number }[];
+  services: { name: string; count: number }[];
+}
+
+export type EmailCampaignType = 'promo' | 'seasonal' | 'discount' | 'update';
+export type EmailAlign = 'left' | 'center' | 'right';
+
+export type EmailBlock =
+  | { type: 'heading'; text: string; align?: EmailAlign }
+  | { type: 'text'; text: string; align?: EmailAlign }
+  | { type: 'image'; url: string; alt?: string; link?: string }
+  | { type: 'button'; label: string; url: string; align?: EmailAlign }
+  | { type: 'divider' }
+  | { type: 'spacer'; size?: number };
+
+export interface EmailDesign {
+  theme?: { accent?: string; background?: string; text?: string };
+  blocks: EmailBlock[];
+}
+
+export interface EmailContent {
+  subject: string;
+  preheader?: string;
+  design: EmailDesign;
+}
+
+export interface EmailPreview {
+  html: string;
+  text: string;
+  /** e.g. '"Ikeja Freight via Azapal" <campaigns@azapal.com>' */
+  from: string;
+  reply_to: string;
+}
+
+export type EmailAudience =
+  | { mode: 'customers'; customer_ids: string[] }
+  | { mode: 'filter'; filter: { q?: string; source?: string; service?: string } };
+
+export interface EmailEstimate {
+  selected: number;
+  recipients: number;
+  no_email: number;
+  unsubscribed: number;
+  /** Naira per email sent. */
+  unit_amount: number;
+  total: number;
+  cap: number;
+  over_cap: boolean;
+  /** Verification isn't done — sending is refused until it is. */
+  kyc_blocked: boolean;
+}
+
+export type EmailCampaignStatus = 'queued' | 'sending' | 'sent' | 'failed' | 'cancelled';
+
+export interface EmailCampaign {
+  id: number;
+  name: string;
+  campaign_type: EmailCampaignType;
+  subject: string;
+  preheader: string;
+  status: EmailCampaignStatus;
+  recipient_count: number;
+  sent_count: number;
+  failed_count: number;
+  skipped_count: number;
+  unit_amount: number;
+  cost_so_far: number;
+  audience: { mode: 'customers' | 'filter'; filter: { q?: string; source?: string; service?: string } | null; selected: number };
+  created_by_name: string;
+  template_id: number | null;
+  queued_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string | null;
+}
+
+export interface EmailCampaignRecipient {
+  email: string;
+  name: string;
+  status: 'pending' | 'sent' | 'failed' | 'skipped' | string;
+  error: string;
+  sent_at: string | null;
+}
+
+export interface EmailCampaignDetail extends EmailCampaign {
+  design: EmailDesign;
+  /** The first 500. */
+  recipients: EmailCampaignRecipient[];
+}
+
+export interface CreateEmailCampaignPayload extends EmailContent {
+  name?: string;
+  campaign_type: EmailCampaignType;
+  template_id?: number | null;
+  audience: EmailAudience;
+  /** The estimate's total — the server refuses if the price moved since. */
+  confirm_total?: number;
+}
+
+export interface EmailTemplate {
+  id: number;
+  name: string;
+  campaign_type: EmailCampaignType;
+  subject: string;
+  preheader: string;
+  design: EmailDesign;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface EmailTemplatePayload {
+  name: string;
+  campaign_type?: EmailCampaignType;
+  subject?: string;
+  preheader?: string;
+  design: EmailDesign;
+}
+
+/**
+ * An email endpoint's refusal, keeping which field it was about. The send flow
+ * reacts to the field — `confirm_total` means re-estimate, `kyc` means point at
+ * verification — so it can't be flattened into a message like handleError does.
+ */
+export class EmailApiError extends Error {
+  field: string | null;
+  constructor(message: string, field: string | null) {
+    super(message);
+    this.field = field;
+  }
+}
+
+const handleEmailError = async (response: Response): Promise<never> => {
+  let field: string | null = null;
+  let message = `HTTP ${response.status}`;
+  try {
+    const data = await response.clone().json();
+    const errors = data?.data;
+    if (errors && typeof errors === 'object' && !Array.isArray(errors)) {
+      field = Object.keys(errors)[0] ?? null;
+    }
+    message = extractFieldError(data) || data?.message || data?.detail || message;
+  } catch {
+    return handleError(response);
+  }
+  throw new EmailApiError(message, field);
+};
+
+const CUSTOMERS_ENDPOINT = `${PARTNER_ENDPOINT}/customers`;
+const EMAIL_CAMPAIGNS_ENDPOINT = `${PARTNER_ENDPOINT}/email-campaigns`;
+const EMAIL_TEMPLATES_ENDPOINT = `${PARTNER_ENDPOINT}/email-templates`;
+
+const emailRequest = async <T>(url: string, init: RequestInit = {}): Promise<T> => {
+  const res = await fetchWithAuth(url, init);
+  if (!res.ok) await handleEmailError(res);
+  const raw = await res.json();
+  return raw.data ?? raw;
+};
+
+const postJson = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(body) });
+
+export const customerService = {
+  list(params: CustomerListParams = {}): Promise<CustomerList> {
+    const qs = new URLSearchParams();
+    if (params.q) qs.set('q', params.q);
+    if (params.source) qs.set('source', params.source);
+    if (params.service) qs.set('service', params.service);
+    if (params.emailable) qs.set('emailable', '1');
+    qs.set('page', String(params.page ?? 1));
+    qs.set('page_size', String(params.page_size ?? 50));
+    return emailRequest(`${CUSTOMERS_ENDPOINT}?${qs}`);
+  },
+
+  /** The customer with exactly this email, or null — for screens that only know the address. */
+  async findByEmail(email: string): Promise<Customer | null> {
+    const wanted = email.trim().toLowerCase();
+    if (!wanted) return null;
+    const { results } = await customerService.list({ q: wanted, page_size: 20 });
+    return results.find((c) => c.email.toLowerCase() === wanted) ?? null;
+  },
+};
+
+export const emailCampaignService = {
+  preview(content: EmailContent & { sample_name?: string }): Promise<EmailPreview> {
+    return emailRequest(`${EMAIL_CAMPAIGNS_ENDPOINT}/preview`, postJson(content));
+  },
+
+  estimate(audience: EmailAudience): Promise<EmailEstimate> {
+    return emailRequest(`${EMAIL_CAMPAIGNS_ENDPOINT}/estimate`, postJson({ audience }));
+  },
+
+  /** A free copy to the signed-in user's own address; 10 an hour. */
+  sendTest(content: EmailContent): Promise<{ to: string }> {
+    return emailRequest(`${EMAIL_CAMPAIGNS_ENDPOINT}/test`, postJson(content));
+  },
+
+  /** One recipient is sent there and then; more are queued for the worker. */
+  create(payload: CreateEmailCampaignPayload): Promise<EmailCampaign> {
+    return emailRequest(EMAIL_CAMPAIGNS_ENDPOINT, postJson(payload));
+  },
+
+  list(): Promise<EmailCampaign[]> {
+    return emailRequest(EMAIL_CAMPAIGNS_ENDPOINT);
+  },
+
+  get(id: number): Promise<EmailCampaignDetail> {
+    return emailRequest(`${EMAIL_CAMPAIGNS_ENDPOINT}/${id}`);
+  },
+
+  /** Stops what hasn't gone yet. What already went stays sent, and billed. */
+  cancel(id: number): Promise<EmailCampaign> {
+    return emailRequest(`${EMAIL_CAMPAIGNS_ENDPOINT}/${id}/cancel`, postJson({}));
+  },
+
+  /** Images in an email go through the branding bucket under their own kind. */
+  uploadImage(file: File): Promise<string> {
+    return brandingService.uploadAsset('email_media', file);
+  },
+};
+
+export const emailTemplateService = {
+  list(): Promise<EmailTemplate[]> {
+    return emailRequest(EMAIL_TEMPLATES_ENDPOINT);
+  },
+
+  create(payload: EmailTemplatePayload): Promise<EmailTemplate> {
+    return emailRequest(EMAIL_TEMPLATES_ENDPOINT, postJson(payload));
+  },
+
+  update(id: number, payload: Partial<EmailTemplatePayload>): Promise<EmailTemplate> {
+    return emailRequest(`${EMAIL_TEMPLATES_ENDPOINT}/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+  },
+
+  remove(id: number): Promise<{ id: number }> {
+    return emailRequest(`${EMAIL_TEMPLATES_ENDPOINT}/${id}`, { method: 'DELETE' });
   },
 };
 
@@ -2942,5 +3433,746 @@ export const notificationPreferenceService = {
     if (!res.ok) await handleError(res);
     const raw = await res.json();
     return raw.data ?? raw;
+  },
+};
+
+// ── Platform billing (what Azapal charges this partner) ───────────────────────
+// The other direction from everything above: not a partner invoicing their
+// customer, but Azapal billing the partner. Per branch, because a branch carries
+// its own costs; `company` is the partner's own account for what no branch owns.
+
+export type PlatformPriceKind = 'quote_page_day' | 'user_created' | 'order_completed' | 'branch_created';
+export type BillingMethod = 'card' | 'transfer';
+export type BillingAccountStatus = 'pending' | 'active' | 'failing';
+export type PlatformBillStatus = 'draft' | 'issued' | 'paid' | 'failed' | 'void';
+
+/** One line of Azapal's price list, and how much of any free allowance is gone. */
+export interface PlatformPrice {
+  kind: PlatformPriceKind;
+  label: string;
+  unit_amount: number;
+  unit_label: string;
+  description: string;
+  free_allowance: number;
+  used: number;
+}
+
+export interface BillingCard {
+  last4: string;
+  brand: string;
+  bank: string;
+  exp_month: string;
+  exp_year: string;
+  added_at: string | null;
+}
+
+export interface BillingTransferAccount {
+  account_number: string;
+  account_name: string;
+  bank_name: string;
+  opened_at: string | null;
+}
+
+export interface PlatformBillingAccount {
+  /** Whether this account can actually pay a bill — see `needs` when it can't. */
+  ready?: boolean;
+  /** What's still missing, in words: "Transfer ₦600 more…". Empty when ready. */
+  needs?: string;
+  /** What a transfer account has to receive before it counts as set up. */
+  minimum_opening_balance?: number;
+  /** What putting a card on file charges (credit, not a fee). Set by Azapal staff. */
+  card_setup_amount?: number;
+  /** 'company', or a branch id as a string. */
+  scope: string;
+  branch: { id: number; branch_code: string } | null;
+  /** Empty until one is chosen — nothing is billed to an account with no method. */
+  method: BillingMethod | '';
+  status: BillingAccountStatus;
+  card: BillingCard | null;
+  transfer: BillingTransferAccount | null;
+  /** A card was authorised on Paystack and hasn't been confirmed back yet. */
+  card_setup_pending?: boolean;
+  /** Credit already paid in, or null when the ledger can't be reached. */
+  balance: number | null;
+  /** Bills issued and not yet settled. */
+  outstanding: number;
+  /** Run up this period, not yet on a bill. */
+  unbilled: number;
+  updated_at: string | null;
+}
+
+export interface PlatformBillLine {
+  kind: PlatformPriceKind;
+  quantity: number;
+  unit_amount: number;
+  amount: number;
+}
+
+export interface PlatformBill {
+  number: string;
+  branch: { id: number; branch_code: string } | null;
+  period_start: string;
+  period_end: string;
+  total: number;
+  status: PlatformBillStatus;
+  issued_at: string | null;
+  due_at: string | null;
+  paid_at: string | null;
+  /** Paystack's own words when a card was declined — shown, not paraphrased. */
+  last_error: string;
+  lines: PlatformBillLine[];
+}
+
+/**
+ * What the rest of the month is likely to add to a scope. `scheduled` is a
+ * published quote page's remaining days — the bill unless the page comes down.
+ * `pace` is orders extrapolated from this month's daily rate — a guess.
+ */
+export interface PlatformProjectedLine extends PlatformBillLine {
+  basis: 'scheduled' | 'pace';
+  /** The quote page's link for `scheduled` lines; empty otherwise. */
+  label: string;
+}
+
+export interface PlatformUsageScope {
+  scope: string;
+  branch_code: string | null;
+  total: number;
+  lines: PlatformBillLine[];
+  /** Absent from a backend that predates the estimate. */
+  projected?: PlatformProjectedLine[];
+}
+
+export interface PlatformUsage {
+  period_start: string;
+  period_end: string;
+  scopes: PlatformUsageScope[];
+  total: number;
+  /** `total` plus every scope's projection: the likely month-end bill. */
+  projected_total?: number;
+  /** Every day of the period. Absent from a backend that predates it. */
+  days?: PlatformUsageDay[];
+}
+
+/** One day of the billing month: what it actually ran up, and what it's expected to. */
+export interface PlatformUsageDay {
+  date: string;
+  /** Really run up that day. Always 0 for a day still to come. */
+  amount: number;
+  by_kind: Partial<Record<PlatformPriceKind, number>>;
+  /** What the estimate expects that day to add — today's uncounted page-day, and every day after. */
+  projected: number;
+  is_future: boolean;
+}
+
+/** What starting card setup returns: a hosted Paystack page to send the partner to. */
+export interface CardSetupTicket {
+  authorization_url: string;
+  reference: string;
+  amount: number;
+  note: string;
+}
+
+const BILLING_ENDPOINT = `${PARTNER_ENDPOINT}/billing`;
+
+export const platformBillingService = {
+  async getPrices(): Promise<PlatformPrice[]> {
+    const res = await fetchWithAuth(`${BILLING_ENDPOINT}/prices`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<PlatformPrice>(await res.json());
+  },
+
+  async getAccounts(): Promise<PlatformBillingAccount[]> {
+    const res = await fetchWithAuth(`${BILLING_ENDPOINT}/accounts`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<PlatformBillingAccount>(await res.json());
+  },
+
+  /** Opens the dedicated account this scope pays its bills into. */
+  async openTransferAccount(scope: string, preferredBank?: string): Promise<PlatformBillingAccount> {
+    const res = await fetchWithAuth(`${BILLING_ENDPOINT}/accounts/${scope}/transfer`, {
+      method: 'POST',
+      body: JSON.stringify(preferredBank ? { preferred_bank: preferredBank } : {}),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  /**
+   * Starts putting a card on file. Paystack only hands back a reusable
+   * authorization after a charge the cardholder authenticates themselves, so
+   * this returns a hosted page rather than taking card details here.
+   */
+  async startCardSetup(scope: string, callbackUrl?: string): Promise<CardSetupTicket> {
+    const res = await fetchWithAuth(`${BILLING_ENDPOINT}/accounts/${scope}/card`, {
+      method: 'POST',
+      body: JSON.stringify(callbackUrl ? { callback_url: callbackUrl } : {}),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async removeCard(scope: string): Promise<PlatformBillingAccount> {
+    const res = await fetchWithAuth(`${BILLING_ENDPOINT}/accounts/${scope}/card`, { method: 'DELETE' });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  async getBills(): Promise<PlatformBill[]> {
+    const res = await fetchWithAuth(`${BILLING_ENDPOINT}/bills`, {});
+    if (!res.ok) await handleError(res);
+    return extractList<PlatformBill>(await res.json());
+  },
+
+  async getUsage(): Promise<PlatformUsage> {
+    const res = await fetchWithAuth(`${BILLING_ENDPOINT}/usage`, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+};
+
+// ── Verification and onboarding ───────────────────────────────────────────────
+// Who the partner is, the documents proving the business exists, and how far
+// they've got setting up. The profile endpoint is the one the Account tab has
+// been posting to with nothing at the other end.
+
+export type KycStatus = 'not_started' | 'in_review' | 'verified' | 'declined';
+export type KycDocumentKind = 'cac' | 'director_id' | 'tin' | 'proof_of_address';
+
+export interface KycDocument {
+  kind: KycDocumentKind;
+  label: string;
+  required: boolean;
+  uploaded: boolean;
+  status: 'pending' | 'verified' | 'declined' | null;
+  /** A reviewer's reason, when there is one to act on. */
+  note: string;
+  filename: string;
+  uploaded_at: string | null;
+}
+
+export interface KycState {
+  status: KycStatus;
+  /** Why it was declined, written for the partner to fix. */
+  note: string;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  documents: KycDocument[];
+  missing: KycDocumentKind[];
+  /** The number a reviewer would ring. Part of verification, not just the profile. */
+  phone?: string;
+  needs_phone?: boolean;
+  can_submit: boolean;
+}
+
+/** A presigned POST straight to the private bucket. Bytes never touch the API. */
+export interface KycUploadTicket {
+  upload: { url: string; fields: Record<string, string> };
+  file_key: string;
+  max_bytes: number;
+}
+
+export interface OnboardingStep {
+  key: string;
+  label: string;
+  description: string;
+  done: boolean;
+  to: string;
+  status?: KycStatus;
+  /** True where not doing it keeps the billable features shut. */
+  blocking?: boolean;
+  /** True where the dashboard stays closed until it's done. */
+  required?: boolean;
+  /** Billing only: the partner chose "skip for now" and hasn't set it up since. */
+  skipped?: boolean;
+}
+
+export interface OnboardingState {
+  steps: OnboardingStep[];
+  done: number;
+  total: number;
+  complete: boolean;
+  /** Every step marked `required` is done — the dashboard can open. */
+  required_done: boolean;
+  /** What a transfer account has to receive before setup counts as finished. */
+  minimum_opening_balance: number;
+  /** What putting a card on file charges. Both amounts are set by Azapal staff. */
+  card_setup_amount: number;
+  /** Skipped billing setup and still not done: show the reminder. */
+  billing_skipped: boolean;
+  kyc_status: KycStatus;
+  /** What the gate is closing off right now. */
+  billable_blocked: boolean;
+}
+
+const KYC_ENDPOINT = `${PARTNER_ENDPOINT}/kyc`;
+
+export const partnerKycService = {
+  async get(): Promise<KycState> {
+    const res = await fetchWithAuth(KYC_ENDPOINT, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  /** Sends the documents for review, once the required ones are on file. */
+  async submit(): Promise<KycState> {
+    const res = await fetchWithAuth(KYC_ENDPOINT, { method: 'POST', body: '{}' });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  /**
+   * Uploads one document: ask for a ticket, POST the file straight to S3, then
+   * tell the API where it landed. Same three steps as branding, to the private
+   * bucket instead of the public one.
+   */
+  async upload(kind: KycDocumentKind, file: File): Promise<KycState> {
+    const ticketRes = await fetchWithAuth(`${KYC_ENDPOINT}/upload`, {
+      method: 'POST',
+      body: JSON.stringify({ kind, content_type: file.type, filename: file.name }),
+    });
+    if (!ticketRes.ok) await handleError(ticketRes);
+    const ticket: KycUploadTicket = (await ticketRes.json()).data;
+
+    if (file.size > ticket.max_bytes) {
+      throw new Error(`That file is ${(file.size / 1024 / 1024).toFixed(1)}MB — the limit is ${ticket.max_bytes / 1024 / 1024}MB.`);
+    }
+
+    const form = new FormData();
+    Object.entries(ticket.upload.fields).forEach(([k, v]) => form.append(k, v));
+    // S3 ignores anything after the file part, so it goes last.
+    form.append('file', file);
+    const s3 = await fetch(ticket.upload.url, { method: 'POST', body: form }).catch(() => {
+      throw new Error("Couldn't reach the upload service. Check your connection and try again.");
+    });
+    if (!s3.ok) {
+      const xml = await s3.text().catch(() => '');
+      const code = /<Code>([^<]+)<\/Code>/.exec(xml)?.[1];
+      throw new Error(code === 'EntityTooLarge' ? 'That file is too large.' : 'The upload was rejected. Try another file.');
+    }
+
+    const res = await fetchWithAuth(`${KYC_ENDPOINT}/upload`, {
+      method: 'PUT',
+      body: JSON.stringify({ kind, file_key: ticket.file_key, filename: file.name, content_type: file.type }),
+    });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+};
+
+export const onboardingService = {
+  async get(): Promise<OnboardingState> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/onboarding`, {});
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+
+  /** "Skip for now" on billing setup. Returns the onboarding state with the gate open. */
+  async skipBilling(): Promise<OnboardingState> {
+    const res = await fetchWithAuth(`${PARTNER_ENDPOINT}/onboarding/skip-billing`, { method: 'POST', body: '{}' });
+    if (!res.ok) await handleError(res);
+    const raw = await res.json();
+    return raw.data ?? raw;
+  },
+};
+
+// ── Marketplace ─────────────────────────────────────────────────────────────────
+// The Logistics network marketplace: partners list what they offer (a storefront
+// with listings), post job briefs for work they need done, and message each
+// other in one thread per pair of partners. Categories are Azapal-managed. A
+// partner is browsable and messageable only once their storefront is listed —
+// see modules/business/marketplace.py.
+
+export interface MarketplaceCategory {
+  id: number;
+  key: string;
+  name: string;
+  description: string;
+  /** A Remix Icon class, rendered as <i className={icon} />. */
+  icon: string;
+  order: number;
+  is_active: boolean;
+  listing_count?: number;
+  brief_count?: number;
+}
+
+export interface MarketplacePartnerCard {
+  partner_code: string;
+  partner_name: string;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  is_verified: boolean;
+  logo_url: string | null;
+}
+
+export interface MarketplaceListing {
+  id: number;
+  /** The category key. */
+  category: string;
+  category_name: string;
+  title: string;
+  description: string;
+  coverage: string[];
+  price_note: string;
+  is_active: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface MarketplaceListingPayload {
+  category: string;
+  title: string;
+  description?: string;
+  coverage?: string[];
+  price_note?: string;
+  is_active?: boolean;
+}
+
+export interface MarketplaceProfile {
+  is_listed: boolean;
+  headline: string;
+  about: string;
+  contact_email: string;
+  contact_phone: string;
+  contact_whatsapp: string;
+  /** False until the partner first saves — the contacts above are then account defaults. */
+  exists: boolean;
+}
+
+export type MarketplaceProfilePayload = Partial<Omit<MarketplaceProfile, 'exists'>>;
+
+export interface DirectoryPartner extends MarketplacePartnerCard {
+  headline: string;
+  branch_count: number;
+  listing_count: number;
+  categories: { key: string; name: string; icon: string }[];
+  top_listings: { id: number; title: string; price_note: string }[];
+}
+
+export interface StorefrontBranch {
+  id: number;
+  branch_code: string;
+  address: string | null;
+  state: string | null;
+  lga: string | null;
+  /** Branch coordinates are stored as text on some rows — parse before plotting. */
+  lat: number | string | null;
+  lon: number | string | null;
+}
+
+export interface Storefront extends MarketplacePartnerCard {
+  is_self: boolean;
+  is_listed: boolean;
+  headline: string;
+  about: string;
+  /** "" when a channel isn't given — hide it rather than print a blank. */
+  contact: { email: string; phone: string; whatsapp: string };
+  hq: { address: string | null; city: string | null; state: string | null; lat: number | string | null; lon: number | string | null };
+  branches: StorefrontBranch[];
+  listings: MarketplaceListing[];
+  conversation_id: number | null;
+}
+
+export type BriefStatus = 'open' | 'closed';
+
+export interface JobBrief {
+  id: number;
+  category: string;
+  category_name: string;
+  title: string;
+  description: string;
+  requirements: string[];
+  locations: string[];
+  /** Naira. */
+  budget_min: number | null;
+  budget_max: number | null;
+  /** YYYY-MM-DD */
+  needed_by: string | null;
+  status: BriefStatus;
+  is_mine: boolean;
+  poster: MarketplacePartnerCard | null;
+  created_at: string | null;
+  updated_at: string | null;
+  /** Only on your own briefs: distinct partners who wrote about it. */
+  response_count?: number;
+}
+
+export interface JobBriefPayload {
+  category: string;
+  title: string;
+  description: string;
+  requirements?: string[];
+  locations?: string[];
+  budget_min?: number | null;
+  budget_max?: number | null;
+  needed_by?: string | null;
+}
+
+export type JobBriefUpdatePayload = Partial<JobBriefPayload> & { status?: BriefStatus };
+
+export interface MarketplaceMessage {
+  id: number;
+  body: string;
+  is_mine: boolean;
+  sender_name: string;
+  brief: { id: number; title: string } | null;
+  listing: { id: number; title: string } | null;
+  created_at: string | null;
+}
+
+export interface MarketplaceConversation {
+  id: number;
+  partner: MarketplacePartnerCard;
+  last_message: { body: string; is_mine: boolean; created_at: string | null } | null;
+  last_message_at: string | null;
+  unread_count: number;
+}
+
+export interface MarketplaceThread extends MarketplaceConversation {
+  messages: MarketplaceMessage[];
+}
+
+export interface StartConversationPayload {
+  partner_code: string;
+  body: string;
+  brief_id?: number;
+  listing_id?: number;
+}
+
+export interface MarketplacePartnerFilters {
+  category?: string;
+  state?: string;
+  q?: string;
+  verified?: boolean;
+}
+
+export interface MarketplaceBriefFilters {
+  category?: string;
+  state?: string;
+  q?: string;
+  mine?: boolean;
+  status?: BriefStatus;
+}
+
+const MARKETPLACE_ENDPOINT = `${API_BASE_URL}/marketplace`;
+const MY_MARKETPLACE_ENDPOINT = `${PARTNER_ENDPOINT}/marketplace`;
+
+const marketplaceQuery = (params: Record<string, string | undefined>) => {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) if (v) qs.set(k, v);
+  const s = qs.toString();
+  return s ? `?${s}` : '';
+};
+
+const marketplaceData = async <T,>(res: Response): Promise<T> => {
+  if (!res.ok) await handleError(res);
+  const raw = await res.json();
+  return (raw.data ?? raw) as T;
+};
+
+export const marketplaceService = {
+  async categories(): Promise<MarketplaceCategory[]> {
+    return marketplaceData(await fetchWithAuth(`${MARKETPLACE_ENDPOINT}/categories`, {}));
+  },
+
+  async partners(filters: MarketplacePartnerFilters = {}): Promise<DirectoryPartner[]> {
+    const qs = marketplaceQuery({
+      category: filters.category,
+      state: filters.state,
+      q: filters.q?.trim(),
+      verified: filters.verified ? '1' : undefined,
+    });
+    return marketplaceData(await fetchWithAuth(`${MARKETPLACE_ENDPOINT}/partners${qs}`, {}));
+  },
+
+  async storefront(partnerCode: string): Promise<Storefront> {
+    return marketplaceData(await fetchWithAuth(`${MARKETPLACE_ENDPOINT}/partners/${encodeURIComponent(partnerCode)}`, {}));
+  },
+
+  async myProfile(): Promise<MarketplaceProfile> {
+    return marketplaceData(await fetchWithAuth(`${MY_MARKETPLACE_ENDPOINT}/profile`, {}));
+  },
+
+  async saveProfile(payload: MarketplaceProfilePayload): Promise<MarketplaceProfile> {
+    return marketplaceData(await fetchWithAuth(`${MY_MARKETPLACE_ENDPOINT}/profile`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }));
+  },
+
+  async myListings(): Promise<MarketplaceListing[]> {
+    return marketplaceData(await fetchWithAuth(`${MY_MARKETPLACE_ENDPOINT}/listings`, {}));
+  },
+
+  async createListing(payload: MarketplaceListingPayload): Promise<MarketplaceListing> {
+    return marketplaceData(await fetchWithAuth(`${MY_MARKETPLACE_ENDPOINT}/listings`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }));
+  },
+
+  async updateListing(id: number, payload: Partial<MarketplaceListingPayload>): Promise<MarketplaceListing> {
+    return marketplaceData(await fetchWithAuth(`${MY_MARKETPLACE_ENDPOINT}/listings/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }));
+  },
+
+  async deleteListing(id: number): Promise<{ id: number }> {
+    return marketplaceData(await fetchWithAuth(`${MY_MARKETPLACE_ENDPOINT}/listings/${id}`, { method: 'DELETE' }));
+  },
+
+  async briefs(filters: MarketplaceBriefFilters = {}): Promise<JobBrief[]> {
+    const qs = marketplaceQuery({
+      category: filters.category,
+      state: filters.state,
+      q: filters.q?.trim(),
+      mine: filters.mine ? '1' : undefined,
+      status: filters.status,
+    });
+    return marketplaceData(await fetchWithAuth(`${MARKETPLACE_ENDPOINT}/briefs${qs}`, {}));
+  },
+
+  async brief(id: number): Promise<JobBrief> {
+    return marketplaceData(await fetchWithAuth(`${MARKETPLACE_ENDPOINT}/briefs/${id}`, {}));
+  },
+
+  async createBrief(payload: JobBriefPayload): Promise<JobBrief> {
+    return marketplaceData(await fetchWithAuth(`${MARKETPLACE_ENDPOINT}/briefs`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }));
+  },
+
+  async updateBrief(id: number, payload: JobBriefUpdatePayload): Promise<JobBrief> {
+    return marketplaceData(await fetchWithAuth(`${MARKETPLACE_ENDPOINT}/briefs/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }));
+  },
+
+  async deleteBrief(id: number): Promise<{ id: number }> {
+    return marketplaceData(await fetchWithAuth(`${MARKETPLACE_ENDPOINT}/briefs/${id}`, { method: 'DELETE' }));
+  },
+
+  async conversations(): Promise<MarketplaceConversation[]> {
+    return marketplaceData(await fetchWithAuth(`${MARKETPLACE_ENDPOINT}/conversations`, {}));
+  },
+
+  /** Opening a thread marks it read on the server. */
+  async thread(id: number): Promise<MarketplaceThread> {
+    return marketplaceData(await fetchWithAuth(`${MARKETPLACE_ENDPOINT}/conversations/${id}`, {}));
+  },
+
+  /**
+   * Starts (or continues) the thread with a partner.
+   *
+   * Not through fetchWithAuth: the backend answers "that partner isn't taking
+   * messages" with a 403 carrying a `partner_code` field error, and
+   * fetchWithAuth reads every 403 as a dead session and signs the user out. So
+   * a 403 here is a refusal when it carries that field error, and a dead
+   * session otherwise — the same as everywhere else.
+   */
+  async startConversation(payload: StartConversationPayload): Promise<MarketplaceConversation & { message: MarketplaceMessage }> {
+    // "That partner isn't taking messages" comes back as a 400 field error, so
+    // the standard path shows it in the FeedbackModal like any other refusal.
+    return marketplaceData(await fetchWithAuth(`${MARKETPLACE_ENDPOINT}/conversations`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }));
+  },
+
+  async sendMessage(conversationId: number, body: string): Promise<MarketplaceMessage> {
+    return marketplaceData(await fetchWithAuth(`${MARKETPLACE_ENDPOINT}/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ body }),
+    }));
+  },
+
+  async unread(): Promise<{ unread: number }> {
+    return marketplaceData(await fetchWithAuth(`${MARKETPLACE_ENDPOINT}/unread`, {}));
+  },
+};
+
+// ── Marketplace (public, signed out) ────────────────────────────────────────────
+// The marketplace, the job-brief board and the pairing-routes board are public
+// pages. Signed-out visitors read them through these endpoints: plain fetch,
+// no Authorization header, and never clearAuthState on an error — a 401/403
+// here can't mean "your session died", because there is no session.
+
+export type RouteFrequency = 'one_time' | 'daily' | 'weekly' | 'monthly';
+
+/** A route on the public board. Budgets are the owner's private planning range and never sent. */
+export interface RouteBoardItem {
+  id: number;
+  origin_state: string;
+  destination_state: string;
+  frequency: RouteFrequency;
+  frequency_label: string;
+  /** YYYY-MM-DD; the board only carries today and later, soonest first. */
+  preferred_date: string;
+  cargo_type: string;
+  is_open_for_joining: boolean;
+  is_mine: boolean;
+  partner: MarketplacePartnerCard & { has_storefront: boolean };
+  created_at: string | null;
+}
+
+export interface RouteBoardFilters {
+  origin?: string;
+  destination?: string;
+  q?: string;
+}
+
+const PUBLIC_MARKETPLACE_ENDPOINT = `${API_BASE_URL}/public/marketplace`;
+
+const publicGet = async <T,>(url: string): Promise<T> => {
+  const res = await fetch(url, { headers: { accept: 'application/json' } });
+  return marketplaceData<T>(res);
+};
+
+const boardQuery = (f: RouteBoardFilters) =>
+  marketplaceQuery({ origin: f.origin, destination: f.destination, q: f.q?.trim() });
+
+export const publicMarketplaceService = {
+  categories: (): Promise<MarketplaceCategory[]> => publicGet(`${PUBLIC_MARKETPLACE_ENDPOINT}/categories`),
+
+  partners: (filters: MarketplacePartnerFilters = {}): Promise<DirectoryPartner[]> =>
+    publicGet(`${PUBLIC_MARKETPLACE_ENDPOINT}/partners${marketplaceQuery({
+      category: filters.category,
+      state: filters.state,
+      q: filters.q?.trim(),
+      verified: filters.verified ? '1' : undefined,
+    })}`),
+
+  storefront: (partnerCode: string): Promise<Storefront> =>
+    publicGet(`${PUBLIC_MARKETPLACE_ENDPOINT}/partners/${encodeURIComponent(partnerCode)}`),
+
+  briefs: (filters: MarketplaceBriefFilters = {}): Promise<JobBrief[]> =>
+    publicGet(`${PUBLIC_MARKETPLACE_ENDPOINT}/briefs${marketplaceQuery({
+      category: filters.category,
+      state: filters.state,
+      q: filters.q?.trim(),
+    })}`),
+
+  brief: (id: number): Promise<JobBrief> => publicGet(`${PUBLIC_MARKETPLACE_ENDPOINT}/briefs/${id}`),
+
+  routeBoard: (filters: RouteBoardFilters = {}): Promise<RouteBoardItem[]> =>
+    publicGet(`${API_BASE_URL}/public/pairing-routes${boardQuery(filters)}`),
+};
+
+/** The same board, signed in: `is_mine` is set on your own routes. */
+export const routeBoardService = {
+  async list(filters: RouteBoardFilters = {}): Promise<RouteBoardItem[]> {
+    return marketplaceData(await fetchWithAuth(`${MARKETPLACE_ENDPOINT}/pairing-routes${boardQuery(filters)}`, {}));
   },
 };

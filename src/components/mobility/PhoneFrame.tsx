@@ -1,4 +1,4 @@
-import { LAYOUTS, type MobilityConfig, type ScreenId } from "../../lib/data/mobility";
+import { DEFAULT_APP_LOGO, LAYOUTS, type MobilityConfig, type ScreenId } from "../../lib/data/mobility";
 
 /**
  * One phone, one screen, rendered live from the config.
@@ -26,17 +26,26 @@ const tone = (config: MobilityConfig) => {
   };
 };
 
+/**
+ * The app's mark: the partner's logo, or Azapal's until they upload one. The
+ * default sits on a white tile because it is drawn for a light background, and
+ * the headers and splash it appears on are the partner's primary colour.
+ */
+const LogoMark = ({ config, className }: { config: MobilityConfig; className: string }) =>
+  config.logo_url ? (
+    <img src={config.logo_url} alt="" className={`${className} object-cover`} />
+  ) : (
+    <span className={`${className} flex items-center justify-center bg-white`}>
+      {/* Sized against the tile, not padded: percentage padding resolves against the
+          parent's width, which on a phone is far wider than the tile. */}
+      <img src={DEFAULT_APP_LOGO} alt="" className="h-[64%] w-[64%] object-contain" />
+    </span>
+  );
+
 const Header = ({ config, title }: { config: MobilityConfig; title: string }) => {
   const t = tone(config);
   const layout = LAYOUTS.find((l) => l.id === config.layout)!;
-  const Logo = () =>
-    config.logoDataUrl ? (
-      <img src={config.logoDataUrl} alt="" className="h-6 w-6 rounded-lg object-cover" />
-    ) : (
-      <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-white/25 text-[10px] font-semibold text-white">
-        {(config.appName || "A").slice(0, 1).toUpperCase()}
-      </span>
-    );
+  const Logo = () => <LogoMark config={config} className="h-6 w-6 rounded-lg" />;
 
   if (layout.header === "hero") {
     return (
@@ -151,6 +160,7 @@ const Body = ({ config, screen }: { config: MobilityConfig; screen: ScreenId }) 
     ] as const;
     return (
       <div className="flex h-full flex-col justify-center px-4">
+        <LogoMark config={config} className="mb-3 h-11 w-11 rounded-2xl shadow-sm" />
         <p className="text-[13px] font-semibold" style={{ color: t.ink }}>
           Welcome to {config.appName || "your app"}
         </p>
@@ -404,8 +414,21 @@ const Body = ({ config, screen }: { config: MobilityConfig; screen: ScreenId }) 
   );
 };
 
+/** The first thing a customer sees: the brand, full-bleed, while the app loads. */
+const Splash = ({ config }: { config: MobilityConfig }) => (
+  <div
+    className="flex flex-1 flex-col items-center justify-center px-6 text-center"
+    style={{ background: `linear-gradient(160deg, ${config.primary}, ${config.accent})` }}
+  >
+    <LogoMark config={config} className="h-16 w-16 rounded-[1.25rem] shadow-lg shadow-black/20" />
+    <p className="mt-4 text-[15px] font-semibold leading-tight text-white">{config.appName || "Your app"}</p>
+    {config.tagline && <p className="mt-1 text-[9px] text-white/75">{config.tagline}</p>}
+    <i className="ri-loader-4-line mt-8 animate-spin text-[14px] text-white/70" />
+  </div>
+);
+
 const TITLES: Record<ScreenId, string> = {
-  signin: "Sign in", home: "Home", track: "Tracking", book: "New booking",
+  splash: "Splash", signin: "Sign in", home: "Home", track: "Tracking", book: "New booking",
   chat: "Chat", profile: "Profile", settings: "Settings", legal: "Legal",
 };
 
@@ -419,28 +442,37 @@ export const PhoneFrame = ({
   label?: string;
 }) => {
   const t = tone(config);
-  const chromeless = screen === "signin";
+  const splash = screen === "splash";
+  const chromeless = splash || screen === "signin";
+  // The status bar sits on the splash colour, so its icons go white there.
+  const barInk = splash ? "#ffffff" : t.ink;
 
   return (
     <div className="phone-type w-[248px] shrink-0">
+      {/* Fixed height, so screens with and without a header and tab bar line up on the canvas. */}
       <div
-        className="overflow-hidden rounded-[2.2rem] border-[7px] border-slate-900 shadow-2xl shadow-slate-900/25"
-        style={{ background: t.surface }}
+        className="flex h-[500px] flex-col overflow-hidden rounded-[2.2rem] border-[7px] border-slate-900 shadow-2xl shadow-slate-900/25"
+        style={{ background: splash ? config.primary : t.surface }}
       >
-        <div className="relative flex items-center justify-between px-4 pt-2.5 pb-1" style={{ background: t.surface }}>
-          <span className="text-[9px] font-medium" style={{ color: t.ink }}>9:41</span>
+        <div className="relative flex shrink-0 items-center justify-between px-4 pt-2.5 pb-1" style={{ background: splash ? config.primary : t.surface }}>
+          <span className="text-[9px] font-medium" style={{ color: barInk }}>9:41</span>
           <span className="absolute left-1/2 top-1 h-4 w-16 -translate-x-1/2 rounded-b-xl bg-slate-900" />
-          <span className="flex items-center gap-1 text-[9px]" style={{ color: t.ink }}>
+          <span className="flex items-center gap-1 text-[9px]" style={{ color: barInk }}>
             <i className="ri-signal-wifi-line" />
             <i className="ri-battery-line" />
           </span>
         </div>
 
-        {!chromeless && <Header config={config} title={TITLES[screen]} />}
-
-        <div className="h-[330px] overflow-hidden px-3.5 py-3" style={{ background: t.surface }}>
-          <Body config={config} screen={screen} />
-        </div>
+        {splash ? (
+          <Splash config={config} />
+        ) : (
+          <>
+            {!chromeless && <Header config={config} title={TITLES[screen]} />}
+            <div className="min-h-0 flex-1 overflow-hidden px-3.5 py-3" style={{ background: t.surface }}>
+              <Body config={config} screen={screen} />
+            </div>
+          </>
+        )}
 
         {!chromeless && <Nav config={config} />}
       </div>

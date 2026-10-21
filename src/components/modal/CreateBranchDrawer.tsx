@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Select from 'react-select';
 import { useCreateBranch } from '../../hooks/useBranchPartner';
 import { useGetInvites } from '../../hooks/useInvites';
@@ -6,6 +6,8 @@ import { MapLocationPicker } from '../map/MapLocationPicker';
 import States from '../../utilities/states.json';
 import type { CreateBranchPayload } from '../../service/partnerService';
 import { BRAND_ORANGE } from '../../lib/brandColors';
+import { PriceNotice } from '../billing/PriceNotice';
+import { feedbackStore } from '../../store/client/feedback';
 
 interface CreateBranchDrawerProps {
   onClose: () => void;
@@ -42,6 +44,19 @@ const selectStyles = {
   }),
   placeholder: (base: any) => ({ ...base, color: '#9ca3af', fontSize: '0.875rem' }),
   singleValue: (base: any) => ({ ...base, fontSize: '0.875rem' }),
+};
+
+/**
+ * Dropdown menus render into <body>: the map's Leaflet panes sit at z-index
+ * 400+, so a menu opened over the map would otherwise appear behind it.
+ */
+const portalled = {
+  menuPortalTarget: typeof document !== 'undefined' ? document.body : null,
+  menuPosition: 'fixed' as const,
+  styles: {
+    ...selectStyles,
+    menuPortal: (base: any) => ({ ...base, zIndex: 60 }),
+  },
 };
 
 export const CreateBranchDrawer: React.FC<CreateBranchDrawerProps> = ({ onClose, prefill }) => {
@@ -88,113 +103,148 @@ export const CreateBranchDrawer: React.FC<CreateBranchDrawerProps> = ({ onClose,
     );
   };
 
+  // Full-screen, so Escape is the quickest way out. Two exceptions: an open
+  // dropdown takes the first Escape to close itself, and a message modal on top
+  // takes it to dismiss the message. Read in the capture phase, i.e. before
+  // react-select sees the key — it swallows Escape whenever it has focus, open
+  // or not, and by bubble time its menu has already reported itself closed.
+  const menuOpen = useRef(false);
+  const menuHandlers = {
+    onMenuOpen: () => { menuOpen.current = true; },
+    onMenuClose: () => { menuOpen.current = false; },
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || menuOpen.current || feedbackStore.state.queue.length > 0) return;
+      onClose();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [onClose]);
+
+  const hasLocation = !!form.lat && !!form.lon;
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl flex flex-col lg:flex-row overflow-hidden my-4">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="create-branch-title"
+      className="fixed inset-0 z-50 flex flex-col bg-white"
+    >
+      {/* ── Header ── */}
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-gray-100 px-4 py-4 sm:px-8">
+        <div className="min-w-0">
+          <h2 id="create-branch-title" className="text-xl font-bold text-gray-900 sm:text-2xl">Create Branch</h2>
+          <p className="mt-0.5 text-sm text-gray-500">Pick who runs it, where it is, and pin it on the map.</p>
+        </div>
+        <button onClick={onClose} aria-label="Close" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100">
+          <i className="ri-close-line text-xl" />
+        </button>
+      </header>
 
-        {/* ── Left: Form ── */}
-        <div className="w-full lg:w-[52%] p-6 sm:p-8 overflow-y-auto max-h-[90vh]">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Create Branch</h2>
-              <p className="text-sm text-gray-500 mt-1">Fill in the details and pin the location on the map.</p>
-            </div>
-            <button onClick={onClose} aria-label="Close" className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors">
-              <i className="ri-close-line text-lg" />
-            </button>
-          </div>
+      {/* ── Body ── */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <form id="create-branch-form" onSubmit={handleSubmit} className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-8 sm:py-8">
+          {/* Branch Manager */}
+          <FormSection label="Branch Manager" required>
+            <Select
+              isMulti
+              options={managerOptions}
+              value={selectedManagers}
+              onChange={(opts) => setSelectedManagers(opts ? [...opts] : [])}
+              placeholder="Select one or more users…"
+              {...portalled}
+              {...menuHandlers}
+              isClearable
+            />
+            {managerOptions.length === 0 && (
+              <p className="text-xs text-gray-400 mt-1">
+                No users yet. <a href="/users" className="text-brand font-medium hover:underline">Invite users first →</a>
+              </p>
+            )}
+          </FormSection>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Branch Manager */}
-            <FormSection label="Branch Manager" required>
+          {/* State / LGA */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <FormSection label="State">
               <Select
-                isMulti
-                options={managerOptions}
-                value={selectedManagers}
-                onChange={(opts) => setSelectedManagers(opts ? [...opts] : [])}
-                placeholder="Select one or more users…"
-                styles={selectStyles}
+                options={stateOptions}
+                value={selectedState}
+                onChange={(opt) => { setSelectedState(opt); setSelectedLga(null); }}
+                placeholder="Select state…"
+                {...portalled}
+              {...menuHandlers}
                 isClearable
               />
-              {managerOptions.length === 0 && (
-                <p className="text-xs text-gray-400 mt-1">
-                  No users yet. <a href="/users" className="text-brand font-medium hover:underline">Invite users first →</a>
-                </p>
-              )}
             </FormSection>
-
-            {/* State / LGA */}
-            <div className="grid grid-cols-2 gap-3">
-              <FormSection label="State">
-                <Select
-                  options={stateOptions}
-                  value={selectedState}
-                  onChange={(opt) => { setSelectedState(opt); setSelectedLga(null); }}
-                  placeholder="Select state…"
-                  styles={selectStyles}
-                  isClearable
-                />
-              </FormSection>
-              <FormSection label="LGA">
-                <Select
-                  options={lgaOptions}
-                  value={selectedLga}
-                  onChange={setSelectedLga}
-                  placeholder={selectedState ? 'Select LGA…' : 'Select state first'}
-                  isDisabled={!selectedState}
-                  styles={selectStyles}
-                  isClearable
-                />
-              </FormSection>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
-              <button type="button" onClick={onClose} className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isPending || selectedManagers.length === 0 || !form.lat || !form.lon}
-                className="px-6 py-2.5 text-sm font-semibold text-white bg-brand hover:bg-brand-hover rounded-xl transition-colors disabled:opacity-60 flex items-center gap-2"
-              >
-                {isPending && <i className="ri-loader-4-line animate-spin text-base" />}
-                {isPending ? 'Creating…' : 'Create Branch'}
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* ── Right: Map ── */}
-        <div className="w-full lg:w-[48%] bg-gray-50 p-6 sm:p-8 flex flex-col gap-4 border-t lg:border-t-0 lg:border-l border-gray-100">
-          <div>
-            <h3 className="text-base font-semibold text-gray-900">
-              Branch Location<span className="text-red-400 ml-0.5">*</span>
-            </h3>
-            <p className="text-xs text-gray-400 mt-0.5">Search an address or click/drag the pin on the map.</p>
+            <FormSection label="LGA">
+              <Select
+                options={lgaOptions}
+                value={selectedLga}
+                onChange={setSelectedLga}
+                placeholder={selectedState ? 'Select LGA…' : 'Select state first'}
+                isDisabled={!selectedState}
+                {...portalled}
+              {...menuHandlers}
+                isClearable
+              />
+            </FormSection>
           </div>
 
-          {!form.lat || !form.lon ? (
-            <div className="flex items-center gap-2 bg-yellow-50 text-yellow-700 rounded-xl px-3 py-2.5 text-xs">
-              <i className="ri-error-warning-line text-base shrink-0" />
-              A location is required — search or pin one below before you can save.
+          {/* Branch location — under State/LGA, so the pin follows the area just chosen. */}
+          <section className="flex flex-col gap-4">
+            <div>
+              <h3 className="text-sm font-medium text-gray-700">
+                Branch Location<span className="text-red-400 ml-0.5">*</span>
+              </h3>
+              <p className="text-xs text-gray-400 mt-0.5">Search an address or click/drag the pin on the map.</p>
             </div>
-          ) : null}
 
-          <MapLocationPicker
-            value={{ lat: form.lat ?? '', lon: form.lon ?? '', address: form.address ?? '' }}
-            onChange={(loc) => setForm((p) => ({ ...p, lat: loc.lat, lon: loc.lon, address: loc.address }))}
-          />
+            {!hasLocation && (
+              <div className="flex items-center gap-2 bg-yellow-50 text-yellow-700 rounded-xl px-3 py-2.5 text-xs">
+                <i className="ri-error-warning-line text-base shrink-0" />
+                A location is required — search or pin one below before you can save.
+              </div>
+            )}
 
-          {/* Address field (synced from map) */}
-          <FormSection label="Full Address">
-            <Field
-              value={form.address ?? ''}
-              onChange={(v) => set('address', v)}
-              placeholder="Address will auto-fill from map pin"
+            <MapLocationPicker
+              value={{ lat: form.lat ?? '', lon: form.lon ?? '', address: form.address ?? '' }}
+              onChange={(loc) => setForm((p) => ({ ...p, lat: loc.lat, lon: loc.lon, address: loc.address }))}
             />
-          </FormSection>
-        </div>
+
+            {/* Address field (synced from map) */}
+            <FormSection label="Full Address">
+              <Field
+                value={form.address ?? ''}
+                onChange={(v) => set('address', v)}
+                placeholder="Address will auto-fill from map pin"
+              />
+            </FormSection>
+          </section>
+
+          {/* A one-off charge, and it lands on the company account rather
+              than the branch being created — it can't pay for itself yet. */}
+          <PriceNotice kind="branch_created" billedTo="your company account" />
+        </form>
       </div>
+
+      {/* ── Footer ── pinned, so Create is reachable without scrolling past the map. */}
+      <footer className="shrink-0 border-t border-gray-100 bg-white px-4 py-3 sm:px-8">
+        <div className="mx-auto flex w-full max-w-3xl justify-end gap-3">
+          <button type="button" onClick={onClose} className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="create-branch-form"
+            disabled={isPending || selectedManagers.length === 0 || !hasLocation}
+            className="px-6 py-2.5 text-sm font-semibold text-white bg-brand hover:bg-brand-hover rounded-xl transition-colors disabled:opacity-60 flex items-center gap-2"
+          >
+            {isPending && <i className="ri-loader-4-line animate-spin text-base" />}
+            {isPending ? 'Creating…' : 'Create Branch'}
+          </button>
+        </div>
+      </footer>
     </div>
   );
 };

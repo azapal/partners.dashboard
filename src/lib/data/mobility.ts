@@ -14,6 +14,13 @@ import { BRAND_ORANGE } from "../brandColors";
  * than assembled.
  */
 
+/**
+ * What the preview shows until a partner uploads their own logo — the app has
+ * to have *a* mark on its splash and sign-in screens, and Azapal's is the honest
+ * one, since that is whose app it is until they brand it.
+ */
+export const DEFAULT_APP_LOGO = "/azapallogoV1.svg";
+
 export type LayoutId = "classic" | "bold" | "minimal";
 
 export interface LayoutPreset {
@@ -49,6 +56,7 @@ export const LAYOUTS: LayoutPreset[] = [
 ];
 
 export type ScreenId =
+  | "splash"
   | "signin"
   | "home"
   | "track"
@@ -59,6 +67,7 @@ export type ScreenId =
   | "legal";
 
 export const SCREENS: { id: ScreenId; label: string; always?: boolean }[] = [
+  { id: "splash", label: "Splash", always: true },
   { id: "signin", label: "Sign in" },
   { id: "home", label: "Home", always: true },
   { id: "track", label: "Tracking" },
@@ -77,7 +86,7 @@ export interface AppSection {
   title: string;
   /** Body for text, caption for media. */
   body?: string;
-  /** Data URLs for image/carousel, a URL for video. */
+  /** Uploaded image URLs for image/carousel, a video URL for video. */
   media?: string[];
 }
 
@@ -108,7 +117,8 @@ export const DEFAULT_PROFILE_FIELDS: ProfileField[] = [
 export interface MobilityConfig {
   appName: string;
   tagline: string;
-  logoDataUrl: string | null;
+  /** S3 URL from the branding bucket — never inline image data. */
+  logo_url: string | null;
   primary: string;
   accent: string;
   theme: "light" | "dark";
@@ -137,7 +147,7 @@ export const LEGAL_PLACEHOLDER = {
 export const defaultConfig = (partnerName?: string): MobilityConfig => ({
   appName: partnerName ?? "",
   tagline: "Delivery, done properly",
-  logoDataUrl: null,
+  logo_url: null,
   primary: BRAND_ORANGE,
   accent: "#8B2915",
   theme: "light",
@@ -145,7 +155,7 @@ export const defaultConfig = (partnerName?: string): MobilityConfig => ({
   services: [],
   platforms: { ios: true, android: true },
   screens: {
-    signin: true, home: true, track: true, book: true,
+    splash: true, signin: true, home: true, track: true, book: true,
     chat: true, profile: true, settings: true, legal: true,
   },
   auth: { google: true, apple: true, email: true, phone: false },
@@ -157,23 +167,6 @@ export const defaultConfig = (partnerName?: string): MobilityConfig => ({
   legal: { privacy: LEGAL_PLACEHOLDER.privacy, terms: LEGAL_PLACEHOLDER.terms },
 });
 
-/**
- * One-time fee to start a build, denominated in USD. Local currencies are
- * offered for payment but never converted in the UI — see ActivationModal.
- */
-export const ACTIVATION_FEE_USD = 1500;
-
-export const BILLING_CURRENCIES = [
-  { code: "USD", symbol: "$", name: "US dollars" },
-  { code: "NGN", symbol: "\u20a6", name: "Nigerian naira" },
-  { code: "GHS", symbol: "GH\u20b5", name: "Ghanaian cedi" },
-  { code: "KES", symbol: "KSh", name: "Kenyan shilling" },
-  { code: "ZAR", symbol: "R", name: "South African rand" },
-  { code: "XOF", symbol: "CFA", name: "West African CFA franc" },
-  { code: "EGP", symbol: "E\u00a3", name: "Egyptian pound" },
-  { code: "TZS", symbol: "TSh", name: "Tanzanian shilling" },
-];
-
 export const PALETTE_PRESETS = [
   { name: "Azapal", primary: BRAND_ORANGE, accent: "#8B2915" },
   { name: "Midnight", primary: "#0d1b3d", accent: "#3b5bdb" },
@@ -181,3 +174,38 @@ export const PALETTE_PRESETS = [
   { name: "Plum", primary: "#4c1d95", accent: "#a855f7" },
   { name: "Slate", primary: "#1f2937", accent: "#64748b" },
 ];
+
+/**
+ * The white-labelled Azapal app: the partner's logo and colours on Azapal's own
+ * customer app. Deliberately just this — layout, screens and sign-in are
+ * Azapal's, which is what makes it something that can go live the day it is
+ * accepted. Anything more is the custom app.
+ */
+export interface WhiteLabelConfig {
+  /** Shown in the app's header beside the logo. Defaults to the partner's name. */
+  display_name: string;
+  logo_url: string | null;
+  primary: string;
+  accent: string;
+}
+
+export const defaultWhiteLabel = (partnerName?: string): WhiteLabelConfig => ({
+  display_name: partnerName ?? "",
+  logo_url: null,
+  primary: BRAND_ORANGE,
+  accent: "#8B2915",
+});
+
+/** What the white-label app looks like, as a config PhoneFrame can render. */
+export const whiteLabelPreview = (wl: WhiteLabelConfig, services: string[]): MobilityConfig => ({
+  ...defaultConfig(wl.display_name),
+  appName: wl.display_name,
+  tagline: "on Azapal",
+  logo_url: wl.logo_url,
+  primary: wl.primary,
+  accent: wl.accent,
+  services,
+});
+
+export const naira = (n: number) =>
+  `\u20a6${n.toLocaleString("en-NG", { minimumFractionDigits: n % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}`;

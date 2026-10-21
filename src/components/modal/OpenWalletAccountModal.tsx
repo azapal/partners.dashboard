@@ -19,7 +19,6 @@ export const OpenWalletAccountModal: React.FC<OpenWalletAccountModalProps> = ({ 
   const [reason, setReason] = useState<WalletReason | ''>('');
   const [bankSlug, setBankSlug] = useState('');
   const [branchId, setBranchId] = useState<number | null>(initialBranchId);
-  const [formError, setFormError] = useState<string | null>(null);
   const createVirtualAccount = useCreateVirtualAccount();
   const { data: branches = [] } = useGetBranches();
 
@@ -37,10 +36,9 @@ export const OpenWalletAccountModal: React.FC<OpenWalletAccountModalProps> = ({ 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (reason === '' || bankSlug === '' || providersUnavailable) return;
-    setFormError(null);
     createVirtualAccount.mutate(
       { reason, bank_name: bankSlug, branch_id: branchId },
-      { onSuccess: () => { onClose(); onCreated?.(); }, onError: (err) => setFormError(err.message) }
+      { onSuccess: () => { onClose(); onCreated?.(); } }
     );
   };
 
@@ -100,7 +98,6 @@ export const OpenWalletAccountModal: React.FC<OpenWalletAccountModalProps> = ({ 
           The account number and account name are assigned automatically once opened.
         </p>
 
-        {formError && <p className="text-xs text-red-500">{formError}</p>}
 
         <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
           <button type="button" onClick={onClose} className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">

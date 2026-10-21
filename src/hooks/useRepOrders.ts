@@ -53,6 +53,7 @@ export const useResolveConversation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: 'Conversation resolved.' },
     mutationFn: (phone: string) => repConversationService.resolve(phone),
     onSuccess: (_data, phone) => {
       queryClient.invalidateQueries({ queryKey: repConversationKeys.all });
@@ -65,6 +66,7 @@ export const useClaimConversation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "Conversation claimed — it's yours now." },
     mutationFn: (phone: string) => repConversationService.claim(phone),
     onSuccess: (_data, phone) => {
       queryClient.invalidateQueries({ queryKey: repConversationKeys.all });
@@ -77,6 +79,7 @@ export const useEscalateConversation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: 'Conversation escalated.' },
     mutationFn: ({ phone, note }: { phone: string; note: string }) => repConversationService.escalate(phone, note),
     onSuccess: (_data, { phone }) => {
       queryClient.invalidateQueries({ queryKey: repConversationKeys.all });
@@ -89,6 +92,7 @@ export const useTakeOverConversation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: "You've taken over this conversation." },
     mutationFn: (phone: string) => repConversationService.takeOver(phone),
     onSuccess: (_data, phone) => {
       queryClient.invalidateQueries({ queryKey: repConversationKeys.all });
@@ -101,6 +105,7 @@ export const useReassignConversation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: 'Conversation reassigned.' },
     mutationFn: ({ phone, employeeId }: { phone: string; employeeId: number }) =>
       repConversationService.reassign(phone, employeeId),
     onSuccess: (_data, { phone }) => {
@@ -116,6 +121,7 @@ export const useAssignDriver = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: 'Driver assigned.' },
     mutationFn: ({ orderId, driverId, dispatchAmount }: { orderId: string | number; driverId: number; phone: string; dispatchAmount?: number }) =>
       repOrderService.assignDriver(orderId, driverId, dispatchAmount),
     onSuccess: (_data, { phone }) => {

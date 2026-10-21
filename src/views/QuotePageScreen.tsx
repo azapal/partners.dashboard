@@ -42,7 +42,7 @@ export const QuotePageScreen = () => {
   };
   const showView = (id: string) => go({ view: id });
 
-  const { data: settings, isPending } = useQuotePageSettings(branchId);
+  const { data: settings } = useQuotePageSettings(branchId);
   const { data: requests } = useQuoteRequests();
   const newLeads = requests?.filter((r) => r.status === "new").length ?? 0;
   const offered = new Set((settings?.services ?? []).map((s) => s.service));
@@ -124,10 +124,13 @@ export const QuotePageScreen = () => {
           </p>
         )}
 
+        {/* The editor reads the same settings query as this screen and shows its
+            own loading and error states. It is deliberately never unmounted
+            while that query is in flight: taking it away and putting it back
+            re-subscribes, which refetches, which takes it away again — a loop
+            that only shows itself when the endpoint is failing. */}
         {view.id === "requests" ? (
           <QuoteRequestsPanel onOpenSettings={() => showView("page")} branchId={branchId} />
-        ) : isPending ? (
-          <p className="rounded-2xl bg-white py-14 text-center text-sm text-gray-400 shadow-card">Loading…</p>
         ) : (
           <QuotePageSettings view={view.service ?? "page"} branchId={branchId} />
         )}

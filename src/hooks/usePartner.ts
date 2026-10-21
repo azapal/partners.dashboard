@@ -103,6 +103,7 @@ export const useCreatePartner = (
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: 'Partner created.' },
     mutationFn: (payload) => partnerService.createPartner(payload),
     onSuccess: (data) => {
       // Invalidate the partners list to refetch
@@ -136,6 +137,7 @@ export const useUpdatePartner = (
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: 'Partner updated.' },
     mutationFn: ({ id, payload }) =>
       partnerService.updatePartner(id, payload),
     onSuccess: (data) => {
@@ -162,6 +164,7 @@ export const useCompleteOnboarding = (
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { silentSuccess: true },
     mutationFn: (payload) => partnerService.completeOnboarding(payload),
     onSuccess: (data) => {
       // Invalidate relevant queries
@@ -185,6 +188,7 @@ export const useResendPartnerInvite = (
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: 'Invite resent.' },
     mutationFn: (id) => partnerService.resendInvite(id),
     onSuccess: (_, id) => {
       // Invalidate the partner detail
@@ -205,6 +209,7 @@ export const useRevokePartnerInvite = (
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: 'Invite revoked.' },
     mutationFn: (id) => partnerService.revokeInvite(id),
     onSuccess: (_, id) => {
       // Invalidate the partner detail
@@ -229,6 +234,7 @@ export const useDeletePartner = (
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: 'Partner deleted.' },
     mutationFn: (id) => partnerService.deletePartner(id),
     onSuccess: (_, id) => {
       // Remove from cache

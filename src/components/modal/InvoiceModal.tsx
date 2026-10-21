@@ -73,7 +73,6 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ onClose }) => {
   const [lineItems, setLineItems] = useState<LineItemDraft[]>([]);
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
-  const [formError, setFormError] = useState<string | null>(null);
 
   const { data: txPage } = useGetTransactions({ page_size: 50 });
   const transactions = txPage?.results ?? [];
@@ -161,7 +160,6 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ onClose }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (branchId === '' || !canSubmit) return;
-    setFormError(null);
     createInvoice.mutate(
       {
         branch_id: Number(branchId),
@@ -174,7 +172,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ onClose }) => {
         due_date: dueDate || null,
         notes: notes.trim() || null,
       },
-      { onSuccess: onClose, onError: (err) => setFormError(err.message) }
+      { onSuccess: onClose }
     );
   };
 
@@ -342,7 +340,6 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ onClose }) => {
           />
         </FormField>
 
-        {formError && <p className="text-xs text-red-500">{formError}</p>}
 
         <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
           <button type="button" onClick={onClose} className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">

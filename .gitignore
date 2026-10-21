@@ -25,3 +25,5 @@ dist-ssr
 *.replit
 *.zip
 artifacts/
+# Per-stage builds made by infra/deploy.sh
+.deploy/

@@ -1,7 +1,11 @@
 import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useQuoteRequests, useUpdateQuoteRequestStatus } from "../../hooks/useQuotePage";
+import { emailKeys, useCanEmailCustomers } from "../../hooks/useEmailCampaigns";
 import { channelIcon, channelLabel } from "../../lib/quotePage";
-import type { QuoteContactChannel, QuoteRequestRecord, QuoteRequestStatus } from "../../service/partnerService";
+import { customerService, type Customer, type QuoteContactChannel, type QuoteRequestRecord, type QuoteRequestStatus } from "../../service/partnerService";
+import { ComposeEmailModal } from "../customers/ComposeEmailModal";
 
 /**
  * The requests customers left on the public page — the partner's leads.
@@ -42,7 +46,38 @@ export const QuoteRequestsPanel = ({
   const updateStatus = useUpdateQuoteRequestStatus();
   const [filter, setFilter] = useState<QuoteRequestStatus | "all">("all");
   const [serviceFilter, setServiceFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
   const [open, setOpen] = useState<string | null>(null);
+
+  // Emailing a lead goes through the customer directory's composer, which needs
+  // the customer's id — so it's looked up by email first. Only the partner and
+  // elevated admins can use that directory (anyone else would get a 403, which
+  // signs them out), so support staff keep the plain mailto link.
+  const canEmail = useCanEmailCustomers();
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [composeTo, setComposeTo] = useState<Customer[] | null>(null);
+  const [lookingUp, setLookingUp] = useState<string | null>(null);
+  const mailto = (r: QuoteRequestRecord) =>
+    `mailto:${r.customer_email}?subject=${encodeURIComponent(`Your quote request ${r.reference}`)}`;
+  const emailLead = async (r: QuoteRequestRecord) => {
+    setLookingUp(r.reference);
+    try {
+      const email = (r.customer_email ?? "").trim().toLowerCase();
+      const customer = await qc.fetchQuery({
+        queryKey: [...emailKeys.all, "by-email", email],
+        queryFn: () => customerService.findByEmail(email),
+        staleTime: 60 * 1000,
+      });
+      if (customer) setComposeTo([customer]);
+      else window.location.href = mailto(r);
+    } catch {
+      // Not in the directory, or it couldn't be reached — the mail app still works.
+      window.location.href = mailto(r);
+    } finally {
+      setLookingUp(null);
+    }
+  };
 
   if (isPending || isError) {
     return (
@@ -77,8 +112,15 @@ export const QuoteRequestsPanel = ({
 
   const services = [...new Set(requests.map((r) => r.service))];
   const labels = Object.fromEntries(requests.map((r) => [r.service, r.service_label]));
+  // Where leads came from: the partner's reference links, plus "the bare link"
+  // for everyone who arrived without one.
+  const sources = [...new Set(requests.map((r) => r.source).filter(Boolean))];
+  const sourceLabels = Object.fromEntries(requests.map((r) => [r.source, r.source_label]));
   const shown = requests.filter(
-    (r) => (filter === "all" || r.status === filter) && (serviceFilter === "all" || r.service === serviceFilter),
+    (r) =>
+      (filter === "all" || r.status === filter) &&
+      (serviceFilter === "all" || r.service === serviceFilter) &&
+      (sourceFilter === "all" || r.source === sourceFilter),
   );
 
   return (
@@ -113,9 +155,34 @@ export const QuoteRequestsPanel = ({
             ))}
           </select>
         )}
+        {/* Only once a reference link has actually brought someone. */}
+        {sources.length > 0 && (
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value)}
+            aria-label="Filter by where the lead came from"
+            className={`rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-500 shadow-card outline-none ${
+              services.length > 1 ? "" : "ml-auto"
+            }`}
+          >
+            <option value="all">Everywhere</option>
+            {sources.map((code) => (
+              <option key={code} value={code}>{sourceLabels[code] || code}</option>
+            ))}
+            <option value="">Straight to the link</option>
+          </select>
+        )}
+        {canEmail && (
+          <Link
+            to="/customers"
+            className={`flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-brand shadow-card hover:text-brand-hover ${
+              services.length > 1 || sources.length > 0 ? "" : "ml-auto"
+            }`}
+          >
+            <i className="ri-group-line" />See all customers
+          </Link>
+        )}
       </div>
-
-      {updateStatus.error && <p className="text-xs text-red-600">{updateStatus.error.message}</p>}
 
       <div className="divide-y divide-gray-100 overflow-hidden rounded-2xl bg-white shadow-card">
         {shown.length === 0 && <p className="px-5 py-10 text-center text-sm text-gray-400">Nothing here.</p>}
@@ -145,6 +212,12 @@ export const QuoteRequestsPanel = ({
                     <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-gray-400">
                       {when(r.created_at)}
                       {!branchId && r.branch && <span>· {r.branch.branch_code}</span>}
+                      {r.source && (
+                        <span className="flex items-center gap-1" title="Where this lead came from">
+                          · <i className="ri-share-forward-line" />
+                          {r.source_label || r.source}
+                        </span>
+                      )}
                       {r.contacted_via.length > 0 && (
                         <span className="flex items-center gap-1" title="Sent to you on">
                           · sent on
@@ -157,6 +230,17 @@ export const QuoteRequestsPanel = ({
                     </span>
                   </span>
                 </button>
+                {canEmail && r.customer_email && (
+                  <button
+                    type="button"
+                    onClick={() => emailLead(r)}
+                    disabled={lookingUp === r.reference}
+                    className="hidden shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-brand hover:bg-orange-50 disabled:opacity-60 sm:flex"
+                    title={`Email ${r.customer_name}`}
+                  >
+                    <i className={lookingUp === r.reference ? "ri-loader-4-line animate-spin" : "ri-mail-line"} />Email
+                  </button>
+                )}
                 <span className="shrink-0 text-xs font-semibold text-gray-400 sm:w-32 sm:text-right">To quote</span>
                 <select
                   value={r.status}
@@ -203,9 +287,20 @@ export const QuoteRequestsPanel = ({
                         label="WhatsApp"
                         external
                       />
-                      {r.customer_email && (
-                        <ReachOut href={`mailto:${r.customer_email}?subject=${encodeURIComponent(`Your quote request ${r.reference}`)}`} icon="ri-mail-line" label="Email" />
-                      )}
+                      {r.customer_email &&
+                        (canEmail ? (
+                          <button
+                            type="button"
+                            onClick={() => emailLead(r)}
+                            disabled={lookingUp === r.reference}
+                            className="flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-xs font-semibold text-brand hover:bg-orange-100 disabled:opacity-60"
+                          >
+                            <i className={lookingUp === r.reference ? "ri-loader-4-line animate-spin" : "ri-mail-line"} />
+                            Email
+                          </button>
+                        ) : (
+                          <ReachOut href={mailto(r)} icon="ri-mail-line" label="Email" />
+                        ))}
                     </div>
                   </div>
                 </div>
@@ -214,6 +309,17 @@ export const QuoteRequestsPanel = ({
           );
         })}
       </div>
+
+      {composeTo && (
+        <ComposeEmailModal
+          customers={composeTo}
+          onClose={() => setComposeTo(null)}
+          onOpenEditor={(seed) => {
+            setComposeTo(null);
+            navigate("/customers", { state: { builder: seed } });
+          }}
+        />
+      )}
     </div>
   );
 };

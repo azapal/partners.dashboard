@@ -22,7 +22,7 @@ export const CONTACT_CHANNELS: {
   placeholder: string;
   hint: string;
 }[] = [
-  { id: "whatsapp", label: "WhatsApp", icon: "ri-whatsapp-line", kind: "list", inputLabel: "Your WhatsApp number", placeholder: "+234 803 123 4567", hint: "Opens a chat with their request already typed." },
+  { id: "whatsapp", label: "WhatsApp", icon: "ri-whatsapp-line", kind: "list", inputLabel: "Your WhatsApp number", placeholder: "+234 803 123 4567", hint: "A sales line, or the teammates who answer — their app opens with the request typed." },
 ];
 
 /**

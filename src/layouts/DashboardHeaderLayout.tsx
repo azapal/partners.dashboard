@@ -11,6 +11,14 @@ const PAGE_TITLES: Record<string, string> = {
   service: "Services",
   settings: "Settings",
   customers: "Customers",
+  // The route is historical; what the screen is about is billing.
+  PaymentMethod: "Billing",
+  bills: "Bills & usage",
+  "quote-page": "Quote page",
+  marketplace: "Marketplace",
+  "job-briefs": "Job briefs",
+  inbox: "Inbox",
+  "pairing-routes": "Pairing routes",
 };
 
 export const DashboardHeaderLayout = () => {
@@ -22,7 +30,9 @@ export const DashboardHeaderLayout = () => {
   const menuRef = useRef<HTMLDivElement>(null);
 
   const segment = route?.pathname.replace(/\//g, "") || "dashboard";
-  const pageTitle = PAGE_TITLES[segment] ?? segment.charAt(0).toUpperCase() + segment.slice(1);
+  // A detail path (/marketplace/:code, /job-briefs/:id) titles as its section.
+  const section = route?.pathname.split("/")[1] ?? "";
+  const pageTitle = PAGE_TITLES[segment] ?? PAGE_TITLES[section] ?? segment.charAt(0).toUpperCase() + segment.slice(1);
 
   const displayName = user?.name ?? "Partner";
   const displayEmail = user?.email ?? "";

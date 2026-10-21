@@ -22,6 +22,7 @@ import MonthlyPerformanceScreen from "./views/MonthlyPerformanceScreen";
 import {TransactionsScreen} from "./views/TransactionsScreen";
 import {ActivityLogScreen} from "./views/ActivityLogScreen";
 import {LogisticsNetworkScreen} from "./views/LogisticsNetworkScreen";
+import { MarketplaceScreen, JobBriefsScreen, InboxScreen, PairingRoutesScreen } from "./views/NetworkScreens";
 import {RatesScreen} from "./views/RatesScreen";
 import {FinancialsScreen} from "./views/FinancialsScreen";
 import {StakeholdersScreen} from "./views/StakeholdersScreen";
@@ -51,6 +52,7 @@ import { MobilityScreen } from "./views/MobilityScreen";
 import { ChargeableWeightScreen } from "./views/ChargeableWeightScreen";
 import { QuotePageScreen } from "./views/QuotePageScreen";
 import { PublicQuoteScreen } from "./views/PublicQuoteScreen";
+import { OnboardingBillingScreen } from "./views/OnboardingBillingScreen";
 
 export const AppRoutes = () => {
   return (
@@ -74,7 +76,15 @@ export const AppRoutes = () => {
       <Route path="/activity-log" element={<RequireAuth><ActivityLogScreen /></RequireAuth>} />
       <Route path="/service" element={<RequireAuth><ServiceScreen /></RequireAuth>} />
       <Route path="/rates" element={<RequireAuth><RatesScreen /></RequireAuth>} />
-      <Route path="/logistics-network" element={<RequireAuth><LogisticsNetworkScreen /></RequireAuth>} />
+      {/* The Logistics network. Marketplace, briefs and routes are public pages
+          (NetworkShell picks the dashboard or the public frame by session);
+          the inbox is signed-in only. /logistics-network is the old tabbed
+          page and only redirects. */}
+      <Route path="/marketplace/:partnerCode?" element={<MarketplaceScreen />} />
+      <Route path="/job-briefs/:briefId?" element={<JobBriefsScreen />} />
+      <Route path="/pairing-routes" element={<PairingRoutesScreen />} />
+      <Route path="/inbox" element={<RequireAuth><InboxScreen /></RequireAuth>} />
+      <Route path="/logistics-network" element={<LogisticsNetworkScreen />} />
       <Route path="/financials" element={<RequireAuth><FinancialsScreen /></RequireAuth>} />
       <Route path="/stakeholders" element={<RequireAuth><StakeholdersScreen /></RequireAuth>} />
       <Route
@@ -85,6 +95,9 @@ export const AppRoutes = () => {
           </RequireAuth>
         }
       />
+      {/* Where Paystack returns after a card is authorised during signup, and
+          the same screen the shell shows until billing is set up. */}
+      <Route path="/onboarding/billing" element={<RequireAuth><OnboardingBillingScreen /></RequireAuth>} />
       <Route path="/settings" element={<RequireAuth><Settings /></RequireAuth>} />
       <Route path="/PaymentMethod" element={<RequireAuth><PaymentMethodForm /></RequireAuth>} />
       <Route path="/integration" element={<RequireAuth><IntegrationScreen /></RequireAuth>} />

@@ -24,6 +24,7 @@ export const useGetRouteRates = () =>
 export const useCreateRouteRate = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Route rate created.' },
     mutationFn: (payload: CreateRouteRateCardPayload) => routeRateCardService.create(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: routeRateKeys.lists() }),
   });
@@ -32,6 +33,7 @@ export const useCreateRouteRate = () => {
 export const useUpdateRouteRate = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Route rate updated.' },
     mutationFn: ({ id, payload }: { id: number; payload: UpdateRouteRateCardPayload }) =>
       routeRateCardService.update(id, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: routeRateKeys.lists() }),
@@ -41,6 +43,7 @@ export const useUpdateRouteRate = () => {
 export const useDeleteRouteRate = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Route rate deleted.' },
     mutationFn: (id: number) => routeRateCardService.delete(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: routeRateKeys.lists() }),
   });
@@ -59,6 +62,7 @@ export const useGetCargoRates = () =>
 export const useCreateCargoRate = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Cargo rate created.' },
     mutationFn: (payload: CreateCargoRateCardPayload) => cargoRateCardService.create(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: cargoRateKeys.lists() }),
   });
@@ -67,6 +71,7 @@ export const useCreateCargoRate = () => {
 export const useUpdateCargoRate = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Cargo rate updated.' },
     mutationFn: ({ id, payload }: { id: number; payload: UpdateCargoRateCardPayload }) =>
       cargoRateCardService.update(id, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: cargoRateKeys.lists() }),
@@ -76,6 +81,7 @@ export const useUpdateCargoRate = () => {
 export const useDeleteCargoRate = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Cargo rate deleted.' },
     mutationFn: (id: number) => cargoRateCardService.delete(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: cargoRateKeys.lists() }),
   });
@@ -97,6 +103,7 @@ export const useGetDeliveryMethodRates = () =>
 export const useCreateDeliveryMethodRate = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Delivery method rate created.' },
     mutationFn: (payload: CreateDeliveryMethodRateCardPayload) => deliveryMethodRateCardService.create(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: deliveryMethodRateKeys.lists() }),
   });
@@ -105,6 +112,7 @@ export const useCreateDeliveryMethodRate = () => {
 export const useUpdateDeliveryMethodRate = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Delivery method rate updated.' },
     mutationFn: ({ id, payload }: { id: number; payload: UpdateDeliveryMethodRateCardPayload }) =>
       deliveryMethodRateCardService.update(id, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: deliveryMethodRateKeys.lists() }),
@@ -114,6 +122,7 @@ export const useUpdateDeliveryMethodRate = () => {
 export const useDeleteDeliveryMethodRate = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Delivery method rate deleted.' },
     mutationFn: (id: number) => deliveryMethodRateCardService.delete(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: deliveryMethodRateKeys.lists() }),
   });

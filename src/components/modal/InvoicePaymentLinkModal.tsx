@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DefaultModal } from './DefaultModal';
 import { useCreateInvoicePaymentLink } from '../../hooks/useInvoices';
 import { useGetVirtualAccounts } from '../../hooks/useVirtualAccounts';
+import { feedbackActions } from '../../store/client/feedback';
 import type { Invoice, PaymentRoute, PostPaymentAction } from '../../service/partnerService';
 
 const naira = (value: number) =>
@@ -37,7 +38,6 @@ export const InvoicePaymentLinkModal = ({ invoice, onClose }: { invoice: Invoice
   const [action, setAction] = useState<PostPaymentAction>(invoice.post_payment_action ?? 'distribute');
   const [link, setLink] = useState<string | null>(invoice.payment_link);
   const [copied, setCopied] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const create = useCreateInvoicePaymentLink(invoice.id);
   // The branch's own account, offered as a bank-transfer alternative to the link.
@@ -49,13 +49,9 @@ export const InvoicePaymentLinkModal = ({ invoice, onClose }: { invoice: Invoice
   const actionsApply = route === 'wallet';
 
   const handleCreate = () => {
-    setError(null);
     create.mutate(
       { payment_route: route, post_payment_action: actionsApply ? action : 'mark_paid' },
-      {
-        onSuccess: (result) => setLink(result.payment_link),
-        onError: (e: any) => setError(e.message || 'Could not create the payment link'),
-      },
+      { onSuccess: (result) => setLink(result.payment_link) },
     );
   };
 
@@ -66,7 +62,7 @@ export const InvoicePaymentLinkModal = ({ invoice, onClose }: { invoice: Invoice
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError('Could not copy — select the link and copy it manually.');
+      feedbackActions.error('Could not copy — select the link and copy it manually.');
     }
   };
 
@@ -123,7 +119,7 @@ export const InvoicePaymentLinkModal = ({ invoice, onClose }: { invoice: Invoice
                         setCopiedAccount(true);
                         setTimeout(() => setCopiedAccount(false), 2000);
                       } catch {
-                        setError('Could not copy the account number.');
+                        feedbackActions.error('Could not copy the account number — select it and copy it manually.');
                       }
                     }}
                     className="text-xs font-semibold text-brand hover:text-brand-hover shrink-0"
@@ -149,7 +145,6 @@ export const InvoicePaymentLinkModal = ({ invoice, onClose }: { invoice: Invoice
                     ? 'When it’s paid, the invoice is marked paid and the split is distributed to stakeholder balances.'
                     : 'When it’s paid, the invoice is marked paid. Distribution stays manual.'}
             </p>
-            {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex justify-end border-t border-gray-100 pt-4">
               <button onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-500 hover:bg-gray-100">
                 Done
@@ -213,7 +208,6 @@ export const InvoicePaymentLinkModal = ({ invoice, onClose }: { invoice: Invoice
               </p>
             )}
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
 
             <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
               <button onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-500 hover:bg-gray-100">

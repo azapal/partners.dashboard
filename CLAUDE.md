@@ -10,7 +10,9 @@ npm run build            # vite build -> dist/  (does NOT typecheck)
 npm run preview          # serve the built dist/
 npm run lint             # see caveat below
 npx tsc --noEmit         # the real typecheck — run this before considering work done
-npm run release:dev      # build + s3-deploy to bucket `partner.azapal` (eu-west-2)
+npm run deploy:dev       # build for a stage, upload to its S3 bucket, invalidate CloudFront
+npm run deploy:staging   #   (scripts/deploy-<stage>.sh → infra/deploy.sh; see infra/README.md)
+npm run deploy:prod      #   prod asks for confirmation; `-- --yes` skips it
 ```
 
 There is **no test suite** and no test runner installed. Verification is manual: run the dev
@@ -35,7 +37,18 @@ No `.env` is committed. [config/config.ts](config/config.ts) reads `VITE_APP_STA
 - `config.api.account.baseUrl` — `VITE_ACCOUNT_BASE_URL_*`, default port 9000. Currently unused
   by any service.
 
-Without a `.env.local`, the app talks to localhost:8000.
+Without a `.env.local`, the app talks to localhost:8000. Deploys build with
+`--mode dev|staging|production`, so each stage's URL goes in `.env.<mode>.local`; the
+deploy script refuses to build a stage whose `VITE_AZAPAL_BASE_URL_*` is unset.
+
+### Hosting
+
+Each stage is a private S3 bucket behind its own CloudFront distribution, on the
+`azapal-dev` AWS profile. `azapal.com` DNS is at GO54, which can't delegate a
+subdomain, so Route 53 isn't used — the stage domains are CNAMEs added by hand at
+GO54. [infra/provision.sh](infra/provision.sh) creates the rest idempotently and prints
+those CNAMEs; [infra/stages.sh](infra/stages.sh) is the single source of
+bucket/domain names. Details in [infra/README.md](infra/README.md).
 
 ## Architecture
 

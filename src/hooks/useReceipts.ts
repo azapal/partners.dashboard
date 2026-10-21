@@ -14,6 +14,7 @@ export const useGetReceipts = (branchId?: number) =>
 export const useCreateReceipt = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Receipt recorded.' },
     mutationFn: (payload: CreateReceiptPayload) => receiptService.create(payload),
     onSuccess: (_data, payload) => {
       qc.invalidateQueries({ queryKey: receiptKeys.lists() });
@@ -27,6 +28,7 @@ export const useCreateReceipt = () => {
 export const useDeleteReceipt = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Receipt deleted.' },
     mutationFn: (id: number) => receiptService.delete(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: receiptKeys.lists() }),
   });

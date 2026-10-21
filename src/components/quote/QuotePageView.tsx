@@ -155,6 +155,8 @@ export const QuotePageView = ({ page, onSubmit, onContact, embedded }: QuotePage
         reference: "PREVIEW",
         service: service.service,
         service_label: service.label,
+        source: "",
+        source_label: "",
         details: details.trim(),
         answers: recorded,
         customer_name: payload.name,
@@ -184,8 +186,9 @@ export const QuotePageView = ({ page, onSubmit, onContact, embedded }: QuotePage
     setBusy(true);
     try {
       setResult(await onSubmit(payload));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong — try again.");
+    } catch {
+      // A refused submission is shown by the FeedbackModal (onSubmit is the
+      // useSubmitPublicQuote mutation); the form stays filled in to try again.
     } finally {
       setBusy(false);
     }
@@ -419,6 +422,19 @@ export const QuotePageView = ({ page, onSubmit, onContact, embedded }: QuotePage
               </button>
             </Card>
           </>
+        )}
+
+        {page.storefront_code && (
+          <a
+            href={`/marketplace/${encodeURIComponent(page.storefront_code)}`}
+            className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-left transition-colors hover:border-gray-300"
+          >
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-gray-800">See {page.partner_name}'s storefront</span>
+              <span className="block text-xs text-gray-500">Their branches on a map, what they offer, and how to reach them.</span>
+            </span>
+            <i className="ri-arrow-right-line shrink-0 text-lg" style={{ color: accent }} aria-hidden="true" />
+          </a>
         )}
 
         <footer className="pb-4 pt-2 text-center text-[11px] text-gray-400">

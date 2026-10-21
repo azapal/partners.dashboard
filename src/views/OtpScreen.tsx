@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import { takeReturnTo } from "../lib/returnTo";
 import { AuthLayout } from "../layouts/AuthLayout.jsx";
 import { DefaultButton } from "../components/buttons/DefaultButton";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useVerifyOtp, useSendOtp, usePartnerProfile } from "../hooks/useAuth";
+import { useVerifyOtp, useSendOtp } from "../hooks/useAuth";
+import { feedbackActions } from "../store/client/feedback";
 
 export default function OtpScreen() {
   const inputRefs = useRef<HTMLInputElement[]>([]);
@@ -16,8 +18,10 @@ export default function OtpScreen() {
 
   const { mutate: verifyOtp, isPending } = useVerifyOtp();
   const { mutate: sendOtp, isPending: isResending } = useSendOtp();
-  const profile = usePartnerProfile();
-  const email = profile?.partner_email ?? localStorage.getItem('partner_email') ?? '';
+  // Where this attempt's code went, from the send-OTP response — carried in
+  // router state, so it belongs to this login and survives a refresh, rather
+  // than a localStorage value left behind by whoever onboarded last.
+  const [sentTo, setSentTo] = useState<string>(location.state?.sentTo ?? "");
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -92,10 +96,9 @@ export default function OtpScreen() {
 
     verifyOtp(
       { partnerCode, otp: otpValue },
-      {
-        onSuccess: () => navigate("/select-workspace"),
-        onError: (err: any) => setErrorMessage(err?.message ?? "Invalid OTP. Please try again."),
-      }
+      // A wrong code is shown by the FeedbackModal; success is the next screen.
+      // Back to the public page sign-in was started from, if any (lib/returnTo.ts).
+      { onSuccess: () => navigate(takeReturnTo() ?? "/select-workspace") }
     );
   };
 
@@ -105,8 +108,14 @@ export default function OtpScreen() {
         <div className="space-y-2">
           <p className="text-2xl font-semibold text-slate-900">Verify OTP</p>
           <p className="text-sm text-slate-500">
-            Enter the 5-digit code sent to{" "}
-            <span className="font-medium text-[#1d4ed8]">{email}</span>.
+            {sentTo ? (
+              <>
+                Enter the 5-digit code sent to{" "}
+                <span className="font-medium text-[#1d4ed8]">{sentTo}</span>.
+              </>
+            ) : (
+              <>Enter the 5-digit code sent to the email address on your account.</>
+            )}
           </p>
           <p className="text-sm text-slate-500">Expires in {formatTime(timeLeft)}</p>
         </div>
@@ -148,14 +157,22 @@ export default function OtpScreen() {
             disabled={isResending || timeLeft > 0}
             onClick={() => {
               sendOtp(partnerCode, {
-                onSuccess: () => {
+                onSuccess: (res) => {
+                  // A resend reports the address again; keep the state in step
+                  // so a refresh after resending still shows it.
+                  const to = res?.data?.sent_to;
+                  if (to) {
+                    setSentTo(to);
+                    navigate(".", { replace: true, state: { ...location.state, sentTo: to } });
+                  }
                   setTimeLeft(120);
                   setOtpDigits(["", "", "", "", ""]);
                   setErrorMessage("");
                   focusInput(0);
+                  // useSendOtp is silent (on sign-in the next screen is the
+                  // success), so a resend says so here.
+                  feedbackActions.success("A new code is on its way.", "Code sent");
                 },
-                onError: (err: any) =>
-                  setErrorMessage(err?.message ?? "Failed to resend OTP. Please try again."),
               });
             }}
             className="font-medium text-[#1d4ed8] disabled:opacity-40 disabled:cursor-not-allowed hover:underline"

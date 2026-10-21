@@ -17,7 +17,6 @@ export const DeliveryMethodRateCardModal: React.FC<DeliveryMethodRateCardModalPr
   const [method, setMethod] = useState<DeliveryMethod>(rate?.method ?? DELIVERY_METHODS[0]);
   const [price, setPrice] = useState(rate ? String(rate.price) : '');
   const [status, setStatus] = useState<RateCardStatus>(rate?.status ?? 'Active');
-  const [formError, setFormError] = useState<string | null>(null);
 
   const createRate = useCreateDeliveryMethodRate();
   const updateRate = useUpdateDeliveryMethodRate();
@@ -29,24 +28,23 @@ export const DeliveryMethodRateCardModal: React.FC<DeliveryMethodRateCardModalPr
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
-    setFormError(null);
 
     const payload = { method, price: Number(price), status };
 
     if (isEdit) {
       updateRate.mutate(
         { id: rate!.id, payload },
-        { onSuccess: onClose, onError: (err) => setFormError(err.message) }
+        { onSuccess: onClose }
       );
     } else {
-      createRate.mutate(payload, { onSuccess: onClose, onError: (err) => setFormError(err.message) });
+      createRate.mutate(payload, { onSuccess: onClose });
     }
   };
 
   const handleDelete = () => {
     if (!rate) return;
     if (window.confirm('Delete this delivery method rate? This cannot be undone.')) {
-      deleteRate.mutate(rate.id, { onSuccess: onClose, onError: (err) => setFormError(err.message) });
+      deleteRate.mutate(rate.id, { onSuccess: onClose });
     }
   };
 
@@ -79,7 +77,6 @@ export const DeliveryMethodRateCardModal: React.FC<DeliveryMethodRateCardModalPr
           </FormField>
         </div>
 
-        {formError && <p className="text-xs text-red-500">{formError}</p>}
 
         <div className="flex justify-between gap-3 pt-2 border-t border-gray-100">
           {isEdit ? (

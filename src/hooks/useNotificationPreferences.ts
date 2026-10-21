@@ -27,6 +27,7 @@ export const useNotificationPreferences = (branchId?: number | null) => {
 export const useSaveNotificationPreferences = (branchId: number | null) => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Notification preferences saved.' },
     mutationFn: (preferences: Omit<NotificationPreferenceRow, 'label'>[]) =>
       notificationPreferenceService.save(branchId, preferences),
     onSuccess: () => qc.invalidateQueries({ queryKey: notificationPreferenceKeys.all }),

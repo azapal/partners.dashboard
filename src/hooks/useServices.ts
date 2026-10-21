@@ -25,6 +25,7 @@ export const useGetServiceConfig = () =>
 export const useSaveServiceConfig = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Service details saved.' },
     mutationFn: (responses: ServiceConfigResponses) => partnerServicesService.saveConfig(responses),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['partner-service-config'] });
@@ -35,6 +36,7 @@ export const useSaveServiceConfig = () => {
 export const useUpdatePartnerServices = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Your services are updated.' },
     mutationFn: (serviceIds: number[]) => partnerServicesService.updateSelected(serviceIds),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['partner-services'] });

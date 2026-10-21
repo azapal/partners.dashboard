@@ -31,9 +31,6 @@ export const ServiceScreen = () => {
   const [openId, setOpenId] = useState<number | null>(null);
   const [responses, setResponses] = useState<Responses>({});
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle');
-  const [submitState, setSubmitState] = useState<'idle' | 'saved' | 'error'>('idle');
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const { data: savedConfig } = useGetServiceConfig();
   const saveConfig = useSaveServiceConfig();
@@ -53,17 +50,13 @@ export const ServiceScreen = () => {
   }, [savedConfig]);
 
   const toggleSelected = (id: number) => {
-    setSaveState('idle');
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]
     );
   };
 
   const saveSelection = () => {
-    updatePartnerServices.mutate(selectedIds, {
-      onSuccess: () => setSaveState('saved'),
-      onError: () => setSaveState('error'),
-    });
+    updatePartnerServices.mutate(selectedIds);
   };
 
   // Setup questions are for what the partner offers: the services ticked (and
@@ -77,7 +70,6 @@ export const ServiceScreen = () => {
     setOpenId((prev) => (prev === id ? null : id));
 
   const setCheckbox = (optionId: number, value: string) => {
-    setSubmitState('idle');
     setResponses((prev) => {
       const current = (prev[optionId] as string[] | undefined) ?? [];
       return {
@@ -90,7 +82,6 @@ export const ServiceScreen = () => {
   };
 
   const setTextValue = (optionId: number, value: string) => {
-    setSubmitState('idle');
     setResponses((prev) => ({ ...prev, [optionId]: value }));
   };
 
@@ -102,19 +93,10 @@ export const ServiceScreen = () => {
   };
 
   const handleSubmit = () => {
-    setSubmitError(null);
-    setSubmitState('idle');
     // Sent whole rather than per-service: the server treats an emptied answer as a
     // removal, so posting only the touched ones could never clear anything.
     saveConfig.mutate(
       Object.fromEntries(Object.entries(responses).map(([optionId, value]) => [String(optionId), value])),
-      {
-        onSuccess: () => setSubmitState('saved'),
-        onError: (e: any) => {
-          setSubmitState('error');
-          setSubmitError(e?.message || 'Could not save your service details');
-        },
-      },
     );
   };
 
@@ -304,14 +286,8 @@ export const ServiceScreen = () => {
                 )}
                 Save Selection
               </button>
-              {saveState === 'saved' && !selectionDirty && (
-                <span className="text-xs font-medium text-green-600">Saved.</span>
-              )}
               {selectionDirty && (
                 <span className="text-xs font-medium text-amber-600">Unsaved changes</span>
-              )}
-              {saveState === 'error' && (
-                <span className="text-xs font-medium text-red-500">Couldn't save. Try again.</span>
               )}
             </div>
         </div>
@@ -385,15 +361,6 @@ export const ServiceScreen = () => {
                         </div>
 
                         <div className="flex items-center justify-end gap-2 mt-6">
-                          {submitState === 'saved' && (
-                            <span className="text-sm font-medium text-green-700 mr-auto">
-                              <i className="ri-check-line mr-1" />
-                              Saved
-                            </span>
-                          )}
-                          {submitState === 'error' && submitError && (
-                            <span className="text-sm text-red-600 mr-auto">{submitError}</span>
-                          )}
                           {/* Save sits on every panel. It persists the whole form, so
                               gating it behind the last service just meant scrolling
                               to the end before anything could be kept. */}

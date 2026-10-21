@@ -1,24 +1,24 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { signOut } from "../service/partnerService";
 
 export default function LogoutView() {
   const [isOpen, setIsOpen] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
 
+  // This used to wait and navigate to "/" without clearing anything, so the
+  // session survived and the login screen sent the user straight back in.
   const handleLogout = () => {
     setIsLoggingOut(true);
-    setTimeout(() => {
-      console.log("User logged out successfully");
-      setIsOpen(false);
-      navigate("/");
-    }, 800);
+    signOut();
   };
 
   const handleCancel = () => {
     setIsOpen(false);
-    console.log("Logout cancelled, returning to dashboard");
-    navigate("/settings");
+    // Back to wherever they came from; the dashboard if they arrived directly.
+    if (window.history.length > 1) navigate(-1);
+    else navigate("/dashboard");
   };
 
   if (!isOpen) return null;
@@ -66,7 +66,7 @@ export default function LogoutView() {
               <button
                 onClick={handleLogout}
                 disabled={isLoggingOut}
-                className="w-full hover:bg-black/70  hover:text-white cursor-pointer font-medium text-base sm:text-lg py-4 px-6 rounded-full disabled:opacity-60 disabled:cursor-not-allowed min-h-11"
+                className="w-full bg-brand text-white hover:bg-brand-hover cursor-pointer font-medium text-base sm:text-lg py-4 px-6 rounded-full disabled:opacity-60 disabled:cursor-not-allowed min-h-11"
               >
                 {isLoggingOut ? "Logging Out..." : "Log Out"}
               </button>

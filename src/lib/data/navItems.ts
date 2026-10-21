@@ -25,7 +25,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/quote-page", icon: "ri-price-tag-3-line", label: "Quote Page", keywords: ["quote", "quote requests", "leads", "enquiries", "self serve", "customers", "quote form", "questions"] },
       { to: "/chargeable-weight", icon: "ri-scales-3-line", label: "Chargeable Weight", keywords: ["weight", "volumetric", "dim weight", "reweigh", "cubing"] },
       { to: "/branches", icon: "ri-git-branch-line", label: "Branches", keywords: ["branches", "locations", "offices"] },
-      { to: "/logistics-network", icon: "ri-route-line", label: "Logistics Network", keywords: ["routes", "pairing routes", "network"] },
+      { to: "/marketplace", icon: "ri-store-3-line", label: "Marketplace", keywords: ["network", "logistics network", "marketplace", "partners", "storefront", "directory"] },
+      { to: "/job-briefs", icon: "ri-file-list-3-line", label: "Job Briefs", keywords: ["briefs", "jobs", "tender", "rfq", "outsource"] },
+      { to: "/inbox", icon: "ri-chat-3-line", label: "Inbox", keywords: ["inbox", "messages", "chat", "partner messages"] },
+      { to: "/pairing-routes", icon: "ri-route-line", label: "Pairing Routes", keywords: ["routes", "pairing routes", "paired delivery", "lanes"] },
       { to: "/custody", icon: "ri-shake-hands-line", label: "Custody", keywords: ["handover", "handoff", "chain of custody", "proof", "evidence", "reconcile items"] },
     ],
   },
@@ -82,9 +85,9 @@ export const SETTINGS_NAV_ITEM: NavItem & { group: string } = {
 export const SEARCHABLE_NAV_ITEMS: (NavItem & { group: string })[] = [
   ...NAV_GROUPS.flatMap((group) => group.items.map((item) => ({ ...item, group: group.label }))),
   SETTINGS_NAV_ITEM,
-  { to: "/customers", icon: "", label: "Customers", group: "Operations", keywords: ["customers", "clients"] },
+  { to: "/customers", icon: "ri-user-heart-line", label: "Customers", group: "Customers", keywords: ["customers", "clients", "email", "emails", "campaigns", "email campaigns", "newsletter", "promo", "promotion", "discount", "seasonal", "bulk email", "marketing", "templates"] },
   { to: "/dashboard/performance", icon: "", label: "Monthly Performance", group: "Overview", keywords: ["performance", "monthly", "reports"] },
   { to: "/integration", icon: "", label: "Integrations", group: "Account", keywords: ["integration", "connectors", "api"] },
-  { to: "/PaymentMethod", icon: "", label: "Payment Method", group: "Finance", keywords: ["payment", "card", "billing"] },
+  { to: "/PaymentMethod", icon: "", label: "Billing Method", group: "Finance", keywords: ["payment", "card", "billing", "bank transfer"] },
   { to: "/partners/onboarding", icon: "", label: "Partner Onboarding", group: "Account", keywords: ["onboarding", "setup", "partner"] },
 ];

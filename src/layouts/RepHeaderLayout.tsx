@@ -1,4 +1,4 @@
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useRepProfile, useRepLogout } from "../hooks/useRepAuth";
 import { useNavigate } from "react-router-dom";
 import { restartProductTour } from "../components/tour/ProductTour";
@@ -13,6 +13,9 @@ const PAGE_TITLES: Record<string, string> = {
   "support-shift-mates": "Shift Mates",
   "support-profile": "Profile",
 };
+
+const iconButton =
+  "w-9 h-9 shrink-0 rounded-xl flex items-center justify-center bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors shadow-sm";
 
 export const RepHeaderLayout = () => {
   const route = useLocation();
@@ -36,37 +39,46 @@ export const RepHeaderLayout = () => {
   };
 
   return (
-    <div className="w-full mb-6 sticky top-0 z-20 bg-white pt-1">
-      <header className="flex items-center justify-between py-3 border-b border-gray-100">
-        <div>
-          <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-0.5">
-            {profile?.branch?.branch_code ?? "Branch"}
+    <div className="w-full mb-6 sticky top-0 z-20 bg-white/95 backdrop-blur pt-1">
+      <header className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 py-3 border-b border-gray-100">
+        <div className="min-w-0">
+          <p className="mb-1 inline-flex max-w-full items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+            <i className="ri-git-branch-line" />
+            <span className="truncate">{profile?.branch?.branch_code ?? "Branch"}</span>
           </p>
-          <h1 className="font-bold text-[22px] text-gray-900 leading-tight">{pageTitle}</h1>
+          <h1 className="truncate font-bold text-xl sm:text-[22px] text-gray-900 leading-tight">{pageTitle}</h1>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           {/* Mirrors DashboardHeaderLayout — the two shells are parallel
               implementations, so header affordances have to land in both. */}
           <button
             onClick={() => assistantActions.open()}
             aria-label="Ask Azapal"
             title="Ask Azapal  (⌘K)"
-            className="w-9 h-9 rounded-xl flex items-center justify-center bg-white border border-gray-200 text-brand hover:bg-orange-50 hover:border-orange-200 transition-colors shadow-sm"
+            className={`${iconButton} text-brand hover:bg-orange-50 hover:border-orange-200 hover:text-brand`}
           >
             <i className="ri-sparkling-2-fill text-base" />
           </button>
 
           <button
-            onClick={handleLogout}
-            className="w-9 h-9 rounded-xl flex items-center justify-center bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors shadow-sm"
-            aria-label="Log out"
-            title="Log out"
+            onClick={() => restartProductTour("support")}
+            className={iconButton}
+            aria-label="Replay workspace tour"
+            title="Replay workspace tour"
           >
+            <i className="ri-play-circle-line text-base" />
+          </button>
+
+          <button onClick={handleLogout} className={iconButton} aria-label="Log out" title="Log out">
             <i className="ri-logout-box-r-line text-base" />
           </button>
 
-          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl pl-3 pr-1.5 py-1.5 shadow-sm">
+          <Link
+            to="/support/profile"
+            title="Your profile"
+            className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl p-1 sm:pl-3 sm:pr-1.5 sm:py-1.5 shadow-sm hover:bg-gray-50 transition-colors"
+          >
             <div className="text-right hidden sm:block">
               <p className="text-xs font-semibold text-gray-800 leading-tight">{displayName}</p>
               <p className="text-[10px] text-gray-400 leading-tight">{profile?.invite_role?.name ?? ""}</p>
@@ -74,15 +86,7 @@ export const RepHeaderLayout = () => {
             <div className="w-7 h-7 rounded-lg bg-brand flex items-center justify-center">
               <span className="text-white text-[10px] font-bold">{initials}</span>
             </div>
-          </div>
-          <button
-            onClick={() => restartProductTour("support")}
-            className="w-9 h-9 rounded-xl flex items-center justify-center bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-800 transition-colors shadow-sm"
-            aria-label="Replay workspace tour"
-            title="Replay workspace tour"
-          >
-            <i className="ri-play-circle-line text-base" />
-          </button>
+          </Link>
         </div>
       </header>
     </div>

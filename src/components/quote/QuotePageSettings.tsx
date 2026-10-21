@@ -12,12 +12,15 @@ import type {
   QuoteContactChannel,
   QuoteContactList,
   QuoteListChannel,
+  QuoteReferral,
   QuotePageSettings as Settings,
   QuoteTeammate,
   SaveQuotePagePayload,
 } from "../../service/partnerService";
 import { DocumentBrandingModal } from "../modal/DocumentBrandingModal";
+import { PriceNotice } from "../billing/PriceNotice";
 import { ContactListEditor } from "./ContactListEditor";
+import { ReferralLinksEditor } from "./ReferralLinksEditor";
 import { QuotePageView } from "./QuotePageView";
 import { QuoteQuestionsEditor, questionsProblem } from "./QuoteQuestionsEditor";
 
@@ -39,6 +42,9 @@ const toPayload = (s: Settings): SaveQuotePagePayload => ({
   services: s.services,
   contact_channels: s.contact_channels,
   copy_channels: s.copy_channels,
+  // Lead counts come back with these; they are the server's, not ours to send,
+  // but round-tripping them keeps the draft comparison honest.
+  referrals: s.referrals,
 });
 
 /**
@@ -170,6 +176,7 @@ export const QuotePageSettings = ({
           intro: current.intro,
           follow_up_note: current.follow_up_note,
           contact_channels: current.contact_channels,
+          referrals: current.referrals,
         } as SaveQuotePagePayload)
       : current;
     save.mutate(body, {
@@ -215,11 +222,7 @@ export const QuotePageSettings = ({
             <span className={`h-2 w-2 shrink-0 rounded-full ${status.dot}`} />
             {status.title}
           </p>
-          {save.error ? (
-            <p className="mt-0.5 text-xs text-red-600">{save.error.message}</p>
-          ) : (
-            status.note && <p className="mt-0.5 truncate text-xs text-gray-400">{status.note}</p>
-          )}
+          {status.note && <p className="mt-0.5 truncate text-xs text-gray-400">{status.note}</p>}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {settings.exists && dirty && (
@@ -267,6 +270,9 @@ export const QuotePageSettings = ({
                 <span className="block text-xs text-gray-400">Anyone with the link can ask you for a quote and leave their details.</span>
               </span>
             </label>
+            {/* A live page is charged per day it's live, so the price belongs
+                beside the switch that makes it live — not on a billing page. */}
+            {current.is_published && <PriceNotice kind="quote_page_day" className="mt-3" />}
             <div className="mt-4">
               <p className="mb-1.5 text-xs font-medium text-gray-600">Your link</p>
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -302,6 +308,18 @@ export const QuotePageSettings = ({
                 </div>
               </div>
             </div>
+          </Panel>
+
+          <Panel
+            title="Reference links"
+            hint="One link per place you share your page — each counts its own clicks and the leads they turn into."
+          >
+            <ReferralLinksEditor
+              links={current.referrals}
+              pageLink={liveLink}
+              bareClicks={settings.link_clicks}
+              onChange={(referrals: QuoteReferral[]) => update({ referrals })}
+            />
           </Panel>
 
           <Panel title="Wording">

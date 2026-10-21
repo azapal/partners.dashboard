@@ -34,7 +34,9 @@ export const signpostFor = (question: string): Signpost[] => {
   if (/order|deliver|dispatch|rider|driver/.test(q)) add("Orders & dispatch", "/transactions");
   if (/branch|location|office/.test(q)) add("Branches", "/branches");
   if (/staff|team|user|role|permission|invite/.test(q)) add("Team & roles", "/users");
-  if (/route|network|pairing|logn/.test(q)) add("Logistics network", "/logistics-network");
+  if (/route|pairing|lane/.test(q)) add("Pairing routes", "/pairing-routes");
+  if (/network|marketplace|partner|logn|storefront/.test(q)) add("Marketplace", "/marketplace");
+  if (/brief|tender|rfq|outsource/.test(q)) add("Job briefs", "/job-briefs");
   if (/activity|audit|log|session/.test(q)) add("Activity & sessions", "/activity-log");
   if (/2fa|two.factor|security|password/.test(q)) add("Security", "/settings?tab=security");
 

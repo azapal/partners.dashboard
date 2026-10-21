@@ -1,44 +1,57 @@
 import { useEffect, useState } from "react";
-import { ACTIVATION_FEE_USD, BILLING_CURRENCIES, type MobilityConfig } from "../../lib/data/mobility";
+import { naira } from "../../lib/data/mobility";
+import type { MobilityApp } from "../../service/partnerService";
 
 /**
- * The activation agreement.
+ * Accepting a quote.
  *
- * Applying commits a partner to a fee and to a build, so it stops being a
- * button and becomes a decision: what Azapal will make, what they can change
- * afterwards, the terms, and what it costs. Consent is explicit — the confirm
- * button stays dead until the box is ticked.
+ * This is the one place in Mobility that commits a partner to money, so it stops
+ * being a button and becomes a decision: the figure sales quoted, how it is
+ * billed, what can change afterwards, and the terms. Consent is explicit — the
+ * confirm button stays dead until the box is ticked.
  *
- * ── On the fee ────────────────────────────────────────────────────────────
- * The fee is quoted in USD because that is what it is denominated in. Local
- * currencies are listed so a partner can see they may pay in theirs, but no
- * converted figure is shown: inventing an exchange rate and printing it next
- * to a price someone is about to agree to would be a number they could hold us
- * to. The rate is whatever it is on the day, and the screen says so.
+ * The figure is the one sales quoted this partner, in naira, exactly as it will
+ * appear on their Azapal bill. There is no list price and no conversion to show.
  */
 
+const TERMS = {
+  white_label: [
+    ["Scope", "Your logo and colours are applied to the Azapal customer app for your customers. Azapal owns and runs the app; you own your brand and your customer relationships."],
+    ["Billing", "The monthly amount is billed for every calendar month the app is active, including this one, on your company's monthly Azapal bill. Months are charged whole, not prorated."],
+    ["Changes", "Change your logo and colours whenever you like. The monthly amount stays as quoted; a different price is a new quote you would accept again."],
+    ["Ending it", "Stop it at any time from this page. You aren't billed for any month after that."],
+  ],
+  custom: [
+    ["Scope", "Azapal builds and publishes an app under your name, from the configuration on this page. You own your brand, content and customer relationships; Azapal owns the underlying platform."],
+    ["Store review", "Publication depends on Apple and Google approving the app. Azapal submits and responds to review, but can't guarantee approval or a date."],
+    ["Your content", "You are responsible for your logo, imagery, service descriptions, privacy policy and terms, and for holding the rights to them."],
+    ["Customer data", "Data your customers enter belongs to you. Azapal processes it to run the service and will not sell it. You remain the data controller."],
+    ["Fee", "The one-time fee is added to your company's next monthly Azapal bill, and is non-refundable once the build starts. Ongoing hosting or changes beyond your configuration are agreed with sales separately."],
+  ],
+} as const;
+
 export const ActivationModal = ({
-  config,
+  app,
+  name,
   onClose,
   onConfirm,
+  pending,
 }: {
-  config: MobilityConfig;
+  app: MobilityApp;
+  /** The business or app name, for the consent line. */
+  name: string;
   onClose: () => void;
   onConfirm: () => void;
+  pending?: boolean;
 }) => {
   const [agreed, setAgreed] = useState(false);
-  const [currency, setCurrency] = useState(BILLING_CURRENCIES[0].code);
+  const whiteLabel = app.product === "white_label";
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
-
-  const picked = BILLING_CURRENCIES.find((c) => c.code === currency)!;
-  const platforms = [config.platforms.ios && "iOS", config.platforms.android && "Android"]
-    .filter(Boolean)
-    .join(" and ");
 
   return (
     <div className="fixed inset-0 z-[10020] flex items-end justify-center p-0 sm:items-center sm:p-4">
@@ -52,15 +65,15 @@ export const ActivationModal = ({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Activate your branded app"
+        aria-label="Accept your quote"
         className="relative flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl"
       >
         <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-5 py-4">
           <div>
-            <h2 className="text-base font-semibold text-gray-900">Activate your branded app</h2>
-            <p className="mt-0.5 text-xs text-gray-500">
-              What we'll build, and what it costs.
-            </p>
+            <h2 className="text-base font-semibold text-gray-900">
+              {whiteLabel ? "Activate the Azapal app with your brand" : "Start building your app"}
+            </h2>
+            <p className="mt-0.5 text-xs text-gray-500">Your quote, and what you're agreeing to.</p>
           </div>
           <button
             type="button"
@@ -73,82 +86,32 @@ export const ActivationModal = ({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {/* What is being agreed */}
-          <section>
-            <h3 className="text-xs font-bold uppercase tracking-wide text-gray-400">Service agreement</h3>
-            <p className="mt-2 text-xs leading-6 text-gray-700">
-              Azapal will build and publish <strong>{config.appName || "your app"}</strong> for{" "}
-              <strong>{platforms || "the platforms you select"}</strong>, carrying the{" "}
-              {config.services.length} service{config.services.length === 1 ? "" : "s"} and the
-              screens, branding and sign-in methods configured on this page. Deliveries booked in
-              the app run through your existing Azapal operation — the same rates, branches, riders
-              and settlement.
-            </p>
-            <div className="mt-3 flex items-start gap-2 rounded-xl bg-blue-50 px-3 py-2.5">
-              <i className="ri-refresh-line mt-0.5 text-sm text-blue-600" />
-              <p className="text-[11px] leading-4 text-blue-900">
-                <strong>Settings aren't locked.</strong> Branding, services, screens and sections can
-                be changed whenever you like, and we ship the update — you're not agreeing to this
-                configuration forever, only to the app being built from it now.
-              </p>
+          <section className="rounded-xl border border-gray-200 p-4">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-sm text-gray-600">
+                {whiteLabel ? "Per month, while active" : "One-time"}
+              </span>
+              <span className="text-2xl font-bold text-gray-900">
+                {app.amount != null ? naira(app.amount) : "—"}
+                {whiteLabel && <span className="text-sm font-semibold text-gray-400">/month</span>}
+              </span>
             </div>
+            {app.sales_note && (
+              <p className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-xs leading-5 text-gray-600">
+                <span className="font-semibold text-gray-700">From Azapal sales: </span>
+                {app.sales_note}
+              </p>
+            )}
           </section>
 
-          {/* Terms */}
           <section className="mt-5">
             <h3 className="text-xs font-bold uppercase tracking-wide text-gray-400">Terms of service</h3>
-            <div className="mt-2 max-h-40 overflow-y-auto rounded-xl bg-gray-50 p-3 text-[11px] leading-5 text-gray-600">
-              <p><strong>1. Scope.</strong> Azapal provides the app as a hosted service. You own your brand, content and customer relationships; Azapal owns the underlying platform.</p>
-              <p className="mt-2"><strong>2. Store review.</strong> Publication depends on Apple and Google approving the app. Azapal submits and responds to review, but cannot guarantee approval or a date.</p>
-              <p className="mt-2"><strong>3. Your content.</strong> You are responsible for your logo, imagery, service descriptions, privacy policy and terms, and for holding the rights to them.</p>
-              <p className="mt-2"><strong>4. Customer data.</strong> Data your customers enter belongs to you. Azapal processes it to run the service and will not sell it. You remain the data controller and must meet the law where you operate.</p>
-              <p className="mt-2"><strong>5. Fees.</strong> The activation fee is one-time and non-refundable once the build starts. The monthly Mobility charge begins when the app is live in the stores, and appears on your Azapal bill.</p>
-              <p className="mt-2"><strong>6. Ending it.</strong> You may stop the monthly service at any time; the app is then unpublished. Your operational data stays in your Azapal account.</p>
-              <p className="mt-2 text-gray-400">
+            <div className="mt-2 max-h-48 space-y-2 overflow-y-auto rounded-xl bg-gray-50 p-3 text-[11px] leading-5 text-gray-600">
+              {TERMS[app.product].map(([title, text], i) => (
+                <p key={title}><strong>{i + 1}. {title}.</strong> {text}</p>
+              ))}
+              <p className="text-gray-400">
                 This is a plain-language summary, not the full contract. The executed agreement is what governs.
-              </p>
-            </div>
-          </section>
-
-          {/* Fee */}
-          <section className="mt-5">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-gray-400">Activation fee</h3>
-            <div className="mt-2 rounded-xl border border-gray-200 p-4">
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm text-gray-600">One-time, to start the build</span>
-                <span className="text-2xl font-bold text-gray-900">
-                  ${ACTIVATION_FEE_USD.toLocaleString()}
-                </span>
-              </div>
-
-              <p className="mt-3 text-xs font-medium text-gray-500">Pay in</p>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {BILLING_CURRENCIES.map((c) => (
-                  <button
-                    key={c.code}
-                    type="button"
-                    onClick={() => setCurrency(c.code)}
-                    className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
-                      currency === c.code
-                        ? "border-brand bg-orange-50 text-brand"
-                        : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    {c.code}
-                  </button>
-                ))}
-              </div>
-              <p className="mt-2.5 text-[11px] leading-4 text-gray-400">
-                {currency === "USD" ? (
-                  <>Charged in US dollars.</>
-                ) : (
-                  <>
-                    Charged in {picked.name} ({picked.symbol}) at the exchange rate on the day you
-                    pay — we don't quote a converted figure here because it would be out of date by
-                    the time you paid it.
-                  </>
-                )}{" "}
-                The monthly Mobility charge starts only once your app is live.
               </p>
             </div>
           </section>
@@ -161,9 +124,8 @@ export const ActivationModal = ({
               className="mt-0.5 h-4 w-4 accent-[#F14724]"
             />
             <span className="text-xs leading-5 text-gray-700">
-              I've read the above, I'm authorised to agree on behalf of{" "}
-              <strong>{config.appName || "my business"}</strong>, and I accept the terms of service
-              and the one-time activation fee.
+              I'm authorised to agree on behalf of <strong>{name || "my business"}</strong>, and I accept
+              the terms and the {whiteLabel ? "monthly charge" : "one-time fee"} above.
             </span>
           </label>
         </div>
@@ -179,10 +141,10 @@ export const ActivationModal = ({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={!agreed}
+            disabled={!agreed || pending}
             className="rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:bg-gray-200 disabled:text-gray-400"
           >
-            Agree &amp; submit
+            {pending ? "Accepting…" : "Agree & accept"}
           </button>
         </div>
       </div>

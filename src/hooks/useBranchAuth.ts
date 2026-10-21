@@ -4,6 +4,7 @@ import { repStoreActions } from '../store/client/rep';
 
 export const useSendBranchOtp = () => {
   return useMutation({
+    meta: { silentSuccess: true },
     mutationFn: ({ email, branchCode }: { email: string; branchCode: string }) =>
       branchAuthService.sendOtp(email, branchCode),
   });
@@ -11,6 +12,7 @@ export const useSendBranchOtp = () => {
 
 export const useVerifyBranchOtp = () => {
   return useMutation({
+    meta: { silentSuccess: true },
     mutationFn: ({ email, otp, branchCode }: { email: string; otp: string; branchCode: string }) =>
       branchAuthService.verifyOtp(email, otp, branchCode),
     onSuccess: (data) => {

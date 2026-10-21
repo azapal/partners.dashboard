@@ -1,81 +1,78 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSendRepOtp } from '../../hooks/useRepAuth';
+import { SupportAuthShell, authInputClass, authPrimaryButtonClass } from '../../components/support/SupportAuthShell';
 
 export const RepLoginScreen = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
 
   const { mutate: sendOtp, isPending } = useSendRepOtp();
 
+  // A failed send is reported by the global FeedbackModal (see lib/queryClient),
+  // so there's no local error state here.
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage('');
-
     sendOtp(
       { email },
-      {
-        onSuccess: () => navigate('/support/login/otp', { state: { email } }),
-        onError: (err: any) => setErrorMessage(err?.message ?? 'Failed to send OTP. Please try again.'),
-      }
+      { onSuccess: () => navigate('/support/login/otp', { state: { email } }) }
     );
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans">
-      <div className="w-full max-w-md bg-white shadow-xl border border-slate-200 rounded-2xl overflow-hidden relative">
-        <div className="absolute top-0 left-0 w-full h-1.5 bg-linear-to-r from-brand to-brand-maroon" />
-
-        <div className="p-8 pt-10">
-          <div className="mb-8 text-center">
-            <img src="/azapallogoV1.svg" alt="Azapal" className="h-9 w-auto mx-auto mb-2" />
-            <p className="text-sm text-slate-500">Customer Support Login</p>
-          </div>
-
-          <div className="text-center mb-6">
-            <h2 className="text-xl font-semibold text-slate-800">Welcome back</h2>
-            <p className="text-sm text-slate-500 mt-1">Enter your work email to receive a one-time code.</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium text-slate-700">
-                Work email
-              </label>
-              <input
-                id="email"
-                type="email"
-                placeholder="you@company.com"
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); setErrorMessage(''); }}
-                disabled={isPending}
-                className="w-full h-12 px-4 text-base border border-slate-200 rounded-xl outline-none transition focus:border-[#1d4ed8] focus:ring-4 focus:ring-blue-100 text-slate-900 placeholder:text-slate-300 disabled:opacity-50"
-              />
-            </div>
-
-            {errorMessage && (
-              <p className="text-sm text-red-500">{errorMessage}</p>
-            )}
-
-            <button
-              type="submit"
-              disabled={isPending || !email.trim()}
-              className="w-full h-12 bg-brand-navy hover:bg-brand-navy/90 text-white font-medium text-base rounded-xl flex items-center justify-center gap-2 transition cursor-pointer shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isPending ? 'Sending OTP…' : 'Continue'}
-              {!isPending && <i className="ri-arrow-right-line text-base" />}
-            </button>
-          </form>
-
-          <p className="text-sm text-slate-500 text-center mt-6">
-            Branch manager or Super Admin?{' '}
-            <Link to="/support/branch-login" className="font-medium text-[#1d4ed8] hover:underline">
-              Log into a branch
-            </Link>
-          </p>
-        </div>
+    <SupportAuthShell
+      mode="support"
+      step={1}
+      footer={
+        <>
+          Branch manager or Super Admin?{' '}
+          <Link to="/support/branch-login" className="font-semibold text-brand hover:text-brand-hover">
+            Log into a branch
+          </Link>
+        </>
+      }
+    >
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Welcome back</h1>
+        <p className="mt-1.5 text-sm leading-6 text-slate-500">
+          Enter your work email and we'll send you a one-time code.
+        </p>
       </div>
-    </div>
+
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="space-y-2">
+          <label htmlFor="email" className="text-sm font-medium text-slate-700">
+            Work email
+          </label>
+          <div className="relative">
+            <i className="ri-mail-line pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg text-slate-400" />
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={isPending}
+              className={`${authInputClass} pl-11`}
+            />
+          </div>
+        </div>
+
+        <button type="submit" disabled={isPending || !email.trim()} className={authPrimaryButtonClass}>
+          {isPending ? (
+            <>
+              <i className="ri-loader-4-line animate-spin text-base" />
+              Sending code…
+            </>
+          ) : (
+            <>
+              Continue
+              <i className="ri-arrow-right-line text-base" />
+            </>
+          )}
+        </button>
+      </form>
+    </SupportAuthShell>
   );
 };

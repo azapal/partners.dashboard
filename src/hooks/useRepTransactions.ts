@@ -38,6 +38,7 @@ export const useAssignDriverToOrder = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: 'Driver assigned.' },
     mutationFn: ({ orderId, driverId, dispatchAmount }: { orderId: string | number; driverId: number; dispatchAmount?: number }) =>
       repOrderService.assignDriver(orderId, driverId, dispatchAmount),
     onSuccess: () => {

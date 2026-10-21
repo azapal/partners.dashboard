@@ -4,6 +4,7 @@ import { AddNewUserModal } from '../components/modal/AddNewUserModal';
 import { EditUserModal } from '../components/modal/EditUserModal';
 import { BulkInviteModal } from '../components/modal/BulkInviteModal';
 import { sheetActions } from '../store/client/sheets';
+import { feedbackActions } from '../store/client/feedback';
 import { useGetInvites, useCreateInvite, useUpdateInvite, useDeleteInvite } from '../hooks/useInvites';
 import type { PartnerInvite } from '../service/partnerService';
 import { SplitCreateButton } from '../components/buttons/SplitCreateButton';
@@ -67,10 +68,8 @@ const UserManagementScreen: React.FC = () => {
     setInvitePrefill({ email: params.email, first_name: params.first_name, last_name: params.last_name });
     setIsInviteOpen(true);
   });
-  const [inviteError, setInviteError] = useState<string | null>(null);
   const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
-  const [editError, setEditError] = useState<string | null>(null);
 
   const { data: invites = [], isLoading } = useGetInvites();
   const { mutate: createInvite, isPending: isInviting } = useCreateInvite();
@@ -102,11 +101,19 @@ const UserManagementScreen: React.FC = () => {
         directReports: users.filter(
           (u) => u.reports_to === `${user.first_name} ${user.last_name}`
         ),
-        onEdit: (u: User) => { closeSheet(); setEditError(null); setEditUser(u); },
+        onEdit: (u: User) => { closeSheet(); setEditUser(u); },
+        // useUpdateInvite is silent on success because one hook covers edit,
+        // suspend, reactivate and terminate; each caller says which it was.
         onSuspend: (id: string) =>
-          updateInvite({ id, payload: { status: users.find((u) => u.id === id)?.status !== 'suspended' } }),
+          updateInvite(
+            { id, payload: { status: users.find((u) => u.id === id)?.status !== 'suspended' } },
+            { onSuccess: () => feedbackActions.success('User status updated.') },
+          ),
         onTerminate: (id: string) =>
-          updateInvite({ id, payload: { status: false } }),
+          updateInvite(
+            { id, payload: { status: false } },
+            { onSuccess: () => feedbackActions.success('User terminated.') },
+          ),
         onDelete: (id: string) => {
           if (window.confirm('Delete this user? This cannot be undone.')) {
             deleteInvite(id, { onSuccess: closeSheet });
@@ -117,28 +124,27 @@ const UserManagementScreen: React.FC = () => {
   };
 
   const handleInvite = (data: { email: string; first_name: string; last_name: string; phone?: string; social_handle?: string; branch?: string; invite_role: string }) => {
-    setInviteError(null);
-    createInvite(data, {
-      onSuccess: () => setIsInviteOpen(false),
-      onError: (err) => setInviteError(err instanceof Error ? err.message : 'Failed to send invite'),
-    });
+    createInvite(data, { onSuccess: () => setIsInviteOpen(false) });
   };
 
   const handleUpdate = (id: string, data: Partial<User>) => {
-    setEditError(null);
     updateInvite(
       {
         id,
         payload: {
           first_name: data.first_name,
           last_name: data.last_name,
+          phone: data.phone,
+          social_handle: data.social_handle,
           branch: data.branch,
           invite_role: data.invite_role,  // role FK id
         },
       },
       {
-        onSuccess: () => setEditUser(null),
-        onError: (err) => setEditError(err instanceof Error ? err.message : 'Failed to update user'),
+        onSuccess: () => {
+          setEditUser(null);
+          feedbackActions.success('User updated.');
+        },
       }
     );
   };
@@ -162,7 +168,7 @@ const UserManagementScreen: React.FC = () => {
             <SplitCreateButton
               label="Invite User"
               icon="ri-user-add-line"
-              onClick={() => { setInviteError(null); setIsInviteOpen(true); }}
+              onClick={() => setIsInviteOpen(true)}
               bulkLabel="Bulk Invite"
               onBulkClick={() => setIsBulkOpen(true)}
             />
@@ -303,7 +309,6 @@ const UserManagementScreen: React.FC = () => {
         prefill={invitePrefill}
         onClose={() => { setIsInviteOpen(false); setInvitePrefill({}); }}
         onInvite={handleInvite}
-        error={inviteError}
         isSubmitting={isInviting}
       />
       <BulkInviteModal isOpen={isBulkOpen} onClose={() => setIsBulkOpen(false)} />
@@ -313,7 +318,6 @@ const UserManagementScreen: React.FC = () => {
           onClose={() => setEditUser(null)}
           onUpdate={handleUpdate}
           user={editUser}
-          error={editError}
           isSubmitting={isUpdating}
         />
       )}

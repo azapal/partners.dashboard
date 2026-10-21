@@ -31,6 +31,9 @@ export const useGetIncomingPayments = (branchId?: number | null, showAll = false
 export const useMatchIncomingPayment = () => {
   const qc = useQueryClient();
   return useMutation({
+    // Silent on success: whether the split also distributed is in the
+    // response, so IncomingPaymentsPanel says what happened.
+    meta: { silentSuccess: true },
     mutationFn: ({ id, invoiceId }: { id: number; invoiceId: number }) => incomingPaymentService.match(id, invoiceId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: incomingPaymentKeys.all });
@@ -43,6 +46,7 @@ export const useMatchIncomingPayment = () => {
 export const useIgnoreIncomingPayment = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: "Marked as not an invoice — it won't be offered for matching again." },
     mutationFn: ({ id, undo }: { id: number; undo?: boolean }) => incomingPaymentService.ignore(id, undo),
     onSuccess: () => qc.invalidateQueries({ queryKey: incomingPaymentKeys.all }),
   });

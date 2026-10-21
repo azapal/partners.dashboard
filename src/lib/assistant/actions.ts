@@ -126,7 +126,7 @@ export const ASSISTANT_ACTIONS: AssistantActionDef[] = [
   {
     id: "route.create",
     label: "Add a pairing route",
-    route: "/logistics-network",
+    route: "/pairing-routes",
     say: "Opening the route form — I've set what I could from that.",
     match: /\b(create|add|new|set ?up|register)\b.{0,24}\b(route|routes|lane|pairing)\b|\b(route|lane)\b.{0,16}\b(create|add|new)\b/i,
     extract: extractRoute,

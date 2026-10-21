@@ -12,6 +12,7 @@ export const useGetPartnerSplit = (branchId?: number | null) =>
 export const useSavePartnerSplit = (branchId?: number | null) => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Split saved.' },
     mutationFn: ({ name, members }: { name?: string; members: SplitMember[] }) => splitService.save(name, members, branchId),
     onSuccess: () => qc.invalidateQueries({ queryKey: splitKeys.all }),
   });

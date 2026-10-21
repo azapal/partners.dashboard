@@ -31,6 +31,7 @@ export const useGetPayoutSplits = (status?: PayoutSplitStatus | 'all') => {
 export const useCreatePayoutSplit = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Payout split created.' },
     mutationFn: (payload: CreatePayoutSplitPayload) => payoutSplitService.create(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: payoutSplitKeys.all }),
   });
@@ -39,6 +40,7 @@ export const useCreatePayoutSplit = () => {
 export const useUpdatePayoutSplit = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Payout split updated.' },
     mutationFn: ({ id, payload }: { id: number; payload: Partial<CreatePayoutSplitPayload> }) =>
       payoutSplitService.update(id, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: payoutSplitKeys.all }),
@@ -49,6 +51,9 @@ export const useUpdatePayoutSplit = () => {
 export const useSetPayoutSplitStatus = () => {
   const qc = useQueryClient();
   return useMutation({
+    // Silent on success: one hook suspends, reactivates and terminates, so
+    // PayoutSplitsPanel says which.
+    meta: { silentSuccess: true },
     mutationFn: ({ id, status }: { id: number; status: PayoutSplitStatus }) =>
       payoutSplitService.setStatus(id, status),
     onSuccess: () => qc.invalidateQueries({ queryKey: payoutSplitKeys.all }),
@@ -58,6 +63,7 @@ export const useSetPayoutSplitStatus = () => {
 export const useSetDefaultPayoutSplit = () => {
   const qc = useQueryClient();
   return useMutation({
+    meta: { successMessage: 'Default payout split updated.' },
     mutationFn: ({ id, branchId }: { id: number; branchId?: number | null }) =>
       payoutSplitService.setDefault(id, branchId),
     onSuccess: () => qc.invalidateQueries({ queryKey: payoutSplitKeys.all }),

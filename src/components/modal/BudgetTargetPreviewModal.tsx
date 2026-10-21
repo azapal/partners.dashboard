@@ -20,7 +20,6 @@ export const BudgetTargetPreviewModal: React.FC<BudgetTargetPreviewModalProps> =
   const [includeLastMile, setIncludeLastMile] = useState(false);
   const [lastMileActualCost, setLastMileActualCost] = useState('');
   const [itemCount, setItemCount] = useState('1');
-  const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<BudgetTargetPreview | null>(null);
 
   const preview = useBudgetTargetPreview();
@@ -30,7 +29,6 @@ export const BudgetTargetPreviewModal: React.FC<BudgetTargetPreviewModalProps> =
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
-    setError(null);
     setResult(null);
 
     preview.mutate(
@@ -45,7 +43,6 @@ export const BudgetTargetPreviewModal: React.FC<BudgetTargetPreviewModalProps> =
       },
       {
         onSuccess: (data) => setResult(data),
-        onError: (err) => setError(err.message),
       }
     );
   };
@@ -92,7 +89,6 @@ export const BudgetTargetPreviewModal: React.FC<BudgetTargetPreviewModalProps> =
           </div>
         )}
 
-        {error && <p className="text-xs text-red-500">{error}</p>}
 
         <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
           <button type="button" onClick={onClose} className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors">

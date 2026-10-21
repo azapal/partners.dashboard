@@ -22,6 +22,7 @@ export const useEscalate = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
+    meta: { successMessage: 'Escalated. Your teammate has been notified.' },
     mutationFn: (payload: EscalatePayload) => shiftService.escalate(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: shiftMateKeys.all });

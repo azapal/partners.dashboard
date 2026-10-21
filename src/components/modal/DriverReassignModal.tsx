@@ -62,7 +62,10 @@ export function DriverReassignModal({
     setError('');
     onAssign(id, {
       onSuccess: () => { setError(''); onClose(); },
-      onError: (message) => setError(message),
+      // The server's refusal is shown by the FeedbackModal (the assign mutation
+      // runs through the global MutationCache); `error` here is only for the
+      // checks above. The callback stays so callers' signature is unchanged.
+      onError: () => undefined,
     }, dispatchAmount);
   };
 
